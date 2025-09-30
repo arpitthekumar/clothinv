@@ -1,0 +1,30 @@
+import { useState } from "react";
+import { Sidebar } from "@/components/shared/sidebar";
+import { Header } from "@/components/shared/header";
+import { InventoryTable } from "@/components/inventory/inventory-table";
+
+export default function Inventory() {
+  const [sidebarOpen, setSidebarOpen] = useState(true);
+
+  const toggleSidebar = () => {
+    setSidebarOpen(!sidebarOpen);
+  };
+
+  return (
+    <div className="flex h-screen overflow-hidden bg-background">
+      <Sidebar isOpen={sidebarOpen} onToggle={toggleSidebar} />
+      
+      <div className="flex-1 flex flex-col overflow-hidden">
+        <Header
+          title="Inventory Management"
+          subtitle="Manage your products and stock levels"
+          onSidebarToggle={toggleSidebar}
+        />
+
+        <main className="flex-1 overflow-auto p-6">
+          <InventoryTable />
+        </main>
+      </div>
+    </div>
+  );
+}
