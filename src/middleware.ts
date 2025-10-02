@@ -2,7 +2,6 @@ import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 
 export function middleware(req: NextRequest) {
-  const isAdminRoute = req.nextUrl.pathname.startsWith("/admin");
   const isAuthPage = req.nextUrl.pathname.startsWith("/auth");
 
   const sid = req.cookies.get("clothinv.sid");

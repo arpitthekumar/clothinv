@@ -22,10 +22,9 @@ import { useEffect, useState } from "react";
 
 interface SidebarProps {
   isOpen: boolean;
-  onToggle: () => void;
 }
 
-export function Sidebar({ isOpen, onToggle }: SidebarProps) {
+export function Sidebar({ isOpen }: SidebarProps) {
   const location = usePathname();
   const { user } = useAuth();
   const [isMounted, setIsMounted] = useState(false);

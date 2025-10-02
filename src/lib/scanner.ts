@@ -1,7 +1,13 @@
 // QuaggaJS barcode scanner integration
 declare global {
   interface Window {
-    Quagga: any;
+    Quagga: {
+      init: (config: unknown, callback: (err?: Error) => void) => void;
+      start: () => void;
+      stop: () => void;
+      onDetected: (callback: (result: ScanResult) => void) => void;
+      offDetected: (callback: (result: ScanResult) => void) => void;
+    };
   }
 }
 
@@ -88,7 +94,7 @@ class BarcodeScanner {
       });
       window.Quagga.start();
       this.isScanning = true;
-    } catch (error) {
+    } catch {
       throw new Error("Camera access denied or not available");
     }
   }

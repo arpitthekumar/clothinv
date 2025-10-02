@@ -20,11 +20,11 @@ export function InventoryTable() {
   const [currentPage, setCurrentPage] = useState(1);
   const { toast } = useToast();
 
-  const { data: products, isLoading: productsLoading } = useQuery({
+  const { data: products = [], isLoading: productsLoading } = useQuery<Product[]>({
     queryKey: ["/api/products"],
   });
 
-  const { data: categories } = useQuery({
+  const { data: categories = [] } = useQuery<any[]>({
     queryKey: ["/api/categories"],
   });
 
@@ -169,7 +169,7 @@ export function InventoryTable() {
                   </TableRow>
                 ) : (
                   paginatedProducts.map((product: Product) => {
-                    const stockStatus = getStockStatus(product.stock, product.minStock);
+                    const stockStatus = getStockStatus(product.stock, product.minStock ?? undefined);
                     
                     return (
                       <TableRow key={product.id} className="hover:bg-muted/50" data-testid={`product-row-${product.id}`}>

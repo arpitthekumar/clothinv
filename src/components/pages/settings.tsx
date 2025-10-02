@@ -17,7 +17,7 @@ export default function Settings() {
   if (user?.role !== "admin") {
     return (
       <div className="flex h-screen overflow-hidden bg-background">
-        <Sidebar isOpen={sidebarOpen} onToggle={toggleSidebar} />
+        <Sidebar isOpen={sidebarOpen} />
 
         <div className="flex-1 flex flex-col overflow-hidden">
           <Header
@@ -46,7 +46,7 @@ export default function Settings() {
 
   return (
     <div className="flex h-screen overflow-hidden bg-background">
-      <Sidebar isOpen={sidebarOpen} onToggle={toggleSidebar} />
+      <Sidebar isOpen={sidebarOpen} />
 
       <div className="flex-1 flex flex-col overflow-hidden">
         <Header

@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -19,24 +19,25 @@ export function ScannerModal({ isOpen, onClose, onScan }: ScannerModalProps) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const { toast } = useToast();
 
-  useEffect(() => {
-    if (isOpen && isScanning && videoRef.current) {
-      initializeScanner();
+  const handleStopScanning = useCallback(() => {
+    barcodeScanner.stopScanning();
+    setIsScanning(false);
+  }, []);
+
+  const handleClose = useCallback(() => {
+    if (isScanning) {
+      handleStopScanning();
     }
+    setManualInput("");
+    setCameraError("");
+    onClose();
+  }, [isScanning, handleStopScanning, onClose]);
 
-    return () => {
-      if (isScanning) {
-        barcodeScanner.stopScanning();
-        setIsScanning(false);
-      }
-    };
-  }, [isOpen, isScanning]);
-
-  const initializeScanner = async () => {
+  const initializeScanner = useCallback(async () => {
     try {
       setCameraError("");
       await barcodeScanner.initScanner(videoRef.current!);
-      
+
       barcodeScanner.onDetected((result) => {
         const code = result.codeResult.code;
         toast({
@@ -46,22 +47,17 @@ export function ScannerModal({ isOpen, onClose, onScan }: ScannerModalProps) {
         onScan(code);
         handleClose();
       });
-    } catch (error) {
+    } catch {
       setCameraError("Camera access denied or not available");
       setIsScanning(false);
     }
-  };
+  }, [toast, onScan, handleClose]);
 
-  const handleStartScanning = () => {
+  const handleStartScanning = useCallback(() => {
     setIsScanning(true);
-  };
+  }, []);
 
-  const handleStopScanning = () => {
-    barcodeScanner.stopScanning();
-    setIsScanning(false);
-  };
-
-  const handleManualSubmit = () => {
+  const handleManualSubmit = useCallback(() => {
     const parsed = parseBarcode(manualInput);
     if (parsed) {
       onScan(parsed);
@@ -73,16 +69,20 @@ export function ScannerModal({ isOpen, onClose, onScan }: ScannerModalProps) {
         variant: "destructive",
       });
     }
-  };
+  }, [manualInput, onScan, handleClose, toast]);
 
-  const handleClose = () => {
-    if (isScanning) {
-      handleStopScanning();
+  useEffect(() => {
+    if (isOpen && isScanning && videoRef.current) {
+      initializeScanner();
     }
-    setManualInput("");
-    setCameraError("");
-    onClose();
-  };
+
+    return () => {
+      if (isScanning) {
+        barcodeScanner.stopScanning();
+        setIsScanning(false);
+      }
+    };
+  }, [isOpen, isScanning, initializeScanner]);
 
   return (
     <Dialog open={isOpen} onOpenChange={handleClose}>

@@ -16,7 +16,7 @@ export function getSupabaseServer() {
   // Validate URL format
   try {
     new globalThis.URL(URL);
-  } catch (error) {
+  } catch {
     console.error('❌ Invalid Supabase URL format:', URL);
     return null;
   }

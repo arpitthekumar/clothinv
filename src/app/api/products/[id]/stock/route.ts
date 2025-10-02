@@ -2,7 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { storage } from "@server/storage";
 import { requireAuth } from "../../../_lib/session";
 
-export async function POST(req: NextRequest, { params }: { params: { id: string }}) {
+export async function POST(req: NextRequest, context: { params: Promise<{ id: string }> }) {
+  const params = await context.params;
   const auth = await requireAuth();
   if (!auth.ok) return NextResponse.json({}, { status: 401 });
 

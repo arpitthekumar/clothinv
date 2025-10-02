@@ -91,8 +91,8 @@ export async function GET() {
         });
       }
 
-    } catch (error) {
-      console.error("Error fetching sales:", error);
+    } catch (salesError) {
+      console.error("Error fetching sales:", salesError);
       // Don't add error notification for sales - it's less critical
     }
 

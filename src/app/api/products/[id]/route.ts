@@ -3,7 +3,8 @@ import { storage } from "@server/storage";
 import { requireAuth } from "../../_lib/session";
 import { insertProductSchema } from "@shared/schema";
 
-export async function GET(_req: NextRequest, { params }: { params: { id: string }}) {
+export async function GET(_req: NextRequest, context: { params: Promise<{ id: string }> }) {
+  const params = await context.params;
   const auth = await requireAuth();
   if (!auth.ok) return NextResponse.json({}, { status: 401 });
   const product = await storage.getProduct(params.id);
@@ -11,7 +12,8 @@ export async function GET(_req: NextRequest, { params }: { params: { id: string 
   return NextResponse.json(product);
 }
 
-export async function PUT(req: NextRequest, { params }: { params: { id: string }}) {
+export async function PUT(req: NextRequest, context: { params: Promise<{ id: string }> }) {
+  const params = await context.params;
   const auth = await requireAuth();
   if (!auth.ok) return NextResponse.json({}, { status: 401 });
   if (auth.user.role !== "admin") return NextResponse.json({}, { status: 403 });
@@ -26,7 +28,8 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
   }
 }
 
-export async function DELETE(_req: NextRequest, { params }: { params: { id: string }}) {
+export async function DELETE(_req: NextRequest, context: { params: Promise<{ id: string }> }) {
+  const params = await context.params;
   const auth = await requireAuth();
   if (!auth.ok) return NextResponse.json({}, { status: 401 });
   if (auth.user.role !== "admin") return NextResponse.json({}, { status: 403 });

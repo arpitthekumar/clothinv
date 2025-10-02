@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSession } from "../_lib/session";
 import { storage } from "@server/storage";
+import { User } from "@shared/schema";
 import { scrypt, timingSafeEqual } from "crypto";
 import { promisify } from "util";
 
@@ -25,7 +26,7 @@ export async function POST(req: NextRequest) {
       role: "admin",
       fullName: "Administrator (Dev)",
       createdAt: new Date(),
-    } as any;
+    } as User;
     await session.save();
     return NextResponse.json(session.user, { status: 200 });
   }

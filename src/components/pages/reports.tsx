@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { Sale } from "@shared/schema";
 import { useQuery } from "@tanstack/react-query";
 import { Sidebar } from "@/components/shared/sidebar";
 import { Header } from "@/components/shared/header";
@@ -16,13 +17,10 @@ export default function Reports() {
   const [reportType, setReportType] = useState("daily");
   const [dateRange, setDateRange] = useState("today");
 
-  const { data: sales, isLoading: salesLoading } = useQuery({
+  const { data: sales = [], isLoading: salesLoading } = useQuery<Sale[]>({
     queryKey: ["/api/sales"],
   });
 
-  const { data: stats } = useQuery({
-    queryKey: ["/api/dashboard/stats"],
-  });
 
   const toggleSidebar = () => {
     setSidebarOpen(!sidebarOpen);
@@ -35,15 +33,20 @@ export default function Reports() {
     downloadFile(csvContent, `sales-report-${Date.now()}.csv`, "text/csv");
   };
 
-  const generateCSVReport = (data: any[]) => {
+  const generateCSVReport = (data: Sale[]) => {
     const headers = ["Invoice Number", "Date", "Total Amount", "Items", "Payment Method"];
-    const rows = data.map(sale => [
-      sale.invoiceNumber,
-      new Date(sale.createdAt).toLocaleDateString(),
-      sale.totalAmount,
-      JSON.parse(sale.items).length,
-      sale.paymentMethod
-    ]);
+    const rows = data.map((sale: Sale) => {
+      const createdAt = sale.createdAt ? new Date((sale as any).createdAt as string | number | Date) : null;
+      const itemsValue: unknown = (sale as any).items;
+      const items = typeof itemsValue === "string" ? JSON.parse(itemsValue as string) : (itemsValue || []);
+      return [
+        sale.invoiceNumber,
+        createdAt ? createdAt.toLocaleDateString() : "",
+        sale.totalAmount,
+        Array.isArray(items) ? items.length : 0,
+        sale.paymentMethod
+      ];
+    });
     
     const csvContent = [headers, ...rows]
       .map(row => row.map(field => `"${field}"`).join(","))
@@ -52,8 +55,8 @@ export default function Reports() {
     return csvContent;
   };
 
-  const downloadFile = (content: string, filename: string, type: string) => {
-    const blob = new Blob([content], { type });
+  const downloadFile = (content: string, filename: string, _type: string) => {
+    const blob = new Blob([content], { type: "text/csv" });
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
     link.href = url;
@@ -65,7 +68,9 @@ export default function Reports() {
   };
 
   const filteredSales = sales?.filter((sale: any) => {
-    const saleDate = new Date(sale.createdAt);
+    const createdAt = sale?.createdAt ? new Date(sale.createdAt as string | number | Date) : null;
+    if (!createdAt) return false;
+    const saleDate = createdAt;
     const today = new Date();
     
     switch (dateRange) {
@@ -88,7 +93,7 @@ export default function Reports() {
 
   return (
     <div className="flex h-screen overflow-hidden bg-background">
-      <Sidebar isOpen={sidebarOpen} onToggle={toggleSidebar} />
+      <Sidebar isOpen={sidebarOpen}  />
       
       <div className="flex-1 flex flex-col overflow-hidden">
         <Header
@@ -231,7 +236,7 @@ export default function Reports() {
                         </TableRow>
                       ) : (
                         filteredSales.map((sale: any) => {
-                          const items = JSON.parse(sale.items);
+                          const items = typeof sale.items === "string" ? JSON.parse(sale.items) : (sale.items || []);
                           const itemCount = items.reduce((sum: number, item: any) => sum + item.quantity, 0);
                           
                           return (
@@ -241,12 +246,18 @@ export default function Reports() {
                               </TableCell>
                               <TableCell>
                                 <div>
-                                  <p className="text-sm font-medium">
-                                    {new Date(sale.createdAt).toLocaleDateString()}
-                                  </p>
-                                  <p className="text-xs text-muted-foreground">
-                                    {formatDistanceToNow(new Date(sale.createdAt), { addSuffix: true })}
-                                  </p>
+                                  {sale.createdAt ? (
+                                    <>
+                                      <p className="text-sm font-medium">
+                                        {new Date(sale.createdAt as string | number | Date).toLocaleDateString()}
+                                      </p>
+                                      <p className="text-xs text-muted-foreground">
+                                        {formatDistanceToNow(new Date(sale.createdAt as string | number | Date), { addSuffix: true })}
+                                      </p>
+                                    </>
+                                  ) : (
+                                    <p className="text-sm text-muted-foreground">—</p>
+                                  )}
                                 </div>
                               </TableCell>
                               <TableCell>{itemCount} items</TableCell>

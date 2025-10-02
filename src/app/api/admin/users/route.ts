@@ -38,7 +38,7 @@ export async function POST(req: NextRequest) {
       password: await hashPassword(data.password),
     });
     return NextResponse.json(user, { status: 201 });
-  } catch (e) {
+  } catch {
     return NextResponse.json({ error: "Invalid user data" }, { status: 400 });
   }
 }

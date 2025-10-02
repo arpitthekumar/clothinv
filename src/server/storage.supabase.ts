@@ -20,22 +20,22 @@ export class SupabaseStorage implements IStorage {
   async getUser(id: string): Promise<User | undefined> {
     const { data, error } = await this.client.from("users").select("*").eq("id", id).maybeSingle();
     if (error) throw error;
-    return data ?? undefined as any;
+    return (data ?? undefined) as User | undefined;
   }
   async getUserByUsername(username: string): Promise<User | undefined> {
     const { data, error } = await this.client.from("users").select("*").eq("username", username).maybeSingle();
     if (error) throw error;
-    return data ?? undefined as any;
+    return (data ?? undefined) as User | undefined;
   }
   async createUser(user: InsertUser): Promise<User> {
-    const { data, error } = await this.client.from("users").insert(user as any).select("*").single();
+    const { data, error } = await this.client.from("users").insert(user).select("*").single();
     if (error) throw error;
-    return data as any;
+    return data as User;
   }
   async updateUser(id: string, user: Partial<InsertUser>): Promise<User | undefined> {
-    const { data, error } = await this.client.from("users").update(user as any).eq("id", id).select("*").maybeSingle();
+    const { data, error } = await this.client.from("users").update(user).eq("id", id).select("*").maybeSingle();
     if (error) throw error;
-    return data ?? undefined as any;
+    return (data ?? undefined) as User | undefined;
   }
   async deleteUser(id: string): Promise<boolean> {
     const { error } = await this.client.from("users").delete().eq("id", id);
@@ -45,24 +45,24 @@ export class SupabaseStorage implements IStorage {
   async getUsers(): Promise<User[]> {
     const { data, error } = await this.client.from("users").select("*");
     if (error) throw error;
-    return data as any;
+    return data as User[];
   }
 
   // Categories
   async getCategories(): Promise<Category[]> {
     const { data, error } = await this.client.from("categories").select("*");
     if (error) throw error;
-    return data as any;
+    return data as Category[];
   }
   async createCategory(category: InsertCategory): Promise<Category> {
-    const { data, error } = await this.client.from("categories").insert(category as any).select("*").single();
+    const { data, error } = await this.client.from("categories").insert(category).select("*").single();
     if (error) throw error;
-    return data as any;
+    return data as Category;
   }
   async updateCategory(id: string, category: Partial<InsertCategory>): Promise<Category | undefined> {
-    const { data, error } = await this.client.from("categories").update(category as any).eq("id", id).select("*").maybeSingle();
+    const { data, error } = await this.client.from("categories").update(category).eq("id", id).select("*").maybeSingle();
     if (error) throw error;
-    return data ?? undefined as any;
+    return (data ?? undefined) as Category | undefined;
   }
   async deleteCategory(id: string): Promise<boolean> {
     const { error } = await this.client.from("categories").delete().eq("id", id);
@@ -74,32 +74,32 @@ export class SupabaseStorage implements IStorage {
   async getProducts(): Promise<Product[]> {
     const { data, error } = await this.client.from("products").select("*");
     if (error) throw error;
-    return data as any;
+    return data as Product[];
   }
   async getProduct(id: string): Promise<Product | undefined> {
     const { data, error } = await this.client.from("products").select("*").eq("id", id).maybeSingle();
     if (error) throw error;
-    return data ?? undefined as any;
+    return (data ?? undefined) as Product | undefined;
   }
   async getProductBySku(sku: string): Promise<Product | undefined> {
     const { data, error } = await this.client.from("products").select("*").eq("sku", sku).maybeSingle();
     if (error) throw error;
-    return data ?? undefined as any;
+    return (data ?? undefined) as Product | undefined;
   }
   async getProductByBarcode(barcode: string): Promise<Product | undefined> {
     const { data, error } = await this.client.from("products").select("*").eq("barcode", barcode).maybeSingle();
     if (error) throw error;
-    return data ?? undefined as any;
+    return (data ?? undefined) as Product | undefined;
   }
   async createProduct(product: InsertProduct): Promise<Product> {
-    const { data, error } = await this.client.from("products").insert(product as any).select("*").single();
+    const { data, error } = await this.client.from("products").insert(product).select("*").single();
     if (error) throw error;
-    return data as any;
+    return data as Product;
   }
   async updateProduct(id: string, product: Partial<InsertProduct>): Promise<Product | undefined> {
-    const { data, error } = await this.client.from("products").update(product as any).eq("id", id).select("*").maybeSingle();
+    const { data, error } = await this.client.from("products").update(product).eq("id", id).select("*").maybeSingle();
     if (error) throw error;
-    return data ?? undefined as any;
+    return (data ?? undefined) as Product | undefined;
   }
   async deleteProduct(id: string): Promise<boolean> {
     const { error } = await this.client.from("products").delete().eq("id", id);
@@ -107,21 +107,21 @@ export class SupabaseStorage implements IStorage {
     return true;
   }
   async updateStock(id: string, quantity: number): Promise<Product | undefined> {
-    const { data, error } = await this.client.from("products").update({ stock: quantity } as any).eq("id", id).select("*").maybeSingle();
+    const { data, error } = await this.client.from("products").update({ stock: quantity }).eq("id", id).select("*").maybeSingle();
     if (error) throw error;
-    return data ?? undefined as any;
+    return (data ?? undefined) as Product | undefined;
   }
 
   // Sales
   async getSales(): Promise<Sale[]> {
     const { data, error } = await this.client.from("sales").select("*");
     if (error) throw error;
-    return data as any;
+    return data as Sale[];
   }
   async getSalesByUser(userId: string): Promise<Sale[]> {
     const { data, error } = await this.client.from("sales").select("*").eq("userId", userId);
     if (error) throw error;
-    return data as any;
+    return data as Sale[];
   }
   async getSalesToday(): Promise<Sale[]> {
     const today = new Date();
@@ -131,32 +131,28 @@ export class SupabaseStorage implements IStorage {
       .select("*")
       .gte("createdAt", today.toISOString());
     if (error) throw error;
-    return data as any;
+    return data as Sale[];
   }
   async createSale(sale: InsertSale): Promise<Sale> {
-    const { data, error } = await this.client.from("sales").insert(sale as any).select("*").single();
+    const { data, error } = await this.client.from("sales").insert(sale).select("*").single();
     if (error) throw error;
-    return data as any;
+    return data as Sale;
   }
 
   // Stock Movements
   async getStockMovements(): Promise<StockMovement[]> {
     const { data, error } = await this.client.from("stockMovements").select("*");
     if (error) throw error;
-    return data as any;
+    return data as StockMovement[];
   }
   async getStockMovementsByProduct(productId: string): Promise<StockMovement[]> {
     const { data, error } = await this.client.from("stockMovements").select("*").eq("productId", productId);
     if (error) throw error;
-    return data as any;
+    return data as StockMovement[];
   }
   async createStockMovement(movement: InsertStockMovement): Promise<StockMovement> {
-    const { data, error } = await this.client.from("stockMovements").insert(movement as any).select("*").single();
+    const { data, error } = await this.client.from("stockMovements").insert(movement).select("*").single();
     if (error) throw error;
-    return data as any;
+    return data as StockMovement;
   }
 }
-
-
-
-

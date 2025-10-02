@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useAuth } from "@/hooks/use-auth";
+import { User } from "@shared/schema";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { Button } from "@/components/ui/button";
@@ -74,9 +75,9 @@ export default function AdminUsersPage() {
     },
   });
 
-  let newUser = { username: "", fullName: "", password: "", role: "employee" };
+  const newUser = { username: "", fullName: "", password: "", role: "employee" };
 
-  const [editingUser, setEditingUser] = useState<any | null>(null);
+  const [editingUser, setEditingUser] = useState<User | null>(null);
   const [editOpen, setEditOpen] = useState(false);
 
   const editMutation = useMutation({
@@ -100,7 +101,7 @@ export default function AdminUsersPage() {
 
   return (
     <div className="flex h-screen overflow-hidden bg-background">
-      <Sidebar isOpen={sidebarOpen} onToggle={toggleSidebar} />
+      <Sidebar isOpen={sidebarOpen}  />
 
       <div className="flex-1 flex flex-col overflow-hidden">
         <Header
