@@ -5,8 +5,6 @@
   "scripts": {
     "dev": "next dev --turbopack",
     "build": "next build --turbopack",
-    "db:generate": "drizzle-kit generate --config=drizzle.config.ts",
-    "db:migrate": "drizzle-kit push --config=drizzle.config.ts",
     "start": "next start",
     "lint": "eslint"
   },
@@ -36,10 +34,12 @@
     "@radix-ui/react-tabs": "^1.1.13",
     "@radix-ui/react-toast": "^1.2.15",
     "@radix-ui/react-tooltip": "^1.2.8",
+    "@supabase/supabase-js": "^2.45.6",
     "@tanstack/react-query": "^5.90.2",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "date-fns": "^4.1.0",
+    "dotenv": "^17.2.3",
     "drizzle-zod": "^0.8.3",
     "iron-session": "^8.0.4",
     "lucide-react": "^0.544.0",
@@ -56,11 +56,8 @@
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",
-    "drizzle-kit": "^0.31.5",
-    "drizzle-orm": "^0.44.5",
     "eslint": "^9",
     "eslint-config-next": "15.5.4",
-    "postgres": "^3.4.7",
     "tailwindcss": "^4",
     "typescript": "^5"
   }

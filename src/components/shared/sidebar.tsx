@@ -65,6 +65,7 @@ export function Sidebar({ isOpen, onToggle }: SidebarProps) {
     { href: "/admin/users", icon: Users, label: "Users" },
     { href: "/inventory", icon: Package, label: "Inventory" },
     { href: "/reports", icon: FileBarChart, label: "Reports" },
+    { href: "/settings", icon: Settings, label: "Settings" },
   ];
 
   const employeeMenuItems = [

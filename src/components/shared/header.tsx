@@ -1,7 +1,10 @@
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/hooks/use-auth";
 import { Bell, Plus, Menu, User } from "lucide-react";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import Link from "next/link";
+import { useQuery } from "@tanstack/react-query";
+import { getQueryFn } from "@/lib/queryClient";
 
 interface HeaderProps {
   title: string;
@@ -11,6 +14,12 @@ interface HeaderProps {
 
 export function Header({ title, subtitle, onSidebarToggle }: HeaderProps) {
   const { user, logoutMutation } = useAuth();
+  const { data: notifications, isLoading: notificationsLoading, error: notificationsError } = useQuery<any[]>({
+    queryKey: ["/api/notifications"],
+    queryFn: getQueryFn({ on401: "returnNull" }),
+  });
+
+  const notificationCount = Array.isArray(notifications) ? notifications.length : 0;
 
   return (
     <header className="bg-card border-b border-border px-6 py-4">
@@ -46,10 +55,39 @@ export function Header({ title, subtitle, onSidebarToggle }: HeaderProps) {
           
           {/* Notifications */}
           <div className="relative">
-            <Button variant="ghost" size="sm" data-testid="button-notifications">
-              <Bell className="h-4 w-4" />
-              <span className="absolute -top-1 -right-1 w-3 h-3 bg-destructive rounded-full"></span>
-            </Button>
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button variant="ghost" size="sm" data-testid="button-notifications">
+                  <Bell className="h-4 w-4" />
+                  {notificationCount > 0 && (
+                    <span className="absolute -top-1 -right-1 w-3 h-3 bg-destructive rounded-full"></span>
+                  )}
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent align="end" className="w-80 p-0">
+                <div className="p-4 border-b">
+                  <p className="text-sm font-medium">Notifications</p>
+                  <p className="text-xs text-muted-foreground">
+                    {notificationsLoading ? "Loading..." : notificationsError ? "Failed to load" : notificationCount === 0 ? "No new notifications" : `${notificationCount} new update${notificationCount > 1 ? "s" : ""}`}
+                  </p>
+                </div>
+                <div className="max-h-64 overflow-auto">
+                  {!notificationsLoading && !notificationsError && Array.isArray(notifications) && notifications.length > 0 && notifications.map((n: any) => (
+                    <div key={n.id} className="p-4 hover:bg-accent">
+                      <p className="text-sm font-medium">{n.title}</p>
+                      {n.description && (
+                        <p className="text-xs text-muted-foreground">{n.description}</p>
+                      )}
+                    </div>
+                  ))}
+                </div>
+                <div className="p-2 border-t">
+                  <Link href="/notifications">
+                    <Button variant="ghost" className="w-full justify-center text-sm">View all</Button>
+                  </Link>
+                </div>
+              </PopoverContent>
+            </Popover>
           </div>
 
           {/* User Menu */}

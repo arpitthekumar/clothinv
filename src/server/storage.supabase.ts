@@ -1,0 +1,162 @@
+import { getSupabaseServer } from "./supabase";
+import { type IStorage } from "./storage";
+import { type User, type InsertUser, type Product, type InsertProduct, type Category, type InsertCategory, type Sale, type InsertSale, type StockMovement, type InsertStockMovement } from "@shared/schema";
+
+export class SupabaseStorage implements IStorage {
+  private get client() {
+    const sb = getSupabaseServer();
+    if (!sb) {
+      throw new Error(
+        "Supabase not configured. Please check your environment variables:\n" +
+        "- SUPABASE_URL should be https://your-project-id.supabase.co\n" +
+        "- SUPABASE_ANON_KEY or SUPABASE_SERVICE_ROLE_KEY should be set\n" +
+        "Check your .env.local file and restart your development server."
+      );
+    }
+    return sb;
+  }
+
+  // Users
+  async getUser(id: string): Promise<User | undefined> {
+    const { data, error } = await this.client.from("users").select("*").eq("id", id).maybeSingle();
+    if (error) throw error;
+    return data ?? undefined as any;
+  }
+  async getUserByUsername(username: string): Promise<User | undefined> {
+    const { data, error } = await this.client.from("users").select("*").eq("username", username).maybeSingle();
+    if (error) throw error;
+    return data ?? undefined as any;
+  }
+  async createUser(user: InsertUser): Promise<User> {
+    const { data, error } = await this.client.from("users").insert(user as any).select("*").single();
+    if (error) throw error;
+    return data as any;
+  }
+  async updateUser(id: string, user: Partial<InsertUser>): Promise<User | undefined> {
+    const { data, error } = await this.client.from("users").update(user as any).eq("id", id).select("*").maybeSingle();
+    if (error) throw error;
+    return data ?? undefined as any;
+  }
+  async deleteUser(id: string): Promise<boolean> {
+    const { error } = await this.client.from("users").delete().eq("id", id);
+    if (error) throw error;
+    return true;
+  }
+  async getUsers(): Promise<User[]> {
+    const { data, error } = await this.client.from("users").select("*");
+    if (error) throw error;
+    return data as any;
+  }
+
+  // Categories
+  async getCategories(): Promise<Category[]> {
+    const { data, error } = await this.client.from("categories").select("*");
+    if (error) throw error;
+    return data as any;
+  }
+  async createCategory(category: InsertCategory): Promise<Category> {
+    const { data, error } = await this.client.from("categories").insert(category as any).select("*").single();
+    if (error) throw error;
+    return data as any;
+  }
+  async updateCategory(id: string, category: Partial<InsertCategory>): Promise<Category | undefined> {
+    const { data, error } = await this.client.from("categories").update(category as any).eq("id", id).select("*").maybeSingle();
+    if (error) throw error;
+    return data ?? undefined as any;
+  }
+  async deleteCategory(id: string): Promise<boolean> {
+    const { error } = await this.client.from("categories").delete().eq("id", id);
+    if (error) throw error;
+    return true;
+  }
+
+  // Products
+  async getProducts(): Promise<Product[]> {
+    const { data, error } = await this.client.from("products").select("*");
+    if (error) throw error;
+    return data as any;
+  }
+  async getProduct(id: string): Promise<Product | undefined> {
+    const { data, error } = await this.client.from("products").select("*").eq("id", id).maybeSingle();
+    if (error) throw error;
+    return data ?? undefined as any;
+  }
+  async getProductBySku(sku: string): Promise<Product | undefined> {
+    const { data, error } = await this.client.from("products").select("*").eq("sku", sku).maybeSingle();
+    if (error) throw error;
+    return data ?? undefined as any;
+  }
+  async getProductByBarcode(barcode: string): Promise<Product | undefined> {
+    const { data, error } = await this.client.from("products").select("*").eq("barcode", barcode).maybeSingle();
+    if (error) throw error;
+    return data ?? undefined as any;
+  }
+  async createProduct(product: InsertProduct): Promise<Product> {
+    const { data, error } = await this.client.from("products").insert(product as any).select("*").single();
+    if (error) throw error;
+    return data as any;
+  }
+  async updateProduct(id: string, product: Partial<InsertProduct>): Promise<Product | undefined> {
+    const { data, error } = await this.client.from("products").update(product as any).eq("id", id).select("*").maybeSingle();
+    if (error) throw error;
+    return data ?? undefined as any;
+  }
+  async deleteProduct(id: string): Promise<boolean> {
+    const { error } = await this.client.from("products").delete().eq("id", id);
+    if (error) throw error;
+    return true;
+  }
+  async updateStock(id: string, quantity: number): Promise<Product | undefined> {
+    const { data, error } = await this.client.from("products").update({ stock: quantity } as any).eq("id", id).select("*").maybeSingle();
+    if (error) throw error;
+    return data ?? undefined as any;
+  }
+
+  // Sales
+  async getSales(): Promise<Sale[]> {
+    const { data, error } = await this.client.from("sales").select("*");
+    if (error) throw error;
+    return data as any;
+  }
+  async getSalesByUser(userId: string): Promise<Sale[]> {
+    const { data, error } = await this.client.from("sales").select("*").eq("userId", userId);
+    if (error) throw error;
+    return data as any;
+  }
+  async getSalesToday(): Promise<Sale[]> {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const { data, error } = await this.client
+      .from("sales")
+      .select("*")
+      .gte("createdAt", today.toISOString());
+    if (error) throw error;
+    return data as any;
+  }
+  async createSale(sale: InsertSale): Promise<Sale> {
+    const { data, error } = await this.client.from("sales").insert(sale as any).select("*").single();
+    if (error) throw error;
+    return data as any;
+  }
+
+  // Stock Movements
+  async getStockMovements(): Promise<StockMovement[]> {
+    const { data, error } = await this.client.from("stockMovements").select("*");
+    if (error) throw error;
+    return data as any;
+  }
+  async getStockMovementsByProduct(productId: string): Promise<StockMovement[]> {
+    const { data, error } = await this.client.from("stockMovements").select("*").eq("productId", productId);
+    if (error) throw error;
+    return data as any;
+  }
+  async createStockMovement(movement: InsertStockMovement): Promise<StockMovement> {
+    const { data, error } = await this.client.from("stockMovements").insert(movement as any).select("*").single();
+    if (error) throw error;
+    return data as any;
+  }
+}
+
+
+
+
