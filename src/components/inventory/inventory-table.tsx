@@ -1,3 +1,5 @@
+"use client";
+
 import { useState } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
@@ -7,7 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Search, Plus, Edit, QrCode, Trash2, Package } from "lucide-react";
+import { Search, Plus, Edit, QrCode, Trash2, Package, RotateCcw } from "lucide-react";
 import { Product } from "@shared/schema";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
@@ -18,10 +20,11 @@ export function InventoryTable() {
   const [selectedCategory, setSelectedCategory] = useState("all");
   const [showAddModal, setShowAddModal] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
+  const [showTrash, setShowTrash] = useState(false);
   const { toast } = useToast();
 
   const { data: products = [], isLoading: productsLoading } = useQuery<Product[]>({
-    queryKey: ["/api/products"],
+    queryKey: ["/api/products", { includeDeleted: showTrash }],
   });
 
   const { data: categories = [] } = useQuery<any[]>({
@@ -30,13 +33,33 @@ export function InventoryTable() {
 
   const deleteMutation = useMutation({
     mutationFn: async (productId: string) => {
-      await apiRequest("DELETE", `/api/products/${productId}`);
+      await apiRequest("DELETE", "/api/products", { id: productId });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/products"] });
       toast({
         title: "Success",
-        description: "Product deleted successfully",
+        description: "Product moved to trash",
+      });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Error",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+
+  const restoreMutation = useMutation({
+    mutationFn: async (productId: string) => {
+      await apiRequest("POST", `/api/products/${productId}/restore`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/products"] });
+      toast({
+        title: "Success",
+        description: "Product restored successfully",
       });
     },
     onError: (error: Error) => {
@@ -52,7 +75,9 @@ export function InventoryTable() {
     const matchesSearch = product.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          product.sku.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesCategory = selectedCategory === "all" || product.categoryId === selectedCategory;
-    return matchesSearch && matchesCategory;
+    const matchesTrashState = showTrash ? product.deleted : !product.deleted;
+
+    return matchesSearch && matchesCategory && matchesTrashState;
   }) || [];
 
   const getStockStatus = (stock: number, minStock: number = 5) => {
@@ -131,10 +156,21 @@ export function InventoryTable() {
                 </SelectContent>
               </Select>
               
-              <Button onClick={() => setShowAddModal(true)} data-testid="button-add-product">
-                <Plus className="mr-2 h-4 w-4" />
-                Add Product
+              <Button 
+                variant={showTrash ? "destructive" : "outline"}
+                onClick={() => setShowTrash(!showTrash)}
+                className="mr-2"
+              >
+                <Trash2 className="mr-2 h-4 w-4" />
+                {showTrash ? "Active Products" : "Trash"}
               </Button>
+              
+              {!showTrash && (
+                <Button onClick={() => setShowAddModal(true)} data-testid="button-add-product">
+                  <Plus className="mr-2 h-4 w-4" />
+                  Add Product
+                </Button>
+              )}
             </div>
           </div>
         </CardHeader>
@@ -220,21 +256,40 @@ export function InventoryTable() {
                         
                         <TableCell className="p-4">
                           <div className="flex space-x-2">
-                            <Button variant="ghost" size="sm" title="Edit" data-testid={`button-edit-${product.id}`}>
-                              <Edit className="h-4 w-4 text-blue-600" />
-                            </Button>
-                            <Button variant="ghost" size="sm" title="QR Code" data-testid={`button-qr-${product.id}`}>
-                              <QrCode className="h-4 w-4 text-green-600" />
-                            </Button>
-                            <Button 
-                              variant="ghost" 
-                              size="sm" 
-                              title="Delete"
-                              onClick={() => handleDelete(product.id)}
-                              data-testid={`button-delete-${product.id}`}
-                            >
-                              <Trash2 className="h-4 w-4 text-red-600" />
-                            </Button>
+                            {showTrash ? (
+                              <>
+                                <Button 
+                                  variant="ghost" 
+                                  size="sm" 
+                                  title="Restore"
+                                  onClick={() => restoreMutation.mutate(product.id)}
+                                  data-testid={`button-restore-${product.id}`}
+                                >
+                                  <RotateCcw className="h-4 w-4 text-blue-600" />
+                                </Button>
+                                <Button variant="ghost" size="sm" title="QR Code" data-testid={`button-qr-${product.id}`}>
+                                  <QrCode className="h-4 w-4 text-green-600" />
+                                </Button>
+                              </>
+                            ) : (
+                              <>
+                                <Button variant="ghost" size="sm" title="Edit" data-testid={`button-edit-${product.id}`}>
+                                  <Edit className="h-4 w-4 text-blue-600" />
+                                </Button>
+                                <Button variant="ghost" size="sm" title="QR Code" data-testid={`button-qr-${product.id}`}>
+                                  <QrCode className="h-4 w-4 text-green-600" />
+                                </Button>
+                                <Button 
+                                  variant="ghost" 
+                                  size="sm" 
+                                  title="Move to Trash"
+                                  onClick={() => handleDelete(product.id)}
+                                  data-testid={`button-delete-${product.id}`}
+                                >
+                                  <Trash2 className="h-4 w-4 text-red-600" />
+                                </Button>
+                              </>
+                            )}
                           </div>
                         </TableCell>
                       </TableRow>

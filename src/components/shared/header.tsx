@@ -81,11 +81,11 @@ export function Header({ title, subtitle, onSidebarToggle }: HeaderProps) {
                     </div>
                   ))}
                 </div>
-                <div className="p-2 border-t">
+                {/* <div className="p-2 border-t">
                   <Link href="/notifications">
                     <Button variant="ghost" className="w-full justify-center text-sm">View all</Button>
                   </Link>
-                </div>
+                </div> */}
               </PopoverContent>
             </Popover>
           </div>

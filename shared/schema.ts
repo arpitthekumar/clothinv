@@ -30,6 +30,8 @@ export const products = pgTable("products", {
   stock: integer("stock").notNull().default(0),
   minStock: integer("min_stock").default(5),
   barcode: text("barcode"),
+  deleted: boolean("deleted").default(false),
+  deletedAt: timestamp("deleted_at"),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 });

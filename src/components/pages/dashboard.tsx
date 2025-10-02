@@ -1,3 +1,5 @@
+"use client";
+
 import { useState } from "react";
 import { Sidebar } from "@/components/shared/sidebar";
 import { Header } from "@/components/shared/header";

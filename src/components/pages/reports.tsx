@@ -1,3 +1,5 @@
+"use client";
+
 import { useState } from "react";
 import { Sale } from "@shared/schema";
 import { useQuery } from "@tanstack/react-query";

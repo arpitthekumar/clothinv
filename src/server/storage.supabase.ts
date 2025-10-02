@@ -71,8 +71,14 @@ export class SupabaseStorage implements IStorage {
   }
 
   // Products
-  async getProducts(): Promise<Product[]> {
-    const { data, error } = await this.client.from("products").select("*");
+  async getProducts(includeDeleted?: boolean): Promise<Product[]> {
+    let query = this.client.from("products").select("*");
+    
+    if (!includeDeleted) {
+      query = query.eq("deleted", false);
+    }
+    
+    const { data, error } = await query;
     if (error) throw error;
     return data as Product[];
   }
@@ -103,6 +109,22 @@ export class SupabaseStorage implements IStorage {
   }
   async deleteProduct(id: string): Promise<boolean> {
     const { error } = await this.client.from("products").delete().eq("id", id);
+    if (error) throw error;
+    return true;
+  }
+  async softDeleteProduct(id: string): Promise<boolean> {
+    const { error } = await this.client
+      .from("products")
+      .update({ deleted: true, deletedAt: new Date().toISOString() })
+      .eq("id", id);
+    if (error) throw error;
+    return true;
+  }
+  async restoreProduct(id: string): Promise<boolean> {
+    const { error } = await this.client
+      .from("products")
+      .update({ deleted: false, deletedAt: null })
+      .eq("id", id);
     if (error) throw error;
     return true;
   }
