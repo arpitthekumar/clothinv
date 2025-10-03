@@ -1,4 +1,15 @@
-import { type User, type InsertUser, type Product, type InsertProduct, type Category, type InsertCategory, type Sale, type InsertSale, type StockMovement, type InsertStockMovement } from "@shared/schema";
+import {
+  type User,
+  type InsertUser,
+  type Product,
+  type InsertProduct,
+  type Category,
+  type InsertCategory,
+  type Sale,
+  type InsertSale,
+  type StockMovement,
+  type InsertStockMovement,
+} from "@shared/schema";
 import { SupabaseStorage } from "./storage.supabase";
 
 export interface IStorage {
@@ -13,7 +24,10 @@ export interface IStorage {
   // Categories
   getCategories(): Promise<Category[]>;
   createCategory(category: InsertCategory): Promise<Category>;
-  updateCategory(id: string, category: Partial<InsertCategory>): Promise<Category | undefined>;
+  updateCategory(
+    id: string,
+    category: Partial<InsertCategory>
+  ): Promise<Category | undefined>;
   deleteCategory(id: string): Promise<boolean>;
 
   // Products
@@ -21,10 +35,16 @@ export interface IStorage {
   getProduct(id: string): Promise<Product | undefined>;
   getProductBySku(sku: string): Promise<Product | undefined>;
   getProductByBarcode(barcode: string): Promise<Product | undefined>;
+  getProducts(includeDeleted?: boolean): Promise<Product[]>;
   createProduct(product: InsertProduct): Promise<Product>;
-  updateProduct(id: string, product: Partial<InsertProduct>): Promise<Product | undefined>;
+  updateProduct(
+    id: string,
+    product: Partial<InsertProduct>
+  ): Promise<Product | undefined>;
   deleteProduct(id: string): Promise<boolean>;
   updateStock(id: string, quantity: number): Promise<Product | undefined>;
+  softDeleteProduct: (id: string) => Promise<boolean>;
+  restoreProduct: (id: string) => Promise<boolean>;
 
   // Sales
   getSales(): Promise<Sale[]>;
@@ -39,5 +59,3 @@ export interface IStorage {
 }
 
 export const storage: IStorage = new SupabaseStorage();
-
-
