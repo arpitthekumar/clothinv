@@ -2,17 +2,12 @@ import { NextRequest, NextResponse } from "next/server";
 import { getSession } from "../_lib/session";
 import { storage } from "@server/storage";
 import { User } from "@shared/schema";
-import bcrypt from "bcryptjs";
 
 export async function POST(req: NextRequest) {
   const body = await req.json();
 
-  // Dev fallback login
-  if (
-    process.env.NODE_ENV === "development" &&
-    body.username === "admin" &&
-    body.password === "admin123"
-  ) {
+  // Local dev bypass
+  if (process.env.NODE_ENV === "development" && body.username === "admin" && body.password === "admin123") {
     const session = await getSession();
     session.user = {
       id: "admin-dev-001",
@@ -26,16 +21,15 @@ export async function POST(req: NextRequest) {
     return NextResponse.json(session.user, { status: 200 });
   }
 
-  // Look up user
+  // Fetch user from DB
   const user = await storage.getUserByUsername(body.username);
   if (!user) {
-    return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
+    return NextResponse.json({ message: "Unauthorized - User not found" }, { status: 401 });
   }
 
-  // Compare password with bcrypt
-  const ok = await bcrypt.compare(body.password, user.password);
-  if (!ok) {
-    return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
+  // Plain text password check (no hashing)
+  if (user.password !== body.password) {
+    return NextResponse.json({ message: "Unauthorized - Wrong password" }, { status: 401 });
   }
 
   // Save session

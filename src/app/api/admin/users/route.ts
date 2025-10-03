@@ -2,16 +2,6 @@ import { NextRequest, NextResponse } from "next/server";
 import { storage } from "@server/storage";
 import { requireAuth } from "../../_lib/session";
 import { insertUserSchema } from "@shared/schema";
-import { scrypt, randomBytes } from "crypto";
-import { promisify } from "util";
-
-const scryptAsync = promisify(scrypt);
-
-async function hashPassword(password: string) {
-  const salt = randomBytes(16).toString("hex");
-  const buf = (await scryptAsync(password, salt, 64)) as Buffer;
-  return `${buf.toString("hex")}.${salt}`;
-}
 
 export async function GET() {
   const auth = await requireAuth();
@@ -29,18 +19,22 @@ export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
     const data = insertUserSchema.parse(body);
+
+    // Check if username exists
     const existing = await storage.getUserByUsername(data.username);
     if (existing) {
       return NextResponse.json({ error: "Username already exists" }, { status: 400 });
     }
+
+    // Save plain text password
     const user = await storage.createUser({
       ...data,
-      password: await hashPassword(data.password),
+      password: data.password, // 👈 no hashing
     });
+
     return NextResponse.json(user, { status: 201 });
-  } catch {
+  } catch (err) {
+    console.error("Error creating user:", err);
     return NextResponse.json({ error: "Invalid user data" }, { status: 400 });
   }
 }
-
-
