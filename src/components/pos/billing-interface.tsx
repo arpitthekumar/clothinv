@@ -276,9 +276,9 @@ export function BillingInterface() {
   const { subtotal, tax, total } = calculateTotals();
 
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+    <div className="grid grid-cols-1 xl:grid-cols-3 gap-4 md:gap-6">
       {/* Product Search & Cart */}
-      <div className="lg:col-span-2 space-y-6">
+      <div className="xl:col-span-2 space-y-4 md:space-y-6">
         {/* Product Search */}
         <Card>
           <CardHeader>
@@ -297,7 +297,7 @@ export function BillingInterface() {
                 className="flex-1"
                 data-testid="input-product-search"
               />
-              <Button onClick={handleProductSearch} data-testid="button-search-product">
+              <Button onClick={handleProductSearch} className="px-3 md:px-4" data-testid="button-search-product">
                 <Search className="h-4 w-4" />
               </Button>
               <Button 
@@ -339,9 +339,9 @@ export function BillingInterface() {
                 <p className="text-sm text-muted-foreground">Scan or search for products to add them</p>
               </div>
             ) : (
-              <div className="space-y-4">
+              <div className="space-y-3 md:space-y-4">
                 {cart.map((item) => (
-                  <div key={item.id} className="flex items-center justify-between border-b pb-4">
+                  <div key={item.id} className="flex items-center justify-between gap-3 border-b pb-3 md:pb-4">
                     <div className="flex-1">
                       <h4 className="font-medium" data-testid={`cart-item-name-${item.id}`}>
                         {item.name}
@@ -354,7 +354,7 @@ export function BillingInterface() {
                       </Badge>
                     </div>
                     
-                    <div className="flex items-center space-x-2">
+                    <div className="flex items-center gap-2">
                       <Button
                         variant="outline"
                         size="sm"
@@ -364,7 +364,7 @@ export function BillingInterface() {
                         <Minus className="h-3 w-3" />
                       </Button>
                       
-                      <span className="w-12 text-center font-medium" data-testid={`quantity-${item.id}`}>
+                      <span className="w-10 md:w-12 text-center font-medium" data-testid={`quantity-${item.id}`}>
                         {item.quantity}
                       </span>
                       
@@ -387,7 +387,7 @@ export function BillingInterface() {
                       </Button>
                     </div>
                     
-                    <div className="text-right ml-4">
+                    <div className="text-right ml-2 md:ml-4 min-w-[84px]">
                       <p className="font-medium" data-testid={`item-total-${item.id}`}>
                         ₹{(parseFloat(item.price) * item.quantity).toFixed(2)}
                       </p>

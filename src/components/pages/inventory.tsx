@@ -4,14 +4,14 @@ import { Header } from "@/components/shared/header";
 import { InventoryTable } from "@/components/inventory/inventory-table";
 
 export default function Inventory() {
-  const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
 
   const toggleSidebar = () => {
     setSidebarOpen(!sidebarOpen);
   };
 
   return (
-    <div className="flex h-screen overflow-hidden bg-background">
+    <div className="flex h-dvh md:h-screen overflow-hidden bg-background">
       <Sidebar isOpen={sidebarOpen}  />
       
       <div className="flex-1 flex flex-col overflow-hidden">
@@ -21,7 +21,7 @@ export default function Inventory() {
           onSidebarToggle={toggleSidebar}
         />
 
-        <main className="flex-1 overflow-auto p-6">
+        <main className="flex-1 overflow-auto p-4 md:p-6">
           <InventoryTable />
         </main>
       </div>

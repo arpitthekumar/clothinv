@@ -15,7 +15,7 @@ import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { offlineStorage } from "@/lib/offline-storage";
 import { AddCategoryModal } from "@/components/shared/add-category-modal";
-import { Plus, RefreshCw, QrCode, Printer, Download } from "lucide-react";
+import { Plus, RefreshCw,  } from "lucide-react";
 import { LabelPreviewDialog } from "@/components/shared/label-preview-dialog";
 import { z } from "zod";
 

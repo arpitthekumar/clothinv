@@ -52,6 +52,7 @@ export function InventoryTable() {
 
   return (
     <>
+    <div className="sm:pb-36 lg:pb-0">
       <Card>
         <CardHeader>
           <InventoryHeader
@@ -68,16 +69,16 @@ export function InventoryTable() {
 
         <CardContent className="p-0">
           <div className="overflow-x-auto">
-            <table className="w-full">
+            <table className="w-full table-fixed md:table-auto">
               <thead>
                 <tr className="bg-muted">
-                  <th className="p-4 text-left">Product</th>
-                  <th className="p-4 text-left">Category</th>
-                  <th className="p-4 text-left">Size</th>
+                  <th className="p-4 text-left w-[45%] md:w-auto">Product</th>
+                  <th className="p-4 text-left hidden lg:table-cell">Category</th>
+                  <th className="p-4 text-left hidden lg:table-cell">Size</th>
                   <th className="p-4 text-left">Stock</th>
                   <th className="p-4 text-left">Price</th>
-                  <th className="p-4 text-left">Status</th>
-                  <th className="p-4 text-left">Actions</th>
+                  <th className="p-4 text-left hidden sm:table-cell">Status</th>
+                  <th className="p-4 text-left w-[120px] md:w-auto">Actions</th>
                 </tr>
               </thead>
               <tbody>
@@ -119,6 +120,7 @@ export function InventoryTable() {
         onClose={() => { setShowAddModal(false); setEditProduct(null); }}
         initialProduct={editProduct || undefined}
       />
+    </div>
     </>
   );
 }

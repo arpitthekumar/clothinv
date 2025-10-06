@@ -22,9 +22,9 @@ export function Header({ title, subtitle, onSidebarToggle }: HeaderProps) {
   const notificationCount = Array.isArray(notifications) ? notifications.length : 0;
 
   return (
-    <header className="bg-card border-b border-border px-6 py-4">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center space-x-4">
+    <header className="bg-card border-b border-border px-4 md:px-6 py-3 md:py-4">
+      <div className="flex items-center justify-between gap-3">
+        <div className="flex items-center gap-3 md:gap-4">
           <Button
             variant="ghost"
             size="sm"
@@ -34,17 +34,17 @@ export function Header({ title, subtitle, onSidebarToggle }: HeaderProps) {
           >
             <Menu className="h-4 w-4" />
           </Button>
-          <div>
-            <h2 className="text-2xl font-bold" data-testid="text-page-title">{title}</h2>
+          <div className="min-w-0">
+            <h2 className="text-xl md:text-2xl font-bold truncate" data-testid="text-page-title">{title}</h2>
             {subtitle && (
-              <p className="text-sm text-muted-foreground" data-testid="text-page-subtitle">
+              <p className="text-xs md:text-sm text-muted-foreground truncate" data-testid="text-page-subtitle">
                 {subtitle}
               </p>
             )}
           </div>
         </div>
 
-        <div className="flex items-center space-x-4">
+        <div className="flex items-center gap-2 md:gap-4">
           {/* Quick Actions */}
           <Link href="/pos">
             <Button data-testid="button-quick-sale">
@@ -64,7 +64,7 @@ export function Header({ title, subtitle, onSidebarToggle }: HeaderProps) {
                   )}
                 </Button>
               </PopoverTrigger>
-              <PopoverContent align="end" className="w-80 p-0">
+              <PopoverContent align="end" className="w-72 md:w-80 p-0">
                 <div className="p-4 border-b">
                   <p className="text-sm font-medium">Notifications</p>
                   <p className="text-xs text-muted-foreground">

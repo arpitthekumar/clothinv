@@ -84,9 +84,9 @@ export function Sidebar({ isOpen }: SidebarProps) {
   return (
     <div className={cn(
       "bg-card border-r border-border transition-all duration-300 flex-shrink-0",
-      isOpen ? "w-64" : "w-0 lg:w-64"
+      isOpen ? "w-64" : "w-0 xl:w-64"
     )}>
-      <div className={cn("h-full overflow-hidden", isOpen ? "block" : "hidden lg:block")}>
+      <div className={cn("h-full overflow-hidden", isOpen ? "block" : "hidden xl:block")}> 
         {/* Header */}
         <div className="p-6">
           <div className="flex items-center space-x-3">

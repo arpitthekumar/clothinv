@@ -56,31 +56,31 @@ export function InventoryRow({ product, categories, showTrash, onEdit }: Invento
 
   return (
     <>
-      <tr className="hover:bg-muted/50">
+      <tr className="hover:bg-muted/50 align-top">
         <td className="p-4">
-          <div className="flex items-center space-x-3">
-            <div className="w-12 h-12 bg-muted rounded-lg flex items-center justify-center">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 md:w-12 md:h-12 bg-muted rounded-lg flex items-center justify-center flex-shrink-0">
               <Package className="text-muted-foreground h-6 w-6" />
             </div>
-            <div>
-              <p className="font-medium">{product.name}</p>
-              <p className="text-sm text-muted-foreground">SKU: {product.sku}</p>
+            <div className="min-w-0">
+              <p className="font-medium truncate max-w-[180px] md:max-w-none">{product.name}</p>
+              <p className="text-xs md:text-sm text-muted-foreground truncate">SKU: {product.sku}</p>
             </div>
           </div>
         </td>
-        <td className="p-4">
+        <td className="p-4 hidden lg:table-cell">
           <Badge variant="outline">{category?.name || "Uncategorized"}</Badge>
         </td>
-        <td className="p-4 text-sm">{product.size || "-"}</td>
+        <td className="p-4 text-sm hidden lg:table-cell">{product.size || "-"}</td>
         <td className="p-4">{product.stock} units</td>
         <td className="p-4 font-medium">₹{product.price}</td>
-        <td className="p-4">
+        <td className="p-4 hidden sm:table-cell">
           <Badge variant={getStockStatus(product.stock, product.minStock ?? undefined).variant}>
             {getStockStatus(product.stock, product.minStock ?? undefined).label}
           </Badge>
         </td>
         <td className="p-4">
-          <div className="flex space-x-2">
+          <div className="flex gap-2 flex-wrap md:flex-nowrap">
             {showTrash ? (
               <Button variant="ghost" size="sm" onClick={() => restoreMutation.mutate(product.id)}>
                 <RotateCcw className="h-4 w-4 text-blue-600" />
