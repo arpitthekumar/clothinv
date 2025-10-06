@@ -118,10 +118,7 @@ export function AddProductModal({ isOpen, onClose, initialProduct }: AddProductM
 
   
 
-  const downloadQRCode = () => {
-    // Use the unified dialog for proper full-label download
-    setShowLabel(true);
-  };
+  
 
   const createMutation = useMutation({
     mutationFn: async (data: FormValues) => {
