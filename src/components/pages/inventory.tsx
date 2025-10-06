@@ -4,7 +4,7 @@ import { Header } from "@/components/shared/header";
 import { InventoryTable } from "@/components/inventory/inventory-table";
 
 export default function Inventory() {
-  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [sidebarOpen, setSidebarOpen] = useState(true);
 
   const toggleSidebar = () => {
     setSidebarOpen(!sidebarOpen);

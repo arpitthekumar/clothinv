@@ -23,6 +23,17 @@ export default function Reports() {
     queryKey: ["/api/sales"],
   });
 
+  // New report data
+  const { data: valuation } = useQuery<any>({
+    queryKey: ["/api/reports/stock-valuation"],
+  });
+  const { data: profit } = useQuery<any>({
+    queryKey: ["/api/reports/profit-margins", { sinceDays: 30 }],
+  });
+  const { data: notSelling } = useQuery<any[]>({
+    queryKey: ["/api/reports/not-selling", { sinceDays: 30 }],
+  });
+
 
   const toggleSidebar = () => {
     setSidebarOpen(!sidebarOpen);
@@ -203,6 +214,71 @@ export default function Reports() {
               </CardContent>
             </Card>
           </div>
+
+          {/* New KPI Widgets: Profit, Stock Valuation, Not Selling */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <Card>
+              <CardHeader>
+                <CardTitle>Profit (30 days)</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-2xl font-bold">₹{Number(profit?.totalProfit || 0).toLocaleString()}</p>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardHeader>
+                <CardTitle>Stock Valuation</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-2xl font-bold">₹{Number(valuation?.totalValuation || 0).toLocaleString()}</p>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardHeader>
+                <CardTitle>Not Selling (30 days)</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-2xl font-bold">{Array.isArray(notSelling) ? notSelling.length : 0}</p>
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* Not Selling Preview Table */}
+          <Card>
+            <CardHeader>
+              <CardTitle>Products Not Selling (Top 10)</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="overflow-x-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Product</TableHead>
+                      <TableHead>SKU</TableHead>
+                      <TableHead>Stock</TableHead>
+                      <TableHead>Last Sold</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {Array.isArray(notSelling) && notSelling.length > 0 ? (
+                      notSelling.slice(0, 10).map((p: any) => (
+                        <TableRow key={p.productId || p.product_id}>
+                          <TableCell>{p.name}</TableCell>
+                          <TableCell>{p.sku}</TableCell>
+                          <TableCell>{p.stock}</TableCell>
+                          <TableCell>{p.lastSoldAt || p.last_sold_at || 'Never'}</TableCell>
+                        </TableRow>
+                      ))
+                    ) : (
+                      <TableRow>
+                        <TableCell colSpan={4} className="text-center py-6 text-muted-foreground">No items to show</TableCell>
+                      </TableRow>
+                    )}
+                  </TableBody>
+                </Table>
+              </div>
+            </CardContent>
+          </Card>
 
           {/* Sales Table */}
           <Card>

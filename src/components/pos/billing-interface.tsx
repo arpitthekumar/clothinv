@@ -37,12 +37,20 @@ export function BillingInterface() {
   const [paymentMethod, setPaymentMethod] = useState("cash");
   const [customerPhone, setCustomerPhone] = useState("");
   const [isProcessing, setIsProcessing] = useState(false);
+  const [returnMode, setReturnMode] = useState(false);
+  const [linkedSaleId, setLinkedSaleId] = useState<string>("");
   
   const { toast } = useToast();
   const { user } = useAuth();
 
   const { data: products = [] } = useQuery<Product[]>({
     queryKey: ["/api/products"],
+  });
+  const { data: promotions = [] } = useQuery<any[]>({
+    queryKey: ["/api/promotions"],
+  });
+  const { data: promoTargets = [] } = useQuery<any[]>({
+    queryKey: ["/api/promotions/targets"],
   });
 
   const createSaleMutation = useMutation({
@@ -193,8 +201,46 @@ export function BillingInterface() {
     }
   };
 
+  const getDiscountedUnitPrice = (productId: string, basePrice: number) => {
+    // Find matching promotions by product or category
+    const product = products.find((p) => p.id === productId);
+    if (!product) return basePrice;
+    const applicable = promoTargets
+      .map((t: any) => {
+        const promo = promotions.find((p: any) => p.id === t.promotionId || p.id === t.promotion_id);
+        if (!promo || promo.active === false) return null;
+        const now = Date.now();
+        const starts = promo.startsAt || promo.starts_at;
+        const ends = promo.endsAt || promo.ends_at;
+        if (starts && new Date(starts).getTime() > now) return null;
+        if (ends && new Date(ends).getTime() < now) return null;
+        const targetType = t.targetType || t.target_type;
+        const targetId = t.targetId || t.target_id;
+        const matches = targetType === "product" ? (targetId === productId) : (targetId === product.categoryId);
+        if (!matches) return null;
+        return promo;
+      })
+      .filter(Boolean) as any[];
+    if (applicable.length === 0) return basePrice;
+    // Apply the best discount
+    let best = basePrice;
+    for (const promo of applicable) {
+      const type = promo.type;
+      const value = parseFloat(promo.value);
+      let price = basePrice;
+      if (type === "percent") price = basePrice * (1 - value / 100);
+      if (type === "fixed") price = Math.max(0, basePrice - value);
+      if (price < best) best = price;
+    }
+    return best;
+  };
+
   const calculateTotals = () => {
-    const subtotal = cart.reduce((sum, item) => sum + (parseFloat(item.price) * item.quantity), 0);
+    const subtotal = cart.reduce((sum, item) => {
+      const unit = parseFloat(item.price);
+      const discounted = getDiscountedUnitPrice(item.productId, unit);
+      return sum + discounted * item.quantity;
+    }, 0);
     const tax = subtotal * 0.18; // 18% GST
     const total = subtotal + tax;
     
@@ -221,7 +267,7 @@ export function BillingInterface() {
         items: JSON.stringify(cart.map(item => ({
           productId: item.productId,
           quantity: item.quantity,
-          price: item.price,
+          price: getDiscountedUnitPrice(item.productId, parseFloat(item.price)).toFixed(2),
           name: item.name,
           sku: item.sku,
         }))),
@@ -230,6 +276,48 @@ export function BillingInterface() {
       };
       
       const sale = await createSaleMutation.mutateAsync(saleData);
+
+      // If online payment selected, create Razorpay order and open checkout
+      if (paymentMethod === "online") {
+        // Lazy-load Razorpay script
+        const ensureRzp = () => new Promise<void>((resolve, reject) => {
+          if (typeof (window as any).Razorpay !== "undefined") return resolve();
+          const s = document.createElement("script");
+          s.src = "https://checkout.razorpay.com/v1/checkout.js";
+          s.onload = () => resolve();
+          s.onerror = reject;
+          document.body.appendChild(s);
+        });
+        await ensureRzp();
+        // Create order
+        const orderRes = await apiRequest("POST", "/api/payments/razorpay/order", { saleId: sale.id, amount: total.toFixed(2), method: "online" });
+        const orderData = await orderRes.json();
+        if (!orderRes.ok) throw new Error(orderData?.error || "Failed to create order");
+
+        const options: any = {
+          key: orderData.keyId,
+          amount: Math.round(total * 100),
+          currency: "INR",
+          name: "ShopFlow",
+          description: sale.invoiceNumber,
+          order_id: orderData.orderId,
+          handler: async function (response: any) {
+            // Verify
+            const verifyRes = await apiRequest("POST", "/api/payments/razorpay/verify", {
+              paymentId: response.razorpay_payment_id,
+              orderId: response.razorpay_order_id,
+              signature: response.razorpay_signature,
+              paymentRecordId: orderData.paymentRecordId,
+            });
+            const verifyJson = await verifyRes.json();
+            if (!verifyRes.ok) throw new Error(verifyJson?.error || "Payment verify failed");
+          },
+          prefill: { contact: customerPhone || undefined },
+          theme: { color: "#3b82f6" },
+        };
+        const rzp = new (window as any).Razorpay(options);
+        rzp.open();
+      }
       
       // Generate invoice
       const invoiceData: InvoiceData = {
@@ -307,6 +395,19 @@ export function BillingInterface() {
               >
                 <QrCode className="h-4 w-4" />
               </Button>
+            </div>
+            <div className="flex items-center gap-2">
+              <label className="text-sm font-medium">Return Mode</label>
+              <Button variant={returnMode ? "default" : "outline"} size="sm" onClick={() => setReturnMode(!returnMode)}>
+                {returnMode ? "On" : "Off"}
+              </Button>
+              {returnMode && (
+                <Input
+                  placeholder="Link Sale ID (optional)"
+                  value={linkedSaleId}
+                  onChange={(e) => setLinkedSaleId(e.target.value)}
+                />
+              )}
             </div>
           </CardContent>
         </Card>
@@ -443,6 +544,7 @@ export function BillingInterface() {
                   <SelectItem value="card">Credit/Debit Card</SelectItem>
                   <SelectItem value="upi">UPI</SelectItem>
                   <SelectItem value="netbanking">Net Banking</SelectItem>
+                  <SelectItem value="online">Online (Razorpay)</SelectItem>
                 </SelectContent>
               </Select>
             </div>

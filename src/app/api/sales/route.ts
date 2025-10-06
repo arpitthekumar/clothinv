@@ -25,18 +25,22 @@ export async function POST(req: NextRequest) {
     const sale = await storage.createSale(data);
 
     const items = Array.isArray(data.items) ? data.items : JSON.parse((data as any).items);
+    // Normalize to sale_items
+    await storage.createSaleItems(sale.id, items);
+    // Stock and movement per item
     for (const item of items) {
       const product = await storage.getProduct(item.productId);
-      if (product) {
-        await storage.updateStock(item.productId, product.stock - item.quantity);
-        await storage.createStockMovement({
-          productId: item.productId,
-          userId: auth.user.id,
-          type: "out",
-          quantity: -item.quantity,
-          reason: `Sale ${sale.invoiceNumber}`,
-        });
-      }
+      if (!product) continue;
+      await storage.updateStock(item.productId, product.stock - item.quantity);
+      await storage.createStockMovement({
+        productId: item.productId,
+        userId: auth.user.id,
+        type: "sale_out",
+        quantity: -item.quantity,
+        reason: `Sale ${sale.invoiceNumber}`,
+        refTable: "sale_items",
+        refId: sale.id,
+      } as any);
     }
 
     return NextResponse.json(sale, { status: 201 });

@@ -56,6 +56,35 @@ export interface IStorage {
   getStockMovements(): Promise<StockMovement[]>;
   getStockMovementsByProduct(productId: string): Promise<StockMovement[]>;
   createStockMovement(movement: InsertStockMovement): Promise<StockMovement>;
+
+  // Suppliers
+  getSuppliers(): Promise<import("@shared/schema").Supplier[]>;
+  createSupplier(supplier: import("@shared/schema").InsertSupplier): Promise<import("@shared/schema").Supplier>;
+
+  // Purchase Orders
+  getPurchaseOrders(): Promise<import("@shared/schema").PurchaseOrder[]>;
+  createPurchaseOrder(po: import("@shared/schema").InsertPurchaseOrder): Promise<import("@shared/schema").PurchaseOrder>;
+  addPurchaseOrderItem(item: import("@shared/schema").InsertPurchaseOrderItem): Promise<import("@shared/schema").PurchaseOrderItem>;
+  receivePurchaseOrderItems(params: { items: Array<{ purchaseOrderItemId: string; quantity: number }>; userId: string }): Promise<void>;
+
+  // Sales normalization & Returns
+  createSaleItems(saleId: string, items: Array<{ productId: string; quantity: number; price: string; name: string; sku: string }>): Promise<void>;
+  createSalesReturn(params: { saleId: string; customerId?: string; reason?: string; items: Array<{ productId: string; saleItemId?: string; quantity: number; refundAmount?: string }>; userId: string }): Promise<{ salesReturnId: string }>;
+
+  // Promotions
+  getPromotions(): Promise<import("@shared/schema").Promotion[]>;
+  createPromotion(promo: import("@shared/schema").InsertPromotion): Promise<import("@shared/schema").Promotion>;
+  addPromotionTarget(target: import("@shared/schema").InsertPromotionTarget): Promise<import("@shared/schema").PromotionTarget>;
+  getPromotionTargets(): Promise<import("@shared/schema").PromotionTarget[]>;
+
+  // Reports
+  getNotSellingProducts(params: { sinceDays: number }): Promise<Array<{ productId: string; name: string; sku: string; stock: number; lastSoldAt: string | null }>>;
+  getStockValuation(): Promise<{ totalValuation: number; byProduct: Array<{ productId: string; name: string; stock: number; cost: number; valuation: number }> }>;
+  getProfitMargins(params: { sinceDays: number }): Promise<{ totalProfit: number; byProduct: Array<{ productId: string; name: string; quantity: number; revenue: number; cost: number; profit: number; marginPercent: number }> }>;
+
+  // Payments
+  createPayment(payment: import("@shared/schema").InsertPayment): Promise<import("@shared/schema").Payment>;
+  updatePayment(id: string, data: Partial<import("@shared/schema").InsertPayment>): Promise<import("@shared/schema").Payment | undefined>;
 }
 
-export const storage: IStorage = new SupabaseStorage();
+export const storage = new SupabaseStorage();

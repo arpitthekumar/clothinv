@@ -10,7 +10,7 @@ import { InventoryTable } from "@/components/inventory/inventory-table";
 import { useAuth } from "@/hooks/use-auth";
 
 export default function Dashboard() {
-  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [sidebarOpen, setSidebarOpen] = useState(true);
   const { user } = useAuth();
 
   const toggleSidebar = () => {

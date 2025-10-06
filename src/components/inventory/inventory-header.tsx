@@ -1,6 +1,7 @@
 "use client";
 
-import { Search, Plus, Trash2 } from "lucide-react";
+import { Search, Plus, Trash2, RotateCcw } from "lucide-react";
+import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -84,6 +85,16 @@ export function InventoryHeader({
             <Plus className="mr-2 h-4 w-4" />
             Add Product
           </Button>
+        )}
+
+        {/* Quick Receive */}
+        {!showTrash && (
+          <Link href="/purchasing#receive">
+            <Button variant="outline">
+              <RotateCcw className="mr-2 h-4 w-4" />
+              Quick Receive
+            </Button>
+          </Link>
         )}
       </div>
     </div>

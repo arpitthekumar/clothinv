@@ -4,7 +4,7 @@ import { Header } from "@/components/shared/header";
 import { BillingInterface } from "@/components/pos/billing-interface";
 
 export default function POS() {
-  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [sidebarOpen, setSidebarOpen] = useState(true);
 
   const toggleSidebar = () => {
     setSidebarOpen(!sidebarOpen);
