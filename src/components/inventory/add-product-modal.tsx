@@ -10,12 +10,13 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
-import { insertProductSchema } from "@shared/schema";
+import { insertProductSchema, type Product } from "@shared/schema";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { offlineStorage } from "@/lib/offline-storage";
 import { AddCategoryModal } from "@/components/shared/add-category-modal";
 import { Plus, RefreshCw, QrCode, Printer, Download } from "lucide-react";
+import { LabelPreviewDialog } from "@/components/shared/label-preview-dialog";
 import { z } from "zod";
 
 const formSchema = insertProductSchema.extend({
@@ -33,6 +34,7 @@ type FormValues = z.infer<typeof formSchema>;
 interface AddProductModalProps {
   isOpen: boolean;
   onClose: () => void;
+  initialProduct?: Partial<Product>;
 }
 
 // Helper functions for auto-generation
@@ -48,7 +50,7 @@ const generateSKU = (productName: string): string => {
 const generateBarcode = (): string => {
   // Generate a 13-digit EAN-13 compatible barcode
   let barcode = '2' + Math.floor(Math.random() * 100000000000).toString().padStart(11, '0');
-  
+
   // Calculate check digit
   let sum = 0;
   for (let i = 0; i < 12; i++) {
@@ -58,10 +60,11 @@ const generateBarcode = (): string => {
   return barcode + checkDigit;
 };
 
-export function AddProductModal({ isOpen, onClose }: AddProductModalProps) {
+export function AddProductModal({ isOpen, onClose, initialProduct }: AddProductModalProps) {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showAddCategory, setShowAddCategory] = useState(false);
   const [generatedQR, setGeneratedQR] = useState<string>("");
+  const [showLabel, setShowLabel] = useState(false);
   const { toast } = useToast();
 
   const { data: categories } = useQuery<any[]>({
@@ -71,15 +74,15 @@ export function AddProductModal({ isOpen, onClose }: AddProductModalProps) {
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
     defaultValues: {
-      name: "",
-      sku: "",
-      categoryId: "",
-      description: "",
-      price: "",
-      size: "",
-      stock: "",
-      minStock: "5",
-      barcode: "",
+      name: (initialProduct?.name as string) || "",
+      sku: (initialProduct?.sku as string) || "",
+      categoryId: (initialProduct?.categoryId as string) || "",
+      description: (initialProduct?.description as string) || "",
+      price: initialProduct?.price ? String(initialProduct.price) : "",
+      size: (initialProduct?.size as string) || "",
+      stock: initialProduct?.stock != null ? String(initialProduct.stock) : "",
+      minStock: initialProduct?.minStock != null ? String(initialProduct.minStock) : "5",
+      barcode: (initialProduct?.barcode as string) || "",
     },
   });
 
@@ -89,14 +92,16 @@ export function AddProductModal({ isOpen, onClose }: AddProductModalProps) {
     if (productName && productName.length > 2) {
       const newSKU = generateSKU(productName);
       const newBarcode = generateBarcode();
-      
+
       if (!form.getValues("sku")) {
         form.setValue("sku", newSKU);
       }
       if (!form.getValues("barcode")) {
         form.setValue("barcode", newBarcode);
-        // Generate QR code data URL
-        setGeneratedQR(`https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${newBarcode}`);
+        // Generate 1D barcode preview (EAN-13 or Code128)
+        const isEanCandidate = /^\d{12,13}$/.test(newBarcode);
+        const symbology = isEanCandidate ? "ean13" : "code128";
+        setGeneratedQR(`https://bwipjs-api.metafloor.com/?bcid=${symbology}&text=${encodeURIComponent(newBarcode)}&scale=3&includetext=true&guardwhitespace=true`);
       }
     }
   }, [productName, form]);
@@ -106,70 +111,16 @@ export function AddProductModal({ isOpen, onClose }: AddProductModalProps) {
     const newBarcode = generateBarcode();
     form.setValue("sku", newSKU);
     form.setValue("barcode", newBarcode);
-    setGeneratedQR(`https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${newBarcode}`);
+    const isEanCandidate = /^\d{12,13}$/.test(newBarcode);
+    const symbology = isEanCandidate ? "ean13" : "code128";
+    setGeneratedQR(`https://bwipjs-api.metafloor.com/?bcid=${symbology}&text=${encodeURIComponent(newBarcode)}&scale=3&includetext=true&guardwhitespace=true`);
   };
 
-  const printProductLabel = () => {
-    const formData = form.getValues();
-    if (!formData.name || !formData.barcode) {
-      toast({
-        title: "Error",
-        description: "Please fill in product name and barcode before printing",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    const printWindow = window.open('', '_blank');
-    if (printWindow) {
-      printWindow.document.write(`
-        <html>
-          <head>
-            <title>Product Label - ${formData.name}</title>
-            <style>
-              body { font-family: Arial, sans-serif; margin: 20px; }
-              .label { border: 2px solid #000; padding: 20px; width: 300px; text-align: center; }
-              .product-name { font-size: 18px; font-weight: bold; margin-bottom: 10px; }
-              .sku { font-size: 14px; margin-bottom: 5px; }
-              .price { font-size: 16px; font-weight: bold; color: #2563eb; margin-bottom: 10px; }
-              .qr-code { margin: 10px 0; }
-              .barcode { font-family: monospace; font-size: 12px; letter-spacing: 2px; }
-            </style>
-          </head>
-          <body>
-            <div class="label">
-              <div class="product-name">${formData.name}</div>
-              <div class="sku">SKU: ${formData.sku}</div>
-              <div class="price">₹${formData.price}</div>
-              <div class="qr-code">
-                <img src="${generatedQR}" alt="QR Code" />
-              </div>
-              <div class="barcode">${formData.barcode}</div>
-            </div>
-          </body>
-        </html>
-      `);
-      printWindow.document.close();
-      printWindow.print();
-    }
-  };
+  
 
   const downloadQRCode = () => {
-    if (!generatedQR) {
-      toast({
-        title: "Error",
-        description: "No QR code generated yet",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    const link = document.createElement('a');
-    link.href = generatedQR;
-    link.download = `qr-code-${form.getValues("sku") || "product"}.png`;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+    // Use the unified dialog for proper full-label download
+    setShowLabel(true);
   };
 
   const createMutation = useMutation({
@@ -184,18 +135,20 @@ export function AddProductModal({ isOpen, onClose }: AddProductModalProps) {
 
       // Try online first
       try {
-        const response = await apiRequest("POST", "/api/products", productData);
+        const response = initialProduct?.id
+          ? await apiRequest("PUT", `/api/products/${initialProduct.id}`, productData)
+          : await apiRequest("POST", "/api/products", productData);
         return await response.json();
       } catch (error) {
         // If offline, save to local storage
         if (!navigator.onLine) {
           const offlineProduct = {
-            id: Date.now().toString(),
+            id: (initialProduct?.id as string) || Date.now().toString(),
             ...productData,
             createdAt: new Date(),
             updatedAt: new Date(),
           };
-          
+
           await offlineStorage.addPendingChange("product", offlineProduct);
           return offlineProduct;
         }
@@ -206,7 +159,7 @@ export function AddProductModal({ isOpen, onClose }: AddProductModalProps) {
       queryClient.invalidateQueries({ queryKey: ["/api/products"] });
       toast({
         title: "Success",
-        description: "Product added successfully",
+        description: initialProduct?.id ? "Product updated successfully" : "Product added successfully",
       });
       form.reset();
       onClose();
@@ -238,9 +191,9 @@ export function AddProductModal({ isOpen, onClose }: AddProductModalProps) {
     <Dialog open={isOpen} onOpenChange={handleClose}>
       <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto" data-testid="modal-add-product">
         <DialogHeader>
-          <DialogTitle>Add New Product</DialogTitle>
+          <DialogTitle>{initialProduct?.id ? "Edit Product" : "Add New Product"}</DialogTitle>
           <DialogDescription>
-            Fill in the details below to add a new product to your inventory.
+            {initialProduct?.id ? "Update the details for this product." : "Fill in the details below to add a new product to your inventory."}
           </DialogDescription>
         </DialogHeader>
 
@@ -261,30 +214,30 @@ export function AddProductModal({ isOpen, onClose }: AddProductModalProps) {
                 )}
               />
 
-               <FormField
-                 control={form.control}
-                 name="sku"
-                 render={({ field }) => (
-                   <FormItem>
-                     <FormLabel>SKU</FormLabel>
-                     <div className="flex gap-2">
-                       <FormControl>
-                         <Input placeholder="Product SKU" {...field} data-testid="input-product-sku" />
-                       </FormControl>
-                       <Button
-                         type="button"
-                         variant="outline"
-                         size="icon"
-                         onClick={regenerateCodes}
-                         title="Regenerate SKU and Barcode"
-                       >
-                         <RefreshCw className="h-4 w-4" />
-                       </Button>
-                     </div>
-                     <FormMessage />
-                   </FormItem>
-                 )}
-               />
+              <FormField
+                control={form.control}
+                name="sku"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>SKU</FormLabel>
+                    <div className="flex gap-2">
+                      <FormControl>
+                        <Input placeholder="Product SKU" {...field} data-testid="input-product-sku" />
+                      </FormControl>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="icon"
+                        onClick={regenerateCodes}
+                        title="Regenerate SKU and Barcode"
+                      >
+                        <RefreshCw className="h-4 w-4" />
+                      </Button>
+                    </div>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
 
               <FormField
                 control={form.control}
@@ -344,11 +297,11 @@ export function AddProductModal({ isOpen, onClose }: AddProductModalProps) {
                   <FormItem>
                     <FormLabel>Price</FormLabel>
                     <FormControl>
-                      <Input 
-                        type="number" 
+                      <Input
+                        type="number"
                         step="0.01"
-                        placeholder="0.00" 
-                        {...field} 
+                        placeholder="0.00"
+                        {...field}
                         data-testid="input-product-price"
                       />
                     </FormControl>
@@ -364,10 +317,10 @@ export function AddProductModal({ isOpen, onClose }: AddProductModalProps) {
                   <FormItem>
                     <FormLabel>Stock Quantity</FormLabel>
                     <FormControl>
-                      <Input 
-                        type="number" 
-                        placeholder="0" 
-                        {...field} 
+                      <Input
+                        type="number"
+                        placeholder="0"
+                        {...field}
                         data-testid="input-product-stock"
                       />
                     </FormControl>
@@ -383,10 +336,10 @@ export function AddProductModal({ isOpen, onClose }: AddProductModalProps) {
                   <FormItem>
                     <FormLabel>Minimum Stock Alert</FormLabel>
                     <FormControl>
-                      <Input 
-                        type="number" 
-                        placeholder="5" 
-                        {...field} 
+                      <Input
+                        type="number"
+                        placeholder="5"
+                        {...field}
                         data-testid="input-product-min-stock"
                       />
                     </FormControl>
@@ -410,88 +363,66 @@ export function AddProductModal({ isOpen, onClose }: AddProductModalProps) {
               />
             </div>
 
-             <FormField
-               control={form.control}
-               name="description"
-               render={({ field }) => (
-                 <FormItem>
-                   <FormLabel>Description</FormLabel>
-                   <FormControl>
-                     <Textarea 
-                       rows={3} 
-                       placeholder="Product description" 
-                       {...field} 
-                       data-testid="textarea-product-description"
-                     />
-                   </FormControl>
-                   <FormMessage />
-                 </FormItem>
-               )}
-             />
+            <FormField
+              control={form.control}
+              name="description"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Description</FormLabel>
+                  <FormControl>
+                    <Textarea
+                      rows={3}
+                      placeholder="Product description"
+                      {...field}
+                      data-testid="textarea-product-description"
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
 
-             {/* QR Code Preview and Print Section */}
-             {generatedQR && (
-               <div className="border rounded-lg p-4 bg-gray-50">
-                 <div className="flex items-center justify-between mb-3">
-                   <h3 className="text-sm font-medium flex items-center gap-2">
-                     <QrCode className="h-4 w-4" />
-                     Product Label Preview
-                   </h3>
-                   <div className="flex gap-2">
-                     <Button
-                       type="button"
-                       variant="outline"
-                       size="sm"
-                       onClick={downloadQRCode}
-                       className="flex items-center gap-2"
-                     >
-                       <Download className="h-4 w-4" />
-                       Download
-                     </Button>
-                     <Button
-                       type="button"
-                       variant="outline"
-                       size="sm"
-                       onClick={printProductLabel}
-                       className="flex items-center gap-2"
-                     >
-                       <Printer className="h-4 w-4" />
-                       Print Label
-                     </Button>
-                   </div>
-                 </div>
-                 <div className="flex items-center gap-4">
-                   <div className="bg-white p-2 rounded border">
-                     <img src={generatedQR} alt="Product QR Code" className="w-16 h-16" />
-                   </div>
-                   <div className="text-sm text-gray-600">
-                     <p>Barcode: {form.getValues("barcode")}</p>
-                     <p>SKU: {form.getValues("sku")}</p>
-                   </div>
-                 </div>
-               </div>
-             )}
+            <LabelPreviewDialog
+              open={showLabel}
+              onOpenChange={setShowLabel}
+              product={{
+                name: form.getValues("name") || "",
+                sku: form.getValues("sku") || "",
+                price: form.getValues("price") || "",
+                size: form.getValues("size") || "",
+                categoryName: (categories || []).find((c: any) => c.id === form.getValues("categoryId"))?.name || "",
+                barcode: form.getValues("barcode") || "",
+              }}
+            />
 
             <div className="flex justify-end space-x-3">
-              <Button 
-                type="button" 
-                variant="outline" 
+              <Button
+                type="button"
+                size="sm"
+                onClick={() => setShowLabel(true)}
+              >
+                Open Advanced
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
                 onClick={handleClose}
                 data-testid="button-cancel-add-product"
               >
                 Cancel
               </Button>
-              <Button 
-                type="submit" 
+              <Button
+                type="submit"
                 disabled={isSubmitting}
                 data-testid="button-submit-add-product"
               >
-                {isSubmitting ? "Adding..." : "Add Product"}
+                {isSubmitting ? (initialProduct?.id ? "Saving..." : "Adding...") : (initialProduct?.id ? "Save Changes" : "Add Product")}
               </Button>
             </div>
           </form>
         </Form>
       </DialogContent>
+
 
       <AddCategoryModal
         isOpen={showAddCategory}

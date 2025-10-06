@@ -113,17 +113,19 @@ export class SupabaseStorage implements IStorage {
     return true;
   }
   async softDeleteProduct(id: string): Promise<boolean> {
+    // Use snake_case column name to match Supabase schema cache
     const { error } = await this.client
       .from("products")
-      .update({ deleted: true, deletedAt: new Date().toISOString() })
+      .update({ deleted: true, deleted_at: new Date().toISOString() as any })
       .eq("id", id);
     if (error) throw error;
     return true;
   }
   async restoreProduct(id: string): Promise<boolean> {
+    // Use snake_case for deleted_at when restoring as well
     const { error } = await this.client
       .from("products")
-      .update({ deleted: false, deletedAt: null })
+      .update({ deleted: false, deleted_at: null as any })
       .eq("id", id);
     if (error) throw error;
     return true;

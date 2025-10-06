@@ -1,6 +1,7 @@
 "use client";
 
 import { Edit, QrCode, Trash2, RotateCcw, Package } from "lucide-react";
+import { LabelPreviewDialog } from "@/components/shared/label-preview-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Product } from "@shared/schema";
@@ -12,10 +13,12 @@ interface InventoryRowProps {
   product: Product;
   categories: any[];
   showTrash: boolean;
+  onEdit?: (product: Product) => void;
 }
 
-export function InventoryRow({ product, categories, showTrash }: InventoryRowProps) {
+export function InventoryRow({ product, categories, showTrash, onEdit }: InventoryRowProps) {
   const { toast } = useToast();
+  const [showLabel, setShowLabel] = (require("react") as typeof import("react")).useState(false);
 
   const deleteMutation = useMutation({
     mutationFn: async (productId: string) => {
@@ -48,6 +51,7 @@ export function InventoryRow({ product, categories, showTrash }: InventoryRowPro
 
   const category = categories.find((c: any) => c.id === product.categoryId);
 
+  
   return (
     <tr className="hover:bg-muted/50">
       <td className="p-4">
@@ -80,10 +84,10 @@ export function InventoryRow({ product, categories, showTrash }: InventoryRowPro
             </Button>
           ) : (
             <>
-              <Button variant="ghost" size="sm">
+              <Button variant="ghost" size="sm" onClick={() => onEdit?.(product)}>
                 <Edit className="h-4 w-4 text-blue-600" />
               </Button>
-              <Button variant="ghost" size="sm">
+              <Button variant="ghost" size="sm" onClick={() => setShowLabel(true)}>
                 <QrCode className="h-4 w-4 text-green-600" />
               </Button>
               <Button
@@ -93,6 +97,19 @@ export function InventoryRow({ product, categories, showTrash }: InventoryRowPro
               >
                 <Trash2 className="h-4 w-4 text-red-600" />
               </Button>
+              <LabelPreviewDialog
+                open={showLabel}
+                onOpenChange={setShowLabel}
+                product={{
+                  id: product.id,
+                  name: product.name,
+                  sku: product.sku,
+                  price: product.price,
+                  size: product.size || null,
+                  categoryName: category?.name || null,
+                  barcode: product.barcode || undefined,
+                }}
+              />
             </>
           )}
         </div>

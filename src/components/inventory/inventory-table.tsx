@@ -14,6 +14,7 @@ export function InventoryTable() {
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("all");
   const [showAddModal, setShowAddModal] = useState(false);
+  const [editProduct, setEditProduct] = useState<Product | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
   const [showTrash, setShowTrash] = useState(false);
 
@@ -93,6 +94,7 @@ export function InventoryTable() {
                       product={product}
                       categories={categories}
                       showTrash={showTrash}
+                      onEdit={(p) => setEditProduct(p)}
                     />
                   ))
                 )}
@@ -113,8 +115,9 @@ export function InventoryTable() {
       </Card>
 
       <AddProductModal
-        isOpen={showAddModal}
-        onClose={() => setShowAddModal(false)}
+        isOpen={showAddModal || !!editProduct}
+        onClose={() => { setShowAddModal(false); setEditProduct(null); }}
+        initialProduct={editProduct || undefined}
       />
     </>
   );

@@ -34,6 +34,8 @@ CREATE TABLE IF NOT EXISTS products (
     stock INTEGER NOT NULL DEFAULT 0,
     min_stock INTEGER DEFAULT 5,
     barcode TEXT,
+    deleted BOOLEAN DEFAULT FALSE,
+    deleted_at TIMESTAMP NULL,
     created_at TIMESTAMP DEFAULT NOW(),
     updated_at TIMESTAMP DEFAULT NOW()
 );
@@ -71,6 +73,7 @@ CREATE TABLE IF NOT EXISTS sync_status (
 -- Create indexes for better performance
 CREATE INDEX IF NOT EXISTS idx_products_sku ON products(sku);
 CREATE INDEX IF NOT EXISTS idx_products_barcode ON products(barcode);
+CREATE INDEX IF NOT EXISTS idx_products_deleted ON products(deleted);
 CREATE INDEX IF NOT EXISTS idx_sales_user_id ON sales(user_id);
 CREATE INDEX IF NOT EXISTS idx_sales_created_at ON sales(created_at);
 CREATE INDEX IF NOT EXISTS idx_stock_movements_product_id ON stock_movements(product_id);
