@@ -1,8 +1,9 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
@@ -16,7 +17,10 @@ import {
   CreditCard, 
   Printer, 
   MessageCircle,
-  Search
+  Search,
+  Heart,
+  Clock,
+  TrendingUp
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/use-auth";
@@ -24,6 +28,7 @@ import { apiRequest, queryClient } from "@/lib/queryClient";
 import { offlineStorage } from "@/lib/offline-storage";
 import { invoicePrinter, InvoiceData } from "@/lib/printer";
 import { Product, SaleItem } from "@shared/schema";
+import { favoritesStorage, FavoriteProduct } from "@/lib/favorites";
 
 interface CartItem extends SaleItem {
   id: string;
@@ -33,15 +38,29 @@ interface CartItem extends SaleItem {
 export function BillingInterface() {
   const [cart, setCart] = useState<CartItem[]>([]);
   const [productCode, setProductCode] = useState("");
+  const [searchResults, setSearchResults] = useState<Product[]>([]);
   const [showScanner, setShowScanner] = useState(false);
   const [paymentMethod, setPaymentMethod] = useState("cash");
+  const [showConfirmPayment, setShowConfirmPayment] = useState(false);
+  const [showThankYou, setShowThankYou] = useState(false);
+  const [lastInvoiceData, setLastInvoiceData] = useState<InvoiceData | null>(null);
+  const [lastCustomerPhone, setLastCustomerPhone] = useState<string>("");
   const [customerPhone, setCustomerPhone] = useState("");
+  const [customerName, setCustomerName] = useState("");
   const [isProcessing, setIsProcessing] = useState(false);
   const [returnMode, setReturnMode] = useState(false);
   const [linkedSaleId, setLinkedSaleId] = useState<string>("");
+  const [favorites, setFavorites] = useState<FavoriteProduct[]>([]);
+  const [couponCode, setCouponCode] = useState("");
+  const [appliedCoupon, setAppliedCoupon] = useState<any>(null);
   
   const { toast } = useToast();
   const { user } = useAuth();
+
+  // Clear search results when query is cleared
+  useEffect(() => {
+    if (!productCode.trim()) setSearchResults([]);
+  }, [productCode]);
 
   const { data: products = [] } = useQuery<Product[]>({
     queryKey: ["/api/products"],
@@ -52,6 +71,112 @@ export function BillingInterface() {
   const { data: promoTargets = [] } = useQuery<any[]>({
     queryKey: ["/api/promotions/targets"],
   });
+  const { data: recentSales = [] } = useQuery<any[]>({
+    queryKey: ["/api/sales/recent"],
+  });
+  const { data: mostSoldProducts = [] } = useQuery<any[]>({
+    queryKey: ["/api/products/most-sold"],
+  });
+  const { data: coupons = [] } = useQuery<any[]>({
+    queryKey: ["/api/coupons"],
+  });
+
+  // Load favorites on component mount
+  useEffect(() => {
+    setFavorites(favoritesStorage.getFavorites());
+  }, []);
+
+  const toggleFavorite = (product: Product) => {
+    const favoriteProduct: FavoriteProduct = {
+      id: product.id,
+      name: product.name,
+      sku: product.sku,
+      price: product.price,
+      stock: product.stock
+    };
+
+    if (favoritesStorage.isFavorite(product.id)) {
+      favoritesStorage.removeFavorite(product.id);
+      setFavorites(prev => prev.filter(f => f.id !== product.id));
+      toast({
+        title: "Removed from Favorites",
+        description: `${product.name} removed from favorites`,
+      });
+    } else {
+      favoritesStorage.addFavorite(favoriteProduct);
+      setFavorites(prev => [...prev, favoriteProduct]);
+      toast({
+        title: "Added to Favorites",
+        description: `${product.name} added to favorites`,
+      });
+    }
+  };
+
+  const addFavoriteToCart = (favorite: FavoriteProduct) => {
+    const product = products.find(p => p.id === favorite.id);
+    if (product) {
+      addToCart(product);
+    }
+  };
+
+  const addRecentSaleToCart = (sale: any) => {
+    const items = typeof sale.items === 'string' ? JSON.parse(sale.items) : sale.items;
+    if (Array.isArray(items)) {
+      for (const item of items) {
+        const product = products.find(p => p.id === item.productId);
+        if (product) {
+          addToCart(product, item.quantity);
+        }
+      }
+      toast({
+        title: "Sale Items Added",
+        description: `Items from sale ${sale.invoiceNumber} added to cart`,
+      });
+    }
+  };
+
+  const addMostSoldToCart = (mostSold: any) => {
+    const product = products.find(p => p.id === mostSold.productId);
+    if (product) {
+      if (product.stock <= 0) {
+        toast({
+          title: "Out of Stock",
+          description: `${product.name} is currently out of stock`,
+          variant: "destructive",
+        });
+        return;
+      }
+      addToCart(product);
+    }
+  };
+
+  const applyCoupon = () => {
+    if (!couponCode.trim()) return;
+    
+    const coupon = coupons.find(c => c.name.toLowerCase() === couponCode.toLowerCase());
+    if (coupon) {
+      setAppliedCoupon(coupon);
+      toast({
+        title: "Coupon Applied",
+        description: `${coupon.percentage}% discount applied`,
+      });
+    } else {
+      toast({
+        title: "Invalid Coupon",
+        description: "Coupon code not found",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const removeCoupon = () => {
+    setAppliedCoupon(null);
+    setCouponCode("");
+    toast({
+      title: "Coupon Removed",
+      description: "Discount coupon removed",
+    });
+  };
 
   const createSaleMutation = useMutation({
     mutationFn: async (saleData: any) => {
@@ -159,28 +284,17 @@ export function BillingInterface() {
   };
 
   const handleProductSearch = () => {
-    if (!productCode.trim()) return;
-    
-    const product = products?.find((p: Product) => 
-      p.sku.toLowerCase() === productCode.toLowerCase() || 
-      p.barcode === productCode ||
-      p.name.toLowerCase().includes(productCode.toLowerCase())
-    );
-    
-    if (product) {
-      addToCart(product);
-      setProductCode("");
-      toast({
-        title: "Product Added",
-        description: `${product.name} added to cart`,
-      });
-    } else {
-      toast({
-        title: "Product Not Found",
-        description: "No product found with that code",
-        variant: "destructive",
-      });
+    if (!productCode.trim()) {
+      setSearchResults([]);
+      return;
     }
+    const query = productCode.toLowerCase();
+    const results = products.filter((p: Product) =>
+      p.sku.toLowerCase() === query ||
+      p.barcode === productCode ||
+      p.name.toLowerCase().includes(query)
+    );
+    setSearchResults(results);
   };
 
   const handleScan = (barcode: string) => {
@@ -241,10 +355,18 @@ export function BillingInterface() {
       const discounted = getDiscountedUnitPrice(item.productId, unit);
       return sum + discounted * item.quantity;
     }, 0);
-    const tax = subtotal * 0.18; // 18% GST
-    const total = subtotal + tax;
     
-    return { subtotal, tax, total };
+    // Apply coupon discount if any
+    let couponDiscount = 0;
+    if (appliedCoupon) {
+      couponDiscount = subtotal * (parseFloat(appliedCoupon.percentage) / 100);
+    }
+    
+    const afterCoupon = subtotal - couponDiscount;
+    const tax = afterCoupon * 0.18; // 18% GST
+    const total = afterCoupon + tax;
+    
+    return { subtotal, couponDiscount, afterCoupon, tax, total };
   };
 
   const handleCheckout = async () => {
@@ -256,70 +378,36 @@ export function BillingInterface() {
       });
       return;
     }
+    if (!customerName.trim() || !customerPhone.trim()) {
+      toast({
+        title: "Customer details required",
+        description: "Enter customer name and phone number",
+        variant: "destructive",
+      });
+      return;
+    }
     
     setIsProcessing(true);
     
     try {
-      const { subtotal, tax, total } = calculateTotals();
+      const { subtotal, couponDiscount, afterCoupon, tax, total } = calculateTotals();
       
       const saleData = {
         userId: user!.id,
-        items: JSON.stringify(cart.map(item => ({
+        items: cart.map(item => ({
           productId: item.productId,
           quantity: item.quantity,
           price: getDiscountedUnitPrice(item.productId, parseFloat(item.price)).toFixed(2),
           name: item.name,
           sku: item.sku,
-        }))),
+        })),
         totalAmount: total.toFixed(2),
         paymentMethod,
-      };
+      } as any;
       
       const sale = await createSaleMutation.mutateAsync(saleData);
 
-      // If online payment selected, create Razorpay order and open checkout
-      if (paymentMethod === "online") {
-        // Lazy-load Razorpay script
-        const ensureRzp = () => new Promise<void>((resolve, reject) => {
-          if (typeof (window as any).Razorpay !== "undefined") return resolve();
-          const s = document.createElement("script");
-          s.src = "https://checkout.razorpay.com/v1/checkout.js";
-          s.onload = () => resolve();
-          s.onerror = reject;
-          document.body.appendChild(s);
-        });
-        await ensureRzp();
-        // Create order
-        const orderRes = await apiRequest("POST", "/api/payments/razorpay/order", { saleId: sale.id, amount: total.toFixed(2), method: "online" });
-        const orderData = await orderRes.json();
-        if (!orderRes.ok) throw new Error(orderData?.error || "Failed to create order");
-
-        const options: any = {
-          key: orderData.keyId,
-          amount: Math.round(total * 100),
-          currency: "INR",
-          name: "ShopFlow",
-          description: sale.invoiceNumber,
-          order_id: orderData.orderId,
-          handler: async function (response: any) {
-            // Verify
-            const verifyRes = await apiRequest("POST", "/api/payments/razorpay/verify", {
-              paymentId: response.razorpay_payment_id,
-              orderId: response.razorpay_order_id,
-              signature: response.razorpay_signature,
-              paymentRecordId: orderData.paymentRecordId,
-            });
-            const verifyJson = await verifyRes.json();
-            if (!verifyRes.ok) throw new Error(verifyJson?.error || "Payment verify failed");
-          },
-          prefill: { contact: customerPhone || undefined },
-          theme: { color: "#3b82f6" },
-        };
-        const rzp = new (window as any).Razorpay(options);
-        rzp.open();
-      }
-      
-      // Generate invoice
+      // Prepare invoice data but don't auto-print. We'll print after confirmation.
       const invoiceData: InvoiceData = {
         invoiceNumber: sale.invoiceNumber || `INV-${Date.now()}`,
         date: new Date(),
@@ -334,21 +422,9 @@ export function BillingInterface() {
         total,
         paymentMethod,
       };
-      
-      // Print invoice
-      await invoicePrinter.printInvoice(invoiceData);
-      
-      // Share via WhatsApp if phone number provided
-      if (customerPhone) {
-        await invoicePrinter.shareViaWhatsApp(invoiceData, customerPhone);
-      }
-      
-      toast({
-        title: "Sale Completed",
-        description: `Invoice ${invoiceData.invoiceNumber} generated successfully`,
-      });
-      
-      clearCart();
+      setLastInvoiceData(invoiceData);
+      setLastCustomerPhone(customerPhone);
+      setShowConfirmPayment(true);
       
     } catch (error) {
       toast({
@@ -361,7 +437,8 @@ export function BillingInterface() {
     }
   };
 
-  const { subtotal, tax, total } = calculateTotals();
+  const totals = calculateTotals();
+  const { subtotal, couponDiscount, tax, total } = totals;
 
   return (
     <div className="grid grid-cols-1 xl:grid-cols-3 gap-4 md:gap-6">
@@ -396,6 +473,30 @@ export function BillingInterface() {
                 <QrCode className="h-4 w-4" />
               </Button>
             </div>
+            {searchResults.length > 0 && (
+              <div className="space-y-2 max-h-52 overflow-y-auto border rounded p-2">
+                {searchResults.map((p) => {
+                  const isFav = favoritesStorage.isFavorite(p.id);
+                  const out = p.stock <= 0;
+                  return (
+                    <div key={p.id} className={`flex items-center justify-between p-2 rounded ${out ? 'opacity-60' : ''}`}>
+                      <div className="min-w-0 flex-1">
+                        <p className="text-sm font-medium truncate">{p.name}</p>
+                        <p className="text-xs text-muted-foreground">SKU: {p.sku} • ₹{p.price} • Stock: {p.stock}</p>
+                      </div>
+                      <div className="flex gap-2">
+                        <Button size="sm" variant="outline" onClick={() => toggleFavorite(p)} className={isFav ? 'text-red-500' : ''}>
+                          <Heart className={`h-3 w-3 ${isFav ? 'fill-current' : ''}`} />
+                        </Button>
+                        <Button size="sm" disabled={out} onClick={() => addToCart(p)}>
+                          <Plus className="h-3 w-3 mr-1" /> Add
+                        </Button>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
             <div className="flex items-center gap-2">
               <label className="text-sm font-medium">Return Mode</label>
               <Button variant={returnMode ? "default" : "outline"} size="sm" onClick={() => setReturnMode(!returnMode)}>
@@ -411,6 +512,128 @@ export function BillingInterface() {
             </div>
           </CardContent>
         </Card>
+
+        {/* Quick Access Sections */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+          {/* Favorites */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center text-sm">
+                <Heart className="mr-2 h-4 w-4" />
+                Favorites ({favorites.length})
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              {favorites.length === 0 ? (
+                <p className="text-sm text-muted-foreground text-center py-4">
+                  No favorites yet. Add products to favorites for quick access.
+                </p>
+              ) : (
+                <div className="space-y-2 max-h-48 overflow-y-auto">
+                  {favorites.map((favorite) => (
+                    <div key={favorite.id} className="flex items-center justify-between p-2 border rounded">
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium truncate">{favorite.name}</p>
+                        <p className="text-xs text-muted-foreground">₹{favorite.price}</p>
+                      </div>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => addFavoriteToCart(favorite)}
+                        className="ml-2"
+                      >
+                        <Plus className="h-3 w-3" />
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Recent Sales */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center text-sm">
+                <Clock className="mr-2 h-4 w-4" />
+                Recent Sales
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              {recentSales.length === 0 ? (
+                <p className="text-sm text-muted-foreground text-center py-4">
+                  No recent sales found.
+                </p>
+              ) : (
+                <div className="space-y-2 max-h-48 overflow-y-auto">
+                  {recentSales.slice(0, 5).map((sale) => (
+                    <div key={sale.id} className="flex items-center justify-between p-2 border rounded">
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium truncate">{sale.invoiceNumber}</p>
+                        <p className="text-xs text-muted-foreground">₹{sale.totalAmount}</p>
+                      </div>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => addRecentSaleToCart(sale)}
+                        className="ml-2"
+                      >
+                        <Plus className="h-3 w-3" />
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Most Sold */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center text-sm">
+                <TrendingUp className="mr-2 h-4 w-4" />
+                Most Sold
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              {mostSoldProducts.length === 0 ? (
+                <p className="text-sm text-muted-foreground text-center py-4">
+                  No sales data available.
+                </p>
+              ) : (
+                <div className="space-y-2 max-h-48 overflow-y-auto">
+                  {mostSoldProducts.slice(0, 5).map((product) => {
+                    const productData = products.find(p => p.id === product.productId);
+                    const isOutOfStock = !productData || productData.stock <= 0;
+                    
+                    return (
+                      <div key={product.productId} className={`flex items-center justify-between p-2 border rounded ${isOutOfStock ? 'opacity-50 bg-muted' : ''}`}>
+                        <div className="flex-1 min-w-0">
+                          <p className={`text-sm font-medium truncate ${isOutOfStock ? 'text-muted-foreground' : ''}`}>
+                            {product.name}
+                          </p>
+                          <p className="text-xs text-muted-foreground">
+                            {product.totalSold} sold • ₹{product.price}
+                            {isOutOfStock && <span className="text-red-500 ml-2">• Out of Stock</span>}
+                          </p>
+                        </div>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => addMostSoldToCart(product)}
+                          className="ml-2"
+                          disabled={isOutOfStock}
+                        >
+                          <Plus className="h-3 w-3" />
+                        </Button>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </div>
 
         {/* Shopping Cart */}
         <Card>
@@ -481,6 +704,16 @@ export function BillingInterface() {
                       <Button
                         variant="outline"
                         size="sm"
+                        onClick={() => toggleFavorite(products.find(p => p.id === item.productId)!)}
+                        data-testid={`button-favorite-${item.id}`}
+                        className={favoritesStorage.isFavorite(item.productId) ? "text-red-500" : ""}
+                      >
+                        <Heart className={`h-3 w-3 ${favoritesStorage.isFavorite(item.productId) ? "fill-current" : ""}`} />
+                      </Button>
+                      
+                      <Button
+                        variant="outline"
+                        size="sm"
                         onClick={() => removeFromCart(item.productId)}
                         data-testid={`button-remove-${item.id}`}
                       >
@@ -514,6 +747,12 @@ export function BillingInterface() {
                 <span>Subtotal:</span>
                 <span data-testid="text-subtotal">₹{subtotal.toFixed(2)}</span>
               </div>
+              {appliedCoupon && (
+                <div className="flex justify-between text-green-600">
+                  <span>Coupon Discount ({appliedCoupon.percentage}%):</span>
+                  <span>-₹{couponDiscount.toFixed(2)}</span>
+                </div>
+              )}
               <div className="flex justify-between">
                 <span>GST (18%):</span>
                 <span data-testid="text-tax">₹{tax.toFixed(2)}</span>
@@ -536,27 +775,61 @@ export function BillingInterface() {
             <div>
               <label className="text-sm font-medium mb-2 block">Payment Method</label>
               <Select value={paymentMethod} onValueChange={setPaymentMethod}>
-                <SelectTrigger data-testid="select-payment-method">
-                  <SelectValue />
+              <SelectTrigger data-testid="select-payment-method">
+                  <SelectValue placeholder="Select method" />
                 </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="cash">Cash</SelectItem>
-                  <SelectItem value="card">Credit/Debit Card</SelectItem>
-                  <SelectItem value="upi">UPI</SelectItem>
-                  <SelectItem value="netbanking">Net Banking</SelectItem>
-                  <SelectItem value="online">Online (Razorpay)</SelectItem>
-                </SelectContent>
+              <SelectContent>
+                <SelectItem value="cash">Cash</SelectItem>
+                <SelectItem value="upi">UPI</SelectItem>
+                <SelectItem value="card">Card</SelectItem>
+                <SelectItem value="other">Other</SelectItem>
+              </SelectContent>
               </Select>
             </div>
 
             <div>
-              <label className="text-sm font-medium mb-2 block">Customer Phone (Optional)</label>
+              <label className="text-sm font-medium mb-2 block">Customer Name</label>
+              <Input
+                placeholder="Full name"
+                value={customerName}
+                onChange={(e) => setCustomerName(e.target.value)}
+                data-testid="input-customer-name"
+              />
+            </div>
+            <div>
+              <label className="text-sm font-medium mb-2 block">Customer Phone</label>
               <Input
                 placeholder="WhatsApp number for receipt"
                 value={customerPhone}
                 onChange={(e) => setCustomerPhone(e.target.value)}
                 data-testid="input-customer-phone"
               />
+            </div>
+
+            <div>
+              <label className="text-sm font-medium mb-2 block">Coupon Code</label>
+              <div className="flex gap-2">
+                <Input
+                  placeholder="Enter coupon code"
+                  value={couponCode}
+                  onChange={(e) => setCouponCode(e.target.value)}
+                  disabled={!!appliedCoupon}
+                />
+                {appliedCoupon ? (
+                  <Button variant="outline" onClick={removeCoupon}>
+                    Remove
+                  </Button>
+                ) : (
+                  <Button variant="outline" onClick={applyCoupon}>
+                    Apply
+                  </Button>
+                )}
+              </div>
+              {appliedCoupon && (
+                <p className="text-sm text-green-600 mt-1">
+                  {appliedCoupon.percentage}% discount applied
+                </p>
+              )}
             </div>
 
             <Button 
@@ -591,6 +864,60 @@ export function BillingInterface() {
         onClose={() => setShowScanner(false)}
         onScan={handleScan}
       />
+
+      {/* Confirm Payment Dialog */}
+      <Dialog open={showConfirmPayment} onOpenChange={setShowConfirmPayment}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Confirm Payment</DialogTitle>
+          </DialogHeader>
+          <p>Please confirm the payment of ₹{total.toFixed(2)} via {paymentMethod.toUpperCase()} is completed.</p>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowConfirmPayment(false)}>Cancel</Button>
+            <Button onClick={() => { setShowConfirmPayment(false); setShowThankYou(true); clearCart(); setCustomerName(""); setCustomerPhone(""); }}>Payment Done</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Thank You Dialog */}
+      <Dialog open={showThankYou} onOpenChange={setShowThankYou}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Thank you for your purchase!</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3">
+            <p>Payment recorded. You can now print the bill or share it.</p>
+            <div className="grid grid-cols-2 gap-2">
+              <Button 
+                onClick={async () => {
+                  try {
+                    if (!lastInvoiceData) throw new Error("No invoice data");
+                    await invoicePrinter.printInvoice(lastInvoiceData);
+                    toast({ title: "Printing", description: "Invoice sent to printer" });
+                  } catch (e: any) {
+                    toast({ title: "Print failed", description: e.message || "Unable to print", variant: "destructive" });
+                  }
+                }}
+              >
+                <Printer className="mr-2 h-4 w-4" /> Print Bill
+              </Button>
+              <Button 
+                variant="outline"
+                onClick={async () => {
+                  try {
+                    if (!lastInvoiceData) throw new Error("No invoice data");
+                    await invoicePrinter.shareViaWhatsApp(lastInvoiceData, lastCustomerPhone);
+                  } catch (e: any) {
+                    toast({ title: "Share failed", description: e.message || "Unable to open WhatsApp", variant: "destructive" });
+                  }
+                }}
+              >
+                <MessageCircle className="mr-2 h-4 w-4" /> WhatsApp
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

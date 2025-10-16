@@ -44,12 +44,19 @@ CREATE TABLE IF NOT EXISTS products (
 CREATE TABLE IF NOT EXISTS sales (
     id VARCHAR PRIMARY KEY DEFAULT gen_random_uuid(),
     user_id VARCHAR REFERENCES users(id) NOT NULL,
+    customer_id VARCHAR REFERENCES customers(id),
     items JSONB NOT NULL,
     total_amount DECIMAL(10, 2) NOT NULL,
     payment_method TEXT NOT NULL DEFAULT 'cash',
     invoice_number TEXT NOT NULL UNIQUE,
+    deleted BOOLEAN DEFAULT FALSE,
+    deleted_at TIMESTAMP NULL,
     created_at TIMESTAMP DEFAULT NOW()
 );
+
+-- Indexes for sales table
+CREATE INDEX IF NOT EXISTS idx_sales_deleted ON sales(deleted);
+CREATE INDEX IF NOT EXISTS idx_sales_deleted_at ON sales(deleted_at);
 
 -- Stock movements table
 CREATE TABLE IF NOT EXISTS stock_movements (

@@ -3,10 +3,14 @@ import { storage } from "@server/storage";
 import { requireAuth } from "../_lib/session";
 import { insertSaleSchema } from "@shared/schema";
 
-export async function GET() {
+export async function GET(request: NextRequest) {
   const auth = await requireAuth();
   if (!auth.ok) return NextResponse.json({}, { status: 401 });
-  const sales = auth.user.role === "admin" ? await storage.getSales() : await storage.getSalesByUser(auth.user.id);
+  
+  const url = new URL(request.url);
+  const includeDeleted = url.searchParams.get("includeDeleted") === "true";
+  
+  const sales = auth.user.role === "admin" ? await storage.getSales(includeDeleted) : await storage.getSalesByUser(auth.user.id, includeDeleted);
   return NextResponse.json(sales);
 }
 
@@ -44,8 +48,9 @@ export async function POST(req: NextRequest) {
     }
 
     return NextResponse.json(sale, { status: 201 });
-  } catch {
-    return NextResponse.json({ error: "Invalid sale data" }, { status: 400 });
+  } catch (error: any) {
+    const message = typeof error?.message === "string" ? error.message : "Invalid sale data";
+    return NextResponse.json({ error: message }, { status: 400 });
   }
 }
 

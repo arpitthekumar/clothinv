@@ -87,7 +87,7 @@ export function InventoryHeader({
           </Button>
         )}
 
-        {/* Quick Receive */}
+        {/* Quick Receive
         {!showTrash && (
           <Link href="/purchasing#receive">
             <Button variant="outline">
@@ -95,7 +95,7 @@ export function InventoryHeader({
               Quick Receive
             </Button>
           </Link>
-        )}
+        )} */}
       </div>
     </div>
   );

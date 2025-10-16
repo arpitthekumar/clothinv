@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
+import { Badge } from "@/components/ui/badge";
 import { getQueryFn, apiRequest, queryClient } from "@/lib/queryClient";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 
@@ -33,8 +34,11 @@ export default function Page() {
 
   const createPOMutation = useMutation({
     mutationFn: async () => {
-      const body: any = { supplierId: newPO.supplierId, status: "ordered" };
-      if (newPO.expectedDate) body.expectedDate = new Date(newPO.expectedDate);
+      const body: any = {
+        supplierId: newPO.supplierId,
+        status: "ordered",
+      };
+      if (newPO.expectedDate) body.expectedDate = newPO.expectedDate;
       if (newPO.notes) body.notes = newPO.notes;
       const res = await apiRequest("POST", "/api/purchase-orders", body);
       return res.json();
@@ -199,6 +203,47 @@ export default function Page() {
                     </div>
                   </div>
                   <Button onClick={() => addItemMutation.mutate()} disabled={!poItem.purchaseOrderId || !poItem.productId}>Add Item</Button>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader>
+                  <CardTitle>Purchase Orders</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  {purchaseOrders.length === 0 ? (
+                    <div className="text-center py-8">
+                      <p className="text-muted-foreground">No purchase orders found</p>
+                    </div>
+                  ) : (
+                    <div className="space-y-4">
+                      {purchaseOrders.map((po: any) => (
+                        <div key={po.id} className="border rounded-lg p-4">
+                          <div className="flex justify-between items-start mb-2">
+                            <div>
+                              <h4 className="font-medium">PO #{po.id.slice(0, 8)}</h4>
+                              <p className="text-sm text-muted-foreground">
+                                Supplier: {suppliers.find((s: any) => s.id === po.supplierId)?.name || 'Unknown'}
+                              </p>
+                            </div>
+                            <Badge variant={po.status === 'received' ? 'default' : po.status === 'ordered' ? 'secondary' : 'outline'}>
+                              {po.status}
+                            </Badge>
+                          </div>
+                          {po.expectedDate && (
+                            <p className="text-sm text-muted-foreground">
+                              Expected: {new Date(po.expectedDate).toLocaleDateString()}
+                            </p>
+                          )}
+                          {po.notes && (
+                            <p className="text-sm text-muted-foreground mt-1">
+                              Notes: {po.notes}
+                            </p>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </CardContent>
               </Card>
 

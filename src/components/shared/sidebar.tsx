@@ -17,7 +17,8 @@ import {
   QrCode,
   Wifi,
   WifiOff,
-  RotateCcw
+  RotateCcw,
+  Receipt
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useEffect, useState } from "react";
@@ -66,18 +67,20 @@ export function Sidebar({ isOpen }: SidebarProps) {
     { href: "/admin/users", icon: Users, label: "Users" },
     { href: "/inventory", icon: Package, label: "Inventory" },
     { href: "/purchasing", icon: RotateCcw, label: "Purchasing" },
+    { href: "/sales", icon: Receipt, label: "Sales Management" },
     { href: "/reports", icon: FileBarChart, label: "Reports" },
     { href: "/settings", icon: Settings, label: "Settings" },
   ];
 
   const employeeMenuItems = [
+    { href: "/", icon: RotateCcw, label: "Dashboard" },
     { href: "/inventory", icon: Search, label: "Find Products" },
     { href: "/inventory?action=update", icon: PlusCircle, label: "Update Stock" },
   ];
 
   const commonMenuItems = [
     { href: "/pos", icon: ScanBarcode, label: "Point of Sale" },
-    { href: "/scan", icon: QrCode, label: "Quick Scan" },
+    // { href: "/scan", icon: QrCode, label: "Quick Scan" },
   ];
 
   const menuItems = user?.role === "admin" ? adminMenuItems : employeeMenuItems;

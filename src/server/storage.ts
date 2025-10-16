@@ -47,10 +47,12 @@ export interface IStorage {
   restoreProduct: (id: string) => Promise<boolean>;
 
   // Sales
-  getSales(): Promise<Sale[]>;
-  getSalesByUser(userId: string): Promise<Sale[]>;
+  getSales(includeDeleted?: boolean): Promise<Sale[]>;
+  getSalesByUser(userId: string, includeDeleted?: boolean): Promise<Sale[]>;
   getSalesToday(): Promise<Sale[]>;
   createSale(sale: InsertSale): Promise<Sale>;
+  softDeleteSale(saleId: string): Promise<boolean>;
+  restoreSale(saleId: string): Promise<boolean>;
 
   // Stock Movements
   getStockMovements(): Promise<StockMovement[]>;
@@ -85,6 +87,13 @@ export interface IStorage {
   // Payments
   createPayment(payment: import("@shared/schema").InsertPayment): Promise<import("@shared/schema").Payment>;
   updatePayment(id: string, data: Partial<import("@shared/schema").InsertPayment>): Promise<import("@shared/schema").Payment | undefined>;
+
+  // Discount Coupons
+  getDiscountCoupons(): Promise<import("@shared/schema").DiscountCoupon[]>;
+  createDiscountCoupon(coupon: import("@shared/schema").InsertDiscountCoupon): Promise<import("@shared/schema").DiscountCoupon>;
+  getDiscountCouponByName(name: string): Promise<import("@shared/schema").DiscountCoupon | undefined>;
+  updateDiscountCoupon(id: string, coupon: Partial<import("@shared/schema").InsertDiscountCoupon>): Promise<import("@shared/schema").DiscountCoupon | undefined>;
+  deleteDiscountCoupon(id: string): Promise<boolean>;
 }
 
 export const storage = new SupabaseStorage();

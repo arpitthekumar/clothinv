@@ -137,13 +137,21 @@ export class SupabaseStorage implements IStorage {
   }
 
   // Sales
-  async getSales(): Promise<Sale[]> {
-    const { data, error } = await this.client.from("sales").select("*");
+  async getSales(includeDeleted: boolean = false): Promise<Sale[]> {
+    let query = this.client.from("sales").select("*");
+    if (!includeDeleted) {
+      query = query.eq("deleted", false);
+    }
+    const { data, error } = await query;
     if (error) throw error;
     return data as Sale[];
   }
-  async getSalesByUser(userId: string): Promise<Sale[]> {
-    const { data, error } = await this.client.from("sales").select("*").eq("userId", userId);
+  async getSalesByUser(userId: string, includeDeleted: boolean = false): Promise<Sale[]> {
+    let query = this.client.from("sales").select("*").eq("userId", userId);
+    if (!includeDeleted) {
+      query = query.eq("deleted", false);
+    }
+    const { data, error } = await query;
     if (error) throw error;
     return data as Sale[];
   }
@@ -153,7 +161,8 @@ export class SupabaseStorage implements IStorage {
     const { data, error } = await this.client
       .from("sales")
       .select("*")
-      .gte("createdAt", today.toISOString());
+      .gte("createdAt", today.toISOString())
+      .eq("deleted", false); // Exclude deleted sales
     if (error) throw error;
     return data as Sale[];
   }
@@ -162,20 +171,45 @@ export class SupabaseStorage implements IStorage {
     if (error) throw error;
     return data as Sale;
   }
+  async softDeleteSale(saleId: string): Promise<boolean> {
+    const { error } = await this.client
+      .from("sales")
+      .update({ deleted: true, deleted_at: new Date().toISOString() as any })
+      .eq("id", saleId);
+    if (error) throw error;
+    return true;
+  }
+  async restoreSale(saleId: string): Promise<boolean> {
+    const { error } = await this.client
+      .from("sales")
+      .update({ deleted: false, deleted_at: null as any })
+      .eq("id", saleId);
+    if (error) throw error;
+    return true;
+  }
 
   // Stock Movements
   async getStockMovements(): Promise<StockMovement[]> {
-    const { data, error } = await this.client.from("stockMovements").select("*");
+    const { data, error } = await this.client.from("stock_movements").select("*");
     if (error) throw error;
     return data as StockMovement[];
   }
   async getStockMovementsByProduct(productId: string): Promise<StockMovement[]> {
-    const { data, error } = await this.client.from("stockMovements").select("*").eq("productId", productId);
+    const { data, error } = await this.client.from("stock_movements").select("*").eq("product_id", productId);
     if (error) throw error;
     return data as StockMovement[];
   }
   async createStockMovement(movement: InsertStockMovement): Promise<StockMovement> {
-    const { data, error } = await this.client.from("stockMovements").insert(movement).select("*").single();
+    const payload: any = {
+      product_id: (movement as any).productId,
+      user_id: (movement as any).userId,
+      type: (movement as any).type,
+      quantity: (movement as any).quantity,
+      reason: (movement as any).reason,
+      ref_table: (movement as any).refTable,
+      ref_id: (movement as any).refId,
+    };
+    const { data, error } = await this.client.from("stock_movements").insert(payload).select("*").single();
     if (error) throw error;
     return data as StockMovement;
   }
@@ -291,19 +325,102 @@ export class SupabaseStorage implements IStorage {
 
   async createSalesReturn(params: { saleId: string; customerId?: string; reason?: string; items: Array<{ productId: string; saleItemId?: string; quantity: number; refundAmount?: string }>; userId: string }): Promise<{ salesReturnId: string }> {
     const { saleId, customerId, reason, items, userId } = params;
+    console.log("Creating sales return for saleId:", saleId, "items:", items);
+    
     const { data: sr, error: srErr } = await this.client
       .from("sales_returns")
       .insert({ sale_id: saleId, customer_id: customerId as any, reason })
       .select("id")
       .single();
-    if (srErr) throw srErr;
+    if (srErr) {
+      console.error("Error creating sales return:", srErr);
+      throw srErr;
+    }
 
     for (const it of items) {
+      // Find the sale_item_id for this product in this sale
+      let saleItemId = it.saleItemId;
+      if (!saleItemId) {
+        console.log("Looking up sale_item_id for saleId:", saleId, "productId:", it.productId);
+        
+        // First check if sale_items table exists and has data
+        const { data: allSaleItems, error: checkErr } = await this.client
+          .from("sale_items")
+          .select("*")
+          .eq("sale_id", saleId)
+          .limit(5);
+        
+        console.log("All sale items for this sale:", allSaleItems);
+        if (checkErr) {
+          console.error("Error checking sale items table:", checkErr);
+          throw checkErr;
+        }
+        
+        const { data: saleItem, error: itemErr } = await this.client
+          .from("sale_items")
+          .select("id")
+          .eq("sale_id", saleId)
+          .eq("product_id", it.productId)
+          .maybeSingle();
+        if (itemErr) {
+          console.error("Error looking up sale item:", itemErr);
+          throw itemErr;
+        }
+        saleItemId = saleItem?.id;
+        console.log("Found sale_item_id:", saleItemId);
+        
+        // If no sale_item found, create one from the original sale data
+        if (!saleItemId) {
+          console.log("No sale_item found, creating one from sale data");
+          const { data: saleData, error: saleErr } = await this.client
+            .from("sales")
+            .select("items")
+            .eq("id", saleId)
+            .single();
+          
+          if (saleErr) {
+            console.error("Error fetching sale data:", saleErr);
+            throw saleErr;
+          }
+          
+          // Parse the items and find the matching product
+          const items = typeof saleData.items === 'string' ? JSON.parse(saleData.items) : saleData.items;
+          const itemArray = Array.isArray(items) ? items : [items];
+          const matchingItem = itemArray.find((item: any) => item.productId === it.productId);
+          
+          if (matchingItem) {
+            const { data: newSaleItem, error: createErr } = await this.client
+              .from("sale_items")
+              .insert({
+                sale_id: saleId,
+                product_id: it.productId,
+                quantity: matchingItem.quantity,
+                price: matchingItem.price,
+                name: matchingItem.name,
+                sku: matchingItem.sku,
+              })
+              .select("id")
+              .single();
+            
+            if (createErr) {
+              console.error("Error creating sale item:", createErr);
+              throw createErr;
+            }
+            
+            saleItemId = newSaleItem.id;
+            console.log("Created new sale_item_id:", saleItemId);
+          } else {
+            console.error("Could not find matching item in sale data for productId:", it.productId);
+            throw new Error(`Product ${it.productId} not found in sale ${saleId}`);
+          }
+        }
+      }
+
       const { error: sriErr } = await this.client
         .from("sales_return_items")
         .insert({
           sales_return_id: sr.id,
-          sale_item_id: it.saleItemId as any,
+          sale_item_id: saleItemId as any,
           product_id: it.productId,
           quantity: it.quantity as any,
           refund_amount: (it.refundAmount ?? null) as any,
@@ -311,6 +428,7 @@ export class SupabaseStorage implements IStorage {
       if (sriErr) throw sriErr;
 
       // Restock and create movement
+      console.log("Updating inventory for productId:", it.productId, "returning quantity:", it.quantity);
       const { data: productRow, error: prodErr } = await this.client
         .from("products")
         .select("id, stock")
@@ -319,11 +437,17 @@ export class SupabaseStorage implements IStorage {
       if (prodErr) throw prodErr;
       const currentStock = (productRow?.stock ?? 0) as number;
       const newStock = currentStock + it.quantity;
+      console.log("Current stock:", currentStock, "New stock:", newStock);
+      
       const { error: stockErr } = await this.client
         .from("products")
         .update({ stock: newStock as any })
         .eq("id", it.productId);
-      if (stockErr) throw stockErr;
+      if (stockErr) {
+        console.error("Error updating stock:", stockErr);
+        throw stockErr;
+      }
+      console.log("Stock updated successfully");
 
       const { error: moveErr } = await this.client
         .from("stock_movements")
@@ -339,6 +463,47 @@ export class SupabaseStorage implements IStorage {
       if (moveErr) throw moveErr;
     }
 
+    // Update the original sale's items to reflect returned quantities
+    console.log("Updating original sale items to reflect returns");
+    const { data: originalSale, error: saleErr } = await this.client
+      .from("sales")
+      .select("items")
+      .eq("id", saleId)
+      .single();
+    
+    if (saleErr) {
+      console.error("Error fetching original sale:", saleErr);
+      throw saleErr;
+    }
+    
+    // Parse and update the items
+    const originalItems = typeof originalSale.items === 'string' ? JSON.parse(originalSale.items) : originalSale.items;
+    const itemArray = Array.isArray(originalItems) ? originalItems : [originalItems];
+    
+    // Update quantities for returned items
+    for (const returnedItem of items) {
+      const itemIndex = itemArray.findIndex((item: any) => item.productId === returnedItem.productId);
+      if (itemIndex !== -1) {
+        itemArray[itemIndex].quantity = Math.max(0, itemArray[itemIndex].quantity - returnedItem.quantity);
+        console.log(`Updated quantity for product ${returnedItem.productId}: ${itemArray[itemIndex].quantity}`);
+      }
+    }
+    
+    // Remove items with 0 quantity
+    const updatedItems = itemArray.filter((item: any) => item.quantity > 0);
+    
+    // Update the sale with new items
+    const { error: updateErr } = await this.client
+      .from("sales")
+      .update({ items: updatedItems })
+      .eq("id", saleId);
+    
+    if (updateErr) {
+      console.error("Error updating sale items:", updateErr);
+      throw updateErr;
+    }
+    
+    console.log("Sale items updated successfully");
     return { salesReturnId: sr.id as string };
   }
 
@@ -396,5 +561,69 @@ export class SupabaseStorage implements IStorage {
     const { data, error } = await this.client.from("payments").update(dataPatch).eq("id", id).select("*").maybeSingle();
     if (error) throw error;
     return (data ?? undefined) as any;
+  }
+
+  // Discount Coupons
+  async getDiscountCoupons(): Promise<import("@shared/schema").DiscountCoupon[]> {
+    const { data, error } = await this.client
+      .from("discount_coupons")
+      .select("*")
+      .eq("active", true)
+      .order("created_at", { ascending: false });
+    if (error) throw error;
+    return data as import("@shared/schema").DiscountCoupon[];
+  }
+
+  async createDiscountCoupon(coupon: import("@shared/schema").InsertDiscountCoupon): Promise<import("@shared/schema").DiscountCoupon> {
+    // Map camelCase to snake_case for Supabase
+    const payload: any = {
+      name: (coupon as any).name,
+      percentage: (coupon as any).percentage,
+      active: (coupon as any).active,
+      created_by: (coupon as any).createdBy,
+    };
+    const { data, error } = await this.client
+      .from("discount_coupons")
+      .insert(payload)
+      .select("*")
+      .single();
+    if (error) throw error;
+    return data as import("@shared/schema").DiscountCoupon;
+  }
+
+  async getDiscountCouponByName(name: string): Promise<import("@shared/schema").DiscountCoupon | undefined> {
+    const { data, error } = await this.client
+      .from("discount_coupons")
+      .select("*")
+      .eq("name", name)
+      .eq("active", true)
+      .maybeSingle();
+    if (error) throw error;
+    return (data ?? undefined) as import("@shared/schema").DiscountCoupon | undefined;
+  }
+
+  async updateDiscountCoupon(id: string, coupon: Partial<import("@shared/schema").InsertDiscountCoupon>): Promise<import("@shared/schema").DiscountCoupon | undefined> {
+    const payload: any = {};
+    if ((coupon as any).name !== undefined) payload.name = (coupon as any).name;
+    if ((coupon as any).percentage !== undefined) payload.percentage = (coupon as any).percentage;
+    if ((coupon as any).active !== undefined) payload.active = (coupon as any).active;
+    if ((coupon as any).createdBy !== undefined) payload.created_by = (coupon as any).createdBy;
+    const { data, error } = await this.client
+      .from("discount_coupons")
+      .update(payload)
+      .eq("id", id)
+      .select("*")
+      .maybeSingle();
+    if (error) throw error;
+    return (data ?? undefined) as import("@shared/schema").DiscountCoupon | undefined;
+  }
+
+  async deleteDiscountCoupon(id: string): Promise<boolean> {
+    const { error } = await this.client
+      .from("discount_coupons")
+      .delete()
+      .eq("id", id);
+    if (error) throw error;
+    return true;
   }
 }

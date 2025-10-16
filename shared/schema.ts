@@ -44,6 +44,8 @@ export const sales = pgTable("sales", {
   totalAmount: decimal("total_amount", { precision: 10, scale: 2 }).notNull(),
   paymentMethod: text("payment_method").notNull().default("cash"),
   invoiceNumber: text("invoice_number").notNull().unique(),
+  deleted: boolean("deleted").default(false),
+  deletedAt: timestamp("deleted_at"),
   createdAt: timestamp("created_at").defaultNow(),
 });
 
@@ -258,6 +260,16 @@ export const payments = pgTable("payments", {
   createdAt: timestamp("created_at").defaultNow(),
 });
 
+// Discount coupons table
+export const discountCoupons = pgTable("discount_coupons", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  name: text("name").notNull().unique(),
+  percentage: decimal("percentage", { precision: 5, scale: 2 }).notNull(), // e.g., 10.00 for 10%
+  active: boolean("active").default(true),
+  createdAt: timestamp("created_at").defaultNow(),
+  createdBy: varchar("created_by").references(() => users.id).notNull(),
+});
+
 // Insert schemas (new)
 export const insertSupplierSchema = createInsertSchema(suppliers).pick({
   name: true,
@@ -348,6 +360,13 @@ export const insertPaymentSchema = createInsertSchema(payments).pick({
   method: true,
 });
 
+export const insertDiscountCouponSchema = createInsertSchema(discountCoupons).pick({
+  name: true,
+  percentage: true,
+  active: true,
+  createdBy: true,
+});
+
 // Types (new)
 export type Supplier = typeof suppliers.$inferSelect;
 export type InsertSupplier = z.infer<typeof insertSupplierSchema>;
@@ -374,5 +393,7 @@ export type SalesReturnItem = typeof salesReturnItems.$inferSelect;
 export type InsertSalesReturnItem = z.infer<typeof insertSalesReturnItemSchema>;
 export type Payment = typeof payments.$inferSelect;
 export type InsertPayment = z.infer<typeof insertPaymentSchema>;
+export type DiscountCoupon = typeof discountCoupons.$inferSelect;
+export type InsertDiscountCoupon = z.infer<typeof insertDiscountCouponSchema>;
 
 
