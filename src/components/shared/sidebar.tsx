@@ -39,39 +39,38 @@ export function Sidebar({ isOpen }: SidebarProps) {
 
   useEffect(() => {
     setIsMounted(true);
-  
+
     // ✅ Set initial state
-    setConnectionStatus(prev => ({
+    setConnectionStatus((prev) => ({
       ...prev,
       online: navigator.onLine,
     }));
-  
+
     const handleOnline = () =>
-      setConnectionStatus(prev => ({ ...prev, online: true }));
-  
+      setConnectionStatus((prev) => ({ ...prev, online: true }));
+
     const handleOffline = () =>
-      setConnectionStatus(prev => ({ ...prev, online: false }));
-  
+      setConnectionStatus((prev) => ({ ...prev, online: false }));
+
     const handleDataSync = (event: CustomEvent) => {
       const { success, timestamp } = event.detail;
-      setConnectionStatus(prev => ({
+      setConnectionStatus((prev) => ({
         ...prev,
         syncing: false,
         lastSync: success ? "Just now" : prev.lastSync,
       }));
     };
-  
+
     window.addEventListener("online", handleOnline);
     window.addEventListener("offline", handleOffline);
     window.addEventListener("dataSync", handleDataSync as EventListener);
-  
+
     return () => {
       window.removeEventListener("online", handleOnline);
       window.removeEventListener("offline", handleOffline);
       window.removeEventListener("dataSync", handleDataSync as EventListener);
     };
   }, []);
-  
 
   const adminMenuItems = [
     { href: "/admin", icon: BarChart3, label: "Dashboard" },
@@ -130,7 +129,11 @@ export function Sidebar({ isOpen }: SidebarProps) {
           {/* Connection Status */}
           <div className="mt-4 p-3 bg-muted rounded-lg">
             <div className="flex items-center justify-between">
-              <span className="text-sm font-medium">System Status</span>
+              <div className="hidden md:block">
+                <p className="text-sm font-medium">
+                  {user?.fullName || user?.username}
+                </p>
+              </div>
               <div className="flex items-center space-x-2">
                 {isMounted && connectionStatus.online ? (
                   <>
@@ -156,17 +159,21 @@ export function Sidebar({ isOpen }: SidebarProps) {
                 )}
               </div>
             </div>
-
-            <div className="mt-2 text-xs text-muted-foreground leading-snug">
-              {isMounted && connectionStatus.online
-                ? connectionStatus.syncing
-                  ? ""
-                  : ""
-                : ""}
-            </div>
-
-            <div className="text-xs text-muted-foreground mt-2">
-              Last sync: {connectionStatus.lastSync}
+            <div className="flex justify-between mt-1">
+              <div className="text-xs text-muted-foreground">
+                Last sync: {connectionStatus.lastSync}
+              </div>
+              <p
+                className={`text-xs capitalize ${
+                  user?.role === "admin"
+                    ? "text-orange-300"
+                    : user?.role === "employee"
+                    ? "text-blue-500"
+                    : "text-muted-foreground"
+                }`}
+              >
+                {user?.role}
+              </p>
             </div>
           </div>
         </div>

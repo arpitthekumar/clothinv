@@ -62,7 +62,6 @@ export function BillingInterface() {
   const [customerPhone, setCustomerPhone] = useState("");
   const [customerName, setCustomerName] = useState("");
   const [isProcessing, setIsProcessing] = useState(false);
-  const [returnMode, setReturnMode] = useState(false);
   const [linkedSaleId, setLinkedSaleId] = useState<string>("");
   const [favorites, setFavorites] = useState<FavoriteProduct[]>([]);
   const [couponCode, setCouponCode] = useState("");
@@ -549,23 +548,7 @@ export function BillingInterface() {
                 })}
               </div>
             )}
-            <div className="flex items-center gap-2">
-              <label className="text-sm font-medium">Return Mode</label>
-              <Button
-                variant={returnMode ? "default" : "outline"}
-                size="sm"
-                onClick={() => setReturnMode(!returnMode)}
-              >
-                {returnMode ? "On" : "Off"}
-              </Button>
-              {returnMode && (
-                <Input
-                  placeholder="Link Sale ID (optional)"
-                  value={linkedSaleId}
-                  onChange={(e) => setLinkedSaleId(e.target.value)}
-                />
-              )}
-            </div>
+            
           </CardContent>
         </Card>
 
