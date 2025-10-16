@@ -4,21 +4,21 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useAuth } from "@/hooks/use-auth";
 import { cn } from "@/lib/utils";
-import { 
-  Store, 
-  BarChart3, 
-  Package, 
-  Users, 
-  FileBarChart, 
-  Settings, 
-  Search, 
-  PlusCircle, 
-  ScanBarcode, 
+import {
+  Store,
+  BarChart3,
+  Package,
+  Users,
+  FileBarChart,
+  Settings,
+  Search,
+  PlusCircle,
+  ScanBarcode,
   QrCode,
   Wifi,
   WifiOff,
   RotateCcw,
-  Receipt
+  Receipt,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useEffect, useState } from "react";
@@ -34,33 +34,44 @@ export function Sidebar({ isOpen }: SidebarProps) {
   const [connectionStatus, setConnectionStatus] = useState({
     online: false,
     syncing: false,
-    lastSync: "Just now"
+    lastSync: "Just now",
   });
 
   useEffect(() => {
     setIsMounted(true);
-    const handleOnline = () => setConnectionStatus(prev => ({ ...prev, online: true }));
-    const handleOffline = () => setConnectionStatus(prev => ({ ...prev, online: false }));
-    
+  
+    // ✅ Set initial state
+    setConnectionStatus(prev => ({
+      ...prev,
+      online: navigator.onLine,
+    }));
+  
+    const handleOnline = () =>
+      setConnectionStatus(prev => ({ ...prev, online: true }));
+  
+    const handleOffline = () =>
+      setConnectionStatus(prev => ({ ...prev, online: false }));
+  
     const handleDataSync = (event: CustomEvent) => {
       const { success, timestamp } = event.detail;
       setConnectionStatus(prev => ({
         ...prev,
         syncing: false,
-        lastSync: success ? "Just now" : prev.lastSync
+        lastSync: success ? "Just now" : prev.lastSync,
       }));
     };
-
+  
     window.addEventListener("online", handleOnline);
     window.addEventListener("offline", handleOffline);
     window.addEventListener("dataSync", handleDataSync as EventListener);
-
+  
     return () => {
       window.removeEventListener("online", handleOnline);
       window.removeEventListener("offline", handleOffline);
       window.removeEventListener("dataSync", handleDataSync as EventListener);
     };
   }, []);
+  
 
   const adminMenuItems = [
     { href: "/admin", icon: BarChart3, label: "Dashboard" },
@@ -75,7 +86,11 @@ export function Sidebar({ isOpen }: SidebarProps) {
   const employeeMenuItems = [
     { href: "/", icon: RotateCcw, label: "Dashboard" },
     { href: "/inventory", icon: Search, label: "Find Products" },
-    { href: "/inventory?action=update", icon: PlusCircle, label: "Update Stock" },
+    {
+      href: "/inventory?action=update",
+      icon: PlusCircle,
+      label: "Update Stock",
+    },
   ];
 
   const commonMenuItems = [
@@ -86,11 +101,18 @@ export function Sidebar({ isOpen }: SidebarProps) {
   const menuItems = user?.role === "admin" ? adminMenuItems : employeeMenuItems;
 
   return (
-    <div className={cn(
-      "bg-card border-r border-border transition-all duration-300 flex-shrink-0",
-      isOpen ? "w-64" : "w-0 lg:w-64"
-    )}>
-      <div className={cn("h-full overflow-hidden", isOpen ? "block" : "hidden lg:block")}> 
+    <div
+      className={cn(
+        "bg-card border-r border-border transition-all duration-300 flex-shrink-0",
+        isOpen ? "w-64" : "w-0 lg:w-64"
+      )}
+    >
+      <div
+        className={cn(
+          "h-full overflow-hidden",
+          isOpen ? "block" : "hidden lg:block"
+        )}
+      >
         {/* Header */}
         <div className="p-6">
           <div className="flex items-center space-x-3">
@@ -98,35 +120,52 @@ export function Sidebar({ isOpen }: SidebarProps) {
               <Store className="text-primary-foreground text-lg" />
             </div>
             <div>
-              <h1 className="text-xl font-bold">ShopFlow</h1>
-              <p className="text-sm text-muted-foreground">Inventory Management</p>
+              <h1 className="text-xl font-bold">WTS ShopFlow</h1>
+              <p className="text-sm text-muted-foreground">
+                Inventory Management
+              </p>
             </div>
           </div>
 
           {/* Connection Status */}
           <div className="mt-4 p-3 bg-muted rounded-lg">
             <div className="flex items-center justify-between">
-              <span className="text-sm font-medium">Status</span>
+              <span className="text-sm font-medium">System Status</span>
               <div className="flex items-center space-x-2">
                 {isMounted && connectionStatus.online ? (
                   <>
-                    <div className={cn(
-                      "w-2 h-2 rounded-full",
-                      connectionStatus.syncing ? "bg-yellow-500 animate-pulse" : "bg-green-500"
-                    )} />
-                    <span className="text-xs text-green-600 font-medium">
-                      {connectionStatus.syncing ? "Syncing..." : "Online"}
+                    <div
+                      className={cn(
+                        "w-2 h-2 rounded-full",
+                        connectionStatus.syncing
+                          ? "bg-yellow-500 animate-pulse"
+                          : "bg-green-500"
+                      )}
+                    />
+                    <span className="text-xs text-green-600 font-semibold">
+                      {connectionStatus.syncing ? "Syncing Data..." : "Online"}
                     </span>
                   </>
                 ) : (
                   <>
-                    <div className="w-2 h-2 rounded-full bg-muted-foreground/40" />
-                    <span className="text-xs text-muted-foreground font-medium">Status</span>
+                    <div className="w-2 h-2 rounded-full bg-red-500" />
+                    <span className="text-xs text-red-600 font-semibold">
+                      Offline
+                    </span>
                   </>
                 )}
               </div>
             </div>
-            <div className="text-xs text-muted-foreground mt-1">
+
+            <div className="mt-2 text-xs text-muted-foreground leading-snug">
+              {isMounted && connectionStatus.online
+                ? connectionStatus.syncing
+                  ? ""
+                  : ""
+                : ""}
+            </div>
+
+            <div className="text-xs text-muted-foreground mt-2">
               Last sync: {connectionStatus.lastSync}
             </div>
           </div>
@@ -145,7 +184,9 @@ export function Sidebar({ isOpen }: SidebarProps) {
                   <Button
                     variant={location === item.href ? "default" : "ghost"}
                     className="w-full justify-start"
-                    data-testid={`nav-${item.label.toLowerCase().replace(/\s+/g, '-')}`}
+                    data-testid={`nav-${item.label
+                      .toLowerCase()
+                      .replace(/\s+/g, "-")}`}
                   >
                     <item.icon className="mr-2 h-4 w-4" />
                     {item.label}
@@ -161,7 +202,9 @@ export function Sidebar({ isOpen }: SidebarProps) {
                   <Button
                     variant={location === item.href ? "default" : "ghost"}
                     className="w-full justify-start"
-                    data-testid={`nav-${item.label.toLowerCase().replace(/\s+/g, '-')}`}
+                    data-testid={`nav-${item.label
+                      .toLowerCase()
+                      .replace(/\s+/g, "-")}`}
                   >
                     <item.icon className="mr-2 h-4 w-4" />
                     {item.label}

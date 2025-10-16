@@ -86,6 +86,23 @@ export function AddProductModal({ isOpen, onClose, initialProduct }: AddProductM
     },
   });
 
+  // When switching to edit mode or changing selected product, preload form fields
+  useEffect(() => {
+    if (!isOpen) return;
+    const values: FormValues = {
+      name: (initialProduct?.name as string) || "",
+      sku: (initialProduct?.sku as string) || "",
+      categoryId: (initialProduct?.categoryId as string) || "",
+      description: (initialProduct?.description as string) || "",
+      price: initialProduct?.price ? String(initialProduct.price) : "",
+      size: (initialProduct?.size as string) || "",
+      stock: initialProduct?.stock != null ? String(initialProduct.stock) : "",
+      minStock: initialProduct?.minStock != null ? String(initialProduct.minStock) : "5",
+      barcode: (initialProduct?.barcode as string) || "",
+    };
+    form.reset(values);
+  }, [initialProduct, isOpen]);
+
   // Auto-generate SKU and barcode when product name changes
   const productName = form.watch("name");
   useEffect(() => {

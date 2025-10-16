@@ -25,6 +25,7 @@ import {
 import { getQueryFn, apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { formatDistanceToNow } from "date-fns";
+import { invoicePrinter, type InvoiceData } from "@/lib/printer";
 
 export default function SalesPage() {
   const [sidebarOpen, setSidebarOpen] = useState(true);
@@ -36,6 +37,29 @@ export default function SalesPage() {
   
   const { toast } = useToast();
   const toggleSidebar = () => setSidebarOpen(!sidebarOpen);
+  const handlePrintSale = async (sale: any) => {
+    try {
+      const items = typeof sale.items === 'string' ? JSON.parse(sale.items) : sale.items;
+      const invoice: InvoiceData = {
+        invoiceNumber: sale.invoiceNumber || `INV-${sale.id?.slice(0,6)}`,
+        date: new Date(sale.createdAt || Date.now()),
+        items: items.map((it: any) => ({
+          name: it.name,
+          quantity: it.quantity,
+          price: parseFloat(it.price),
+          total: parseFloat(it.price) * it.quantity,
+        })),
+        subtotal: items.reduce((s: number, it: any) => s + parseFloat(it.price) * it.quantity, 0),
+        tax: 0, // unknown here; if you want 18% GST, compute like in POS
+        total: parseFloat(sale.totalAmount),
+        paymentMethod: sale.paymentMethod,
+      };
+      await invoicePrinter.printInvoice(invoice);
+      toast({ title: "Printing", description: `Invoice ${invoice.invoiceNumber} sent to printer` });
+    } catch (e: any) {
+      toast({ title: "Print failed", description: e?.message || "Unable to print invoice", variant: "destructive" });
+    }
+  };
 
   const { data: sales = [], isLoading } = useQuery<any[]>({
     queryKey: ["/api/sales", { includeDeleted: true }],
@@ -269,6 +293,13 @@ export default function SalesPage() {
                                 >
                                   <RotateCcw className="mr-2 h-4 w-4" />
                                   Return/Edit
+                                </Button>
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() => handlePrintSale(sale)}
+                                >
+                                  Print Bill
                                 </Button>
                                 <Button
                                   variant="destructive"
