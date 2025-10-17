@@ -13,10 +13,12 @@ const nextConfig: NextConfig = {
 
 // Wrap with PWA config
 const pwaConfig = withPWA({
-  disable: true,
   dest: "public",
   register: false,
-  skipWaiting: false,
+  skipWaiting: true,
+  disable:
+    process.env.NODE_ENV === "development" ||
+    process.env.NODE_ENV === "production",
 })(nextConfig);
 
 export default pwaConfig;

@@ -3,6 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Clock } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { formatDistanceToNow } from "date-fns";
+import { normalizeItems } from "@/lib/json";
 
 export function RecentActivity() {
   const { data: sales, isLoading } = useQuery<Array<{
@@ -62,9 +63,9 @@ export function RecentActivity() {
           </div>
         ) : (
           recentSales.map((sale: any, index: number) => {
-            const items = JSON.parse(sale.items as string);
-            const itemCount = Array.isArray(items) ? items.reduce((sum, item) => sum + item.quantity, 0) : 0;
-            
+            const items = normalizeItems(sale.items);
+            const itemCount = Array.isArray(items) ? items.reduce((sum, item) => sum + (item?.quantity || 0), 0) : 0;
+
             return (
               <div key={sale.id} className="flex items-center space-x-3" data-testid={`activity-${index}`}>
                 <div className={`w-2 h-2 ${getActivityColor(index)} rounded-full`} />

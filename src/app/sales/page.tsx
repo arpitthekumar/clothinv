@@ -26,6 +26,7 @@ import { getQueryFn, apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { formatDistanceToNow } from "date-fns";
 import { invoicePrinter, type InvoiceData } from "@/lib/printer";
+import { normalizeItems } from "@/lib/json";
 
 export default function SalesPage() {
   const [sidebarOpen, setSidebarOpen] = useState(true);
@@ -39,7 +40,7 @@ export default function SalesPage() {
   const toggleSidebar = () => setSidebarOpen(!sidebarOpen);
   const handlePrintSale = async (sale: any) => {
     try {
-      const items = typeof sale.items === 'string' ? JSON.parse(sale.items) : sale.items;
+      const items = normalizeItems(sale.items);
       const invoice: InvoiceData = {
         invoiceNumber: sale.invoiceNumber || `INV-${sale.id?.slice(0,6)}`,
         date: new Date(sale.createdAt || Date.now()),
@@ -141,8 +142,8 @@ export default function SalesPage() {
 
   const handleReturnSale = (sale: any) => {
     setSelectedSale(sale);
-    const items = typeof sale.items === 'string' ? JSON.parse(sale.items) : sale.items;
-    const returnItemsData = items.map((item: any) => ({
+    const items = normalizeItems(sale.items);
+    const returnItemsData = (Array.isArray(items) ? items : []).map((item: any) => ({
       productId: item.productId,
       quantity: 0,
       maxQuantity: item.quantity,
@@ -275,8 +276,7 @@ export default function SalesPage() {
                             <div className="flex items-center gap-1 text-sm text-muted-foreground">
                               <Package className="h-4 w-4" />
                               <span>
-                                {Array.isArray(sale.items) ? sale.items.length : 
-                                 typeof sale.items === 'string' ? JSON.parse(sale.items).length : 0} items
+                                {normalizeItems(sale.items).length} items
                               </span>
                             </div>
                           </div>

@@ -41,6 +41,7 @@ import { offlineStorage } from "@/lib/offline-storage";
 import { invoicePrinter, InvoiceData } from "@/lib/printer";
 import { Product, SaleItem } from "@shared/schema";
 import { favoritesStorage, FavoriteProduct } from "@/lib/favorites";
+import { normalizeItems } from "@/lib/json";
 
 interface CartItem extends SaleItem {
   id: string;
@@ -133,8 +134,7 @@ export function BillingInterface() {
   };
 
   const addRecentSaleToCart = (sale: any) => {
-    const items =
-      typeof sale.items === "string" ? JSON.parse(sale.items) : sale.items;
+    const items = normalizeItems(sale.items);
     if (Array.isArray(items)) {
       for (const item of items) {
         const product = products.find((p) => p.id === item.productId);
