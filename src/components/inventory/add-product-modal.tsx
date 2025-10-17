@@ -13,7 +13,6 @@ import { Textarea } from "@/components/ui/textarea";
 import { insertProductSchema, type Product } from "@shared/schema";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
-import { offlineStorage } from "@/lib/offline-storage";
 import { AddCategoryModal } from "@/components/shared/add-category-modal";
 import { Plus, RefreshCw,  } from "lucide-react";
 import { LabelPreviewDialog } from "@/components/shared/label-preview-dialog";
@@ -154,18 +153,7 @@ export function AddProductModal({ isOpen, onClose, initialProduct }: AddProductM
           : await apiRequest("POST", "/api/products", productData);
         return await response.json();
       } catch (error) {
-        // If offline, save to local storage
-        if (!navigator.onLine) {
-          const offlineProduct = {
-            id: (initialProduct?.id as string) || Date.now().toString(),
-            ...productData,
-            createdAt: new Date(),
-            updatedAt: new Date(),
-          };
-
-          await offlineStorage.addPendingChange("product", offlineProduct);
-          return offlineProduct;
-        }
+        // Online-only mode: surface the error
         throw error;
       }
     },

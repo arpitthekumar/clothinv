@@ -8,7 +8,6 @@ import { QrCode, ScanBarcode, Camera } from "lucide-react";
 import { ScannerModal } from "@/components/shared/scanner-modal";
 import { useToast } from "@/hooks/use-toast";
 import { useQuery } from "@tanstack/react-query";
-import { offlineStorage } from "@/lib/offline-storage";
 import Link from "next/link";
 
 export function QuickActions() {
@@ -30,22 +29,7 @@ export function QuickActions() {
   const handleScan = async (barcode: string) => {
     setScannedCode(barcode);
     setProductCode(barcode);
-    
-    // Try to find product offline first
-    try {
-      const offlineProduct = await offlineStorage.getProductByBarcode(barcode);
-      if (offlineProduct) {
-        toast({
-          title: "Product Found",
-          description: `${offlineProduct.name} - ₹${offlineProduct.price}`,
-        });
-        return;
-      }
-    } catch (error) {
-      console.error("Offline search failed:", error);
-    }
-    
-    // Fallback to online search
+    // Online-only: directly fetch via query
     findProduct();
   };
 

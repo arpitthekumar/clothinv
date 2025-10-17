@@ -10,20 +10,13 @@ export function NetworkStatusListener() {
   useEffect(() => {
     const handleOnline = () => {
       wasOffline.current = false;
-      toast({ title: "Back online", description: "Syncing data..." });
+      toast({ title: "Back online", description: "You're connected." });
     };
     const handleOffline = () => {
       wasOffline.current = true;
-      toast({ title: "Offline mode", description: "Changes will be saved and synced later." });
+      toast({ title: "Offline disabled", description: "Internet required to use the app.", variant: "destructive" });
     };
-    const handleDataSync = (e: Event) => {
-      const detail = (e as CustomEvent).detail as any;
-      if (detail?.success) {
-        toast({ title: "Sync complete", description: "Your data is up to date." });
-      } else {
-        toast({ title: "Sync failed", description: "Will retry automatically.", variant: "destructive" });
-      }
-    };
+    const handleDataSync = (_e: Event) => {};
 
     window.addEventListener("online", handleOnline);
     window.addEventListener("offline", handleOffline);
@@ -31,7 +24,7 @@ export function NetworkStatusListener() {
 
     // Initial state toast
     if (!navigator.onLine) {
-      toast({ title: "Offline mode", description: "Changes will be saved and synced later." });
+      toast({ title: "Offline disabled", description: "Internet required to use the app.", variant: "destructive" });
     }
 
     return () => {

@@ -37,7 +37,6 @@ import {
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/use-auth";
 import { apiRequest, queryClient } from "@/lib/queryClient";
-import { offlineStorage } from "@/lib/offline-storage";
 import { invoicePrinter, InvoiceData } from "@/lib/printer";
 import { Product, SaleItem } from "@shared/schema";
 import { favoritesStorage, FavoriteProduct } from "@/lib/favorites";
@@ -200,18 +199,7 @@ export function BillingInterface() {
         const response = await apiRequest("POST", "/api/sales", saleData);
         return await response.json();
       } catch (error) {
-        // If offline, save to local storage
-        if (!navigator.onLine) {
-          const offlineSale = {
-            id: Date.now().toString(),
-            ...saleData,
-            createdAt: new Date(),
-          };
-
-          await offlineStorage.saveSale(offlineSale);
-          await offlineStorage.addPendingChange("sale", offlineSale);
-          return offlineSale;
-        }
+        // Online-only mode: surface the error
         throw error;
       }
     },

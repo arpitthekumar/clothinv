@@ -14,9 +14,6 @@ import {
   Search,
   PlusCircle,
   ScanBarcode,
-  QrCode,
-  Wifi,
-  WifiOff,
   RotateCcw,
   Receipt,
 } from "lucide-react";
@@ -40,7 +37,6 @@ export function Sidebar({ isOpen }: SidebarProps) {
   useEffect(() => {
     setIsMounted(true);
 
-    // ✅ Set initial state
     setConnectionStatus((prev) => ({
       ...prev,
       online: navigator.onLine,
@@ -48,12 +44,10 @@ export function Sidebar({ isOpen }: SidebarProps) {
 
     const handleOnline = () =>
       setConnectionStatus((prev) => ({ ...prev, online: true }));
-
     const handleOffline = () =>
       setConnectionStatus((prev) => ({ ...prev, online: false }));
-
     const handleDataSync = (event: CustomEvent) => {
-      const { success, timestamp } = event.detail;
+      const { success } = event.detail;
       setConnectionStatus((prev) => ({
         ...prev,
         syncing: false,
@@ -94,7 +88,6 @@ export function Sidebar({ isOpen }: SidebarProps) {
 
   const commonMenuItems = [
     { href: "/pos", icon: ScanBarcode, label: "Point of Sale" },
-    // { href: "/scan", icon: QrCode, label: "Quick Scan" },
   ];
 
   const menuItems = user?.role === "admin" ? adminMenuItems : employeeMenuItems;
@@ -108,12 +101,12 @@ export function Sidebar({ isOpen }: SidebarProps) {
     >
       <div
         className={cn(
-          "h-full overflow-hidden",
-          isOpen ? "block" : "hidden lg:block"
+          "flex flex-col h-full overflow-hidden",
+          isOpen ? "block" : "hidden lg:flex"
         )}
       >
-        {/* Header */}
-        <div className="p-6">
+        {/* Sidebar Header */}
+        <div className="p-6 flex-shrink-0">
           <div className="flex items-center space-x-3">
             <div className="w-10 h-10 bg-primary rounded-lg flex items-center justify-center">
               <Store className="text-primary-foreground text-lg" />
@@ -146,7 +139,7 @@ export function Sidebar({ isOpen }: SidebarProps) {
                       )}
                     />
                     <span className="text-xs text-green-600 font-semibold">
-                      {connectionStatus.syncing ? "Syncing Data..." : "Online"}
+                      {connectionStatus.syncing ? "Syncing..." : "Online"}
                     </span>
                   </>
                 ) : (
@@ -178,8 +171,8 @@ export function Sidebar({ isOpen }: SidebarProps) {
           </div>
         </div>
 
-        {/* Navigation Menu */}
-        <nav className="px-6 pb-6">
+        {/* ✅ Scrollable Navigation Menu */}
+        <nav className="flex-1 px-6 pb-6 overflow-y-auto scrollbar-thin scrollbar-thumb-muted scrollbar-track-transparent">
           <div className="space-y-1">
             {/* Role-specific Menu Items */}
             <div>
