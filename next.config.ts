@@ -1,4 +1,5 @@
 import type { NextConfig } from "next";
+import withPWA from "next-pwa";
 
 const nextConfig: NextConfig = {
   eslint: {
@@ -7,6 +8,15 @@ const nextConfig: NextConfig = {
   typescript: {
     ignoreBuildErrors: false,
   },
+  reactStrictMode: true,
 };
 
-export default nextConfig;
+// Wrap with PWA config
+const pwaConfig = withPWA({
+  disable: true,
+  dest: "public",
+  register: false,
+  skipWaiting: false,
+})(nextConfig);
+
+export default pwaConfig;

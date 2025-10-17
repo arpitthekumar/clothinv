@@ -11,6 +11,7 @@ import {
 import Link from "next/link";
 import { useQuery } from "@tanstack/react-query";
 import { getQueryFn } from "@/lib/queryClient";
+import { InstallPwaButton } from "./install-pwa-button";
 
 interface HeaderProps {
   title: string;
@@ -61,6 +62,8 @@ export function Header({ title, subtitle, onSidebarToggle }: HeaderProps) {
 
         {/* Right section */}
         <div className="flex items-center gap-2 sm:gap-3 md:gap-4 flex-wrap justify-end">
+          {/* Install PWA */}
+          <InstallPwaButton />
           {/* Quick Sale */}
           <div className="hidden lg:block">
             <Link href="/pos">
