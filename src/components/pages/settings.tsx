@@ -5,7 +5,6 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useAuth } from "@/hooks/use-auth";
 import { Settings as SettingsIcon, Shield, Percent } from "lucide-react";
 import { CouponsManagement } from "@/components/settings/coupons-management";
-import PrintLabel from "../TestBluetooth";
 
 export default function Settings() {
   const [sidebarOpen, setSidebarOpen] = useState(true);
@@ -67,7 +66,6 @@ export default function Settings() {
                   System Information
                 </CardTitle>
               </CardHeader>
-      <PrintLabel />
               <CardContent>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>

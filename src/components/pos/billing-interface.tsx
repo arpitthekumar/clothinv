@@ -20,8 +20,7 @@ import { ThankYouModal } from "@/components/pos/ThankYouModal";
 import { PaymentDetails } from "@/components/pos/PaymentDetails";
 import { RecentSales } from "@/components/pos/RecentSales";
 import { MostSold } from "@/components/pos/MostSold";
-import { Input } from "../ui/input";
-import { useCallback, useState } from "react";
+
 
 export function BillingInterface() {
   const {
@@ -210,7 +209,6 @@ export function BillingInterface() {
 
       {/* Checkout Panel */}
       <div className="space-y-6">
-        {/* Bill Summary */}
         <Card>
           <CardHeader>
             <CardTitle>Bill Summary</CardTitle>
