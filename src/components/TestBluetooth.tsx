@@ -1,25 +1,68 @@
 "use client";
 
-import React from "react";
+import React, { useRef } from "react";
+import html2canvas from "html2canvas";
 
 export default function PrintLabel() {
-  const handlePrint = () => {
-    const text = "Arpit"; // Static label for testing
-    const encodedText = encodeURIComponent(text);
-    const intentURL = `intent://print?text=${encodedText}#Intent;scheme=bluetoothprint;package=mate.bluetoothprint;end`;
-    
-    // Navigate to the helper app
-    window.location.href = intentURL;
+  const boxRef = useRef<HTMLDivElement>(null);
+
+  const handlePrint = async () => {
+    if (!boxRef.current) return;
+
+    // Convert the box div to an image
+    const canvas = await html2canvas(boxRef.current);
+    const dataUrl = canvas.toDataURL("image/png");
+
+    // Convert data URL to Blob
+    const res = await fetch(dataUrl);
+    const blob = await res.blob();
+    const file = new File([blob], "label.png", { type: "image/png" });
+
+    // Use Web Share API (only works on mobile)
+    if (navigator.canShare && navigator.canShare({ files: [file] })) {
+      navigator
+        .share({
+          files: [file],
+          title: "Print Label",
+          text: "Label for Arpit",
+        })
+        .then(() => console.log("Shared successfully"))
+        .catch((err) => console.error("Share failed:", err));
+    } else {
+      alert("Sharing not supported on this device");
+    }
   };
 
   return (
-    <div className="flex flex-col items-center justify-center mt-20">
-      <div className="w-48 h-24 border-2 border-black flex items-center justify-center text-xl font-bold mb-6">
+    <div style={{ padding: 20 }}>
+      <div
+        ref={boxRef}
+        style={{
+          width: 200,
+          height: 100,
+          border: "2px solid #000",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          fontSize: 24,
+          fontWeight: "bold",
+          backgroundColor: "#fff",
+        }}
+      >
         Arpit
       </div>
+
       <button
         onClick={handlePrint}
-        className="px-6 py-3 bg-red-600 text-white rounded-lg hover:bg-red-700 transition"
+        style={{
+          marginTop: 20,
+          padding: "10px 20px",
+          backgroundColor: "#DE0F3F",
+          color: "#fff",
+          border: "none",
+          borderRadius: 6,
+          cursor: "pointer",
+        }}
       >
         Print Label
       </button>
