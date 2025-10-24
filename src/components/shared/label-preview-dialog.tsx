@@ -37,20 +37,6 @@ export function LabelPreviewDialog({
   const [loading, setLoading] = useState(false);
 
   const code = (product.barcode || product.sku).trim();
-  const printLabel = async () => {
-    if (!labelRef.current) return;
-
-    await waitForImages(labelRef.current);
-    const printWindow = window.open("", "_blank");
-    printWindow!.document.write(
-      `<html><head><title>Print Label</title></head><body>${
-        labelRef.current!.outerHTML
-      }</body></html>`
-    );
-    printWindow!.document.close();
-    printWindow!.focus();
-    printWindow!.print(); // native print dialog opens
-  };
 
   const waitForImages = async (element: HTMLElement) => {
     const imgs = Array.from(element.querySelectorAll("img"));
@@ -77,6 +63,20 @@ export function LabelPreviewDialog({
     });
   };
 
+  const printLabel = async () => {
+    if (!labelRef.current) return;
+    await waitForImages(labelRef.current);
+
+    // Open native print dialog
+    const printWindow = window.open("", "_blank");
+    printWindow!.document.write(
+      `<html><head><title>Print Label</title></head><body>${labelRef.current!.outerHTML}</body></html>`
+    );
+    printWindow!.document.close();
+    printWindow!.focus();
+    printWindow!.print();
+  };
+
   const downloadPDF = async () => {
     setLoading(true);
     const canvas = await generateCanvas();
@@ -84,9 +84,8 @@ export function LabelPreviewDialog({
 
     const imgData = canvas.toDataURL("image/png");
 
-    // Define PDF size same as your label in mm (approx.)
-    const labelWidthMM = 90; // adjust to match your label width
-    const labelHeightMM = 90; // adjust to match your label height
+    const labelWidthMM = 90;
+    const labelHeightMM = 90;
 
     const pdf = new jsPDF({
       unit: "mm",
@@ -95,13 +94,39 @@ export function LabelPreviewDialog({
     });
 
     const copies = Math.max(1, Math.min(100, Number(qty) || 1));
-
     for (let i = 0; i < copies; i++) {
       if (i > 0) pdf.addPage([labelWidthMM, labelHeightMM]);
       pdf.addImage(imgData, "PNG", 0, 0, labelWidthMM, labelHeightMM);
     }
 
     pdf.save(`label-${product.sku}.pdf`);
+    setLoading(false);
+  };
+
+  const shareLabel = async () => {
+    if (!labelRef.current) return;
+    setLoading(true);
+    const canvas = await generateCanvas();
+    if (!canvas) return setLoading(false);
+
+    const dataUrl = canvas.toDataURL("image/png");
+    const res = await fetch(dataUrl);
+    const blob = await res.blob();
+    const file = new File([blob], `label-${product.sku}.png`, {
+      type: "image/png",
+    });
+
+    if (navigator.canShare && navigator.canShare({ files: [file] })) {
+      navigator
+        .share({
+          files: [file],
+          title: "Product Label",
+          text: `Label for ${product.name}`,
+        })
+        .catch((err) => console.error("Share failed:", err));
+    } else {
+      alert("Sharing not supported on this device");
+    }
     setLoading(false);
   };
 
@@ -124,7 +149,7 @@ export function LabelPreviewDialog({
           />
 
           <div className="flex items-center gap-2">
-            <label className="text-sm">Quantity</label>
+            {/* <label className="text-sm">Quantity</label>
             <Input
               type="number"
               min={1}
@@ -132,12 +157,16 @@ export function LabelPreviewDialog({
               value={qty}
               onChange={(e) => setQty(parseInt(e.target.value || "1", 10))}
               className="w-24"
-            />
-            <div className="flex-1" />
+            /> */}
+            {/* <div className="flex-1" />
             <Button onClick={printLabel}>Print Label</Button>
 
             <Button variant="outline" onClick={downloadPDF} disabled={loading}>
               {loading ? "Generating..." : "Download PDF"}
+            </Button> */}
+
+            <Button variant="secondary" onClick={shareLabel} disabled={loading}>
+              {loading ? "Generating..." : "Print"}
             </Button>
           </div>
         </div>
