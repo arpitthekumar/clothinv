@@ -12,7 +12,7 @@ export async function POST(req: NextRequest) {
     session.user = {
       id: "admin-dev-001",
       username: "admin",
-      password: "dev",
+      password: "admin123",
       role: "admin",
       fullName: "Administrator (Dev)",
       createdAt: new Date(),

@@ -3,7 +3,12 @@
 import { useRef, useState } from "react";
 import html2canvas from "html2canvas";
 import jsPDF from "jspdf";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ProductLabel } from "./product-label";
@@ -22,12 +27,30 @@ type LabelPreviewDialogProps = {
   };
 };
 
-export function LabelPreviewDialog({ open, onOpenChange, product }: LabelPreviewDialogProps) {
+export function LabelPreviewDialog({
+  open,
+  onOpenChange,
+  product,
+}: LabelPreviewDialogProps) {
   const labelRef = useRef<HTMLDivElement>(null);
   const [qty, setQty] = useState<number>(1);
   const [loading, setLoading] = useState(false);
 
   const code = (product.barcode || product.sku).trim();
+  const printLabel = async () => {
+    if (!labelRef.current) return;
+
+    await waitForImages(labelRef.current);
+    const printWindow = window.open("", "_blank");
+    printWindow!.document.write(
+      `<html><head><title>Print Label</title></head><body>${
+        labelRef.current!.outerHTML
+      }</body></html>`
+    );
+    printWindow!.document.close();
+    printWindow!.focus();
+    printWindow!.print(); // native print dialog opens
+  };
 
   const waitForImages = async (element: HTMLElement) => {
     const imgs = Array.from(element.querySelectorAll("img"));
@@ -111,6 +134,8 @@ export function LabelPreviewDialog({ open, onOpenChange, product }: LabelPreview
               className="w-24"
             />
             <div className="flex-1" />
+            <Button onClick={printLabel}>Print Label</Button>
+
             <Button variant="outline" onClick={downloadPDF} disabled={loading}>
               {loading ? "Generating..." : "Download PDF"}
             </Button>

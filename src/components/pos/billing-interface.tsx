@@ -1,12 +1,15 @@
-import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Separator } from "@/components/ui/separator";
+import { ManualScanner } from "@/components/pos/ManualScanner";
 import { ScannerModal } from "@/components/shared/scanner-modal";
-import { ShoppingCart, CreditCard, Search, Heart, Clock, TrendingUp } from "lucide-react";
-import { InvoiceData } from "@/lib/printer";
-import { Product, SaleItem } from "@shared/schema";
-import { favoritesStorage, FavoriteProduct } from "@/lib/favorites";
+import {
+  ShoppingCart,
+  CreditCard,
+  Search,
+  Heart,
+  Clock,
+  TrendingUp,
+} from "lucide-react";
 import { useBilling } from "@/hooks/use-billing";
 import { ProductSearch } from "@/components/pos/ProductSearch";
 import { FavoriteProducts } from "@/components/pos/FavoriteProducts";
@@ -17,197 +20,62 @@ import { ThankYouModal } from "@/components/pos/ThankYouModal";
 import { PaymentDetails } from "@/components/pos/PaymentDetails";
 import { RecentSales } from "@/components/pos/RecentSales";
 import { MostSold } from "@/components/pos/MostSold";
+import { Input } from "../ui/input";
+import { useCallback, useState } from "react";
 
 export function BillingInterface() {
   const {
     // state
-    cart, productCode, searchResults, showScanner, paymentMethod, showConfirmPayment, showThankYou,
-    lastInvoiceData, lastCustomerPhone, customerPhone, customerName, isProcessing, favorites, couponCode, appliedCoupon,
+    cart,
+    productCode,
+    searchResults,
+    showScanner,
+    paymentMethod,
+    showConfirmPayment,
+    showThankYou,
+    lastInvoiceData,
+    lastCustomerPhone,
+    customerPhone,
+    customerName,
+    isProcessing,
+    favorites,
+    couponCode,
+    appliedCoupon,
     // setters
-    setProductCode, setShowScanner, setPaymentMethod, setShowConfirmPayment, setShowThankYou, setCustomerPhone, setCustomerName, setCouponCode,
+    setProductCode,
+    setShowScanner,
+    setPaymentMethod,
+    setShowConfirmPayment,
+    setShowThankYou,
+    setCustomerPhone,
+    setCustomerName,
+    setCouponCode,
     // data
-    products, recentSales, mostSoldProducts,
+    products,
+    recentSales,
+    mostSoldProducts,
     // actions
-    addToCart, updateQuantity, removeFromCart, clearCart,
-    toggleFavorite, handleProductSearch, handleScan, calculateTotals, handleCheckout,
-    addRecentSaleToCart, addMostSoldToCart, applyCoupon, removeCoupon,
+    addToCart,
+    updateQuantity,
+    removeFromCart,
+    clearCart,
+    toggleFavorite,
+    handleProductSearch,
+    handleScan,
+    calculateTotals,
+    handleCheckout,
+    addRecentSaleToCart,
+    addMostSoldToCart,
+    applyCoupon,
+    removeCoupon,
     isFavorite,
   } = useBilling();
 
-  // Clear search results when query is cleared
-  // useEffect(() => {
-  //   if (!productCode.trim()) setSearchResults([]);
-  // }, [productCode]);
 
-  // logic moved into useBilling hook
-
-  const addFavoriteToCart = (favorite: FavoriteProduct) => {
-    const product = products.find((p) => p.id === favorite.id);
-    if (product) addToCart(product);
-  };
   const addFavoriteIdToCart = (favoriteId: string) => {
     const product = products.find((p) => p.id === favoriteId);
     if (product) addToCart(product);
   };
-
-  // const addRecentSaleToCart = (sale: any) => {
-  //   const items = normalizeItems(sale.items);
-  //   if (Array.isArray(items)) {
-  //     for (const item of items) {
-  //       const product = products.find((p) => p.id === item.productId);
-  //       if (product) {
-  //         addToCart(product, item.quantity);
-  //       }
-  //     }
-  //     toast({
-  //       title: "Sale Items Added",
-  //       description: `Items from sale ${sale.invoiceNumber} added to cart`,
-  //     });
-  //   }
-  // };
-
-  // const addMostSoldToCart = (mostSold: any) => {
-  //   const product = products.find((p) => p.id === mostSold.productId);
-  //   if (product) {
-  //     if (product.stock <= 0) {
-  //       toast({
-  //         title: "Out of Stock",
-  //         description: `${product.name} is currently out of stock`,
-  //         variant: "destructive",
-  //       });
-  //       return;
-  //     }
-  //     addToCart(product);
-  //   }
-  // };
-
-  // const applyCoupon = () => {
-  //   if (!couponCode.trim()) return;
-
-  //   const coupon = coupons.find(
-  //     (c) => c.name.toLowerCase() === couponCode.toLowerCase()
-  //   );
-  //   if (coupon) {
-  //     setAppliedCoupon(coupon);
-  //     toast({
-  //       title: "Coupon Applied",
-  //       description: `${coupon.percentage}% discount applied`,
-  //     });
-  //   } else {
-  //     toast({
-  //       title: "Invalid Coupon",
-  //       description: "Coupon code not found",
-  //       variant: "destructive",
-  //     });
-  //   }
-  // };
-
-  // const removeCoupon = () => {
-  //   setAppliedCoupon(null);
-  //   setCouponCode("");
-  //   toast({
-  //     title: "Coupon Removed",
-  //     description: "Discount coupon removed",
-  //   });
-  // };
-
-  // const createSaleMutation = useMutation({
-  //   mutationFn: async (saleData: any) => {
-  //     try {
-  //       const response = await apiRequest("POST", "/api/sales", saleData);
-  //       return await response.json();
-  //     } catch (error) {
-  //       // Online-only mode: surface the error
-  //       throw error;
-  //     }
-  //   },
-  //   onSuccess: () => {
-  //     queryClient.invalidateQueries({ queryKey: ["/api/sales"] });
-  //     queryClient.invalidateQueries({ queryKey: ["/api/dashboard/stats"] });
-  //   },
-  // });
-
-  // const addToCart = (product: Product, quantity: number = 1) => {
-  //   setCart((prevCart) => {
-  //     const existingItem = prevCart.find(
-  //       (item) => item.productId === product.id
-  //     );
-
-  //     if (existingItem) {
-  //       const newQuantity = existingItem.quantity + quantity;
-  //       if (newQuantity > product.stock) {
-  //         toast({
-  //           title: "Insufficient Stock",
-  //           description: `Only ${product.stock} units available`,
-  //           variant: "destructive",
-  //         });
-  //         return prevCart;
-  //       }
-
-  //       return prevCart.map((item) =>
-  //         item.productId === product.id
-  //           ? { ...item, quantity: newQuantity }
-  //           : item
-  //       );
-  //     }
-
-  //     if (quantity > product.stock) {
-  //       toast({
-  //         title: "Insufficient Stock",
-  //         description: `Only ${product.stock} units available`,
-  //         variant: "destructive",
-  //       });
-  //       return prevCart;
-  //     }
-
-  //     const newItem: CartItem = {
-  //       id: product.id,
-  //       productId: product.id,
-  //       name: product.name,
-  //       sku: product.sku,
-  //       quantity,
-  //       price: product.price,
-  //       stock: product.stock,
-  //     };
-
-  //     return [...prevCart, newItem];
-  //   });
-  // };
-
-  // const updateQuantity = (productId: string, newQuantity: number) => {
-  //   if (newQuantity <= 0) {
-  //     removeFromCart(productId);
-  //     return;
-  //   }
-
-  //   setCart((prevCart) => {
-  //     return prevCart.map((item) => {
-  //       if (item.productId === productId) {
-  //         if (newQuantity > item.stock) {
-  //           toast({
-  //             title: "Insufficient Stock",
-  //             description: `Only ${item.stock} units available`,
-  //             variant: "destructive",
-  //           });
-  //           return item;
-  //         }
-  //         return { ...item, quantity: newQuantity };
-  //       }
-  //       return item;
-  //     });
-  //   });
-  // };
-
-  // const removeFromCart = (productId: string) => {
-  //   setCart((prevCart) =>
-  //     prevCart.filter((item) => item.productId !== productId)
-  //   );
-  // };
-
-  // const clearCart = () => {
-  //   setCart([]);
-  //   setCustomerPhone("");
-  // };
 
   const addProductIdToCart = (productId: string) => {
     const product = products.find((p) => p.id === productId);
@@ -239,11 +107,15 @@ export function BillingInterface() {
               onOpenScanner={() => setShowScanner(true)}
               searchResults={searchResults as any}
               onAddToCart={addProductIdToCart}
-              onToggleFavorite={(id) => { const p = products.find(x => x.id === id); if (p) toggleFavorite(p); }}
+              onToggleFavorite={(id) => {
+                const p = products.find((x) => x.id === id);
+                if (p) toggleFavorite(p);
+              }}
               isFavorite={isFavorite}
             />
           </CardContent>
         </Card>
+        <ManualScanner onScan={handleScan} />
 
         {/* Quick Access Sections */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
@@ -272,7 +144,10 @@ export function BillingInterface() {
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <RecentSales recentSales={recentSales as any} onAddRecentSaleToCart={addRecentSaleToCart} />
+              <RecentSales
+                recentSales={recentSales as any}
+                onAddRecentSaleToCart={addRecentSaleToCart}
+              />
             </CardContent>
           </Card>
 
@@ -287,7 +162,7 @@ export function BillingInterface() {
             <CardContent>
               <MostSold
                 mostSoldProducts={mostSoldProducts as any}
-                getProduct={(id) => products.find(p => p.id === id)}
+                getProduct={(id) => products.find((p) => p.id === id)}
                 onAddMostSoldToCart={addMostSoldToCart as any}
               />
             </CardContent>
@@ -318,12 +193,12 @@ export function BillingInterface() {
             <CartTable
               items={cart as any}
               onDecrease={(productId) => {
-                const item = cart.find(i => i.productId === productId);
+                const item = cart.find((i) => i.productId === productId);
                 if (!item) return;
                 updateQuantity(productId, item.quantity - 1);
               }}
               onIncrease={(productId) => {
-                const item = cart.find(i => i.productId === productId);
+                const item = cart.find((i) => i.productId === productId);
                 if (!item) return;
                 updateQuantity(productId, item.quantity + 1);
               }}

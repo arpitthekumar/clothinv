@@ -56,27 +56,25 @@ export function useBilling() {
 		}
 	};
 
-	const addToCart = (product: Product, quantity: number = 1) => {
-		setCart(prev => {
-			const existing = prev.find(i => i.productId === product.id);
-			if (existing) {
-				const newQty = existing.quantity + quantity;
-				if (newQty > product.stock) { toast({ title: "Insufficient Stock", description: `Only ${product.stock} units available`, variant: "destructive" }); return prev; }
-				return prev.map(i => i.productId === product.id ? { ...i, quantity: newQty } : i);
-			}
-			if (quantity > product.stock) { toast({ title: "Insufficient Stock", description: `Only ${product.stock} units available`, variant: "destructive" }); return prev; }
-			const newItem: CartItem = { id: product.id, productId: product.id, name: product.name, sku: product.sku, quantity, price: product.price, stock: product.stock };
-			return [...prev, newItem];
-		});
+const addToCart = (product: Product, quantity: number = 1) => {
+		const existing = cart.find(i => i.productId === product.id);
+		if (existing) {
+			const newQty = existing.quantity + quantity;
+			if (newQty > product.stock) { toast({ title: "Insufficient Stock", description: `Only ${product.stock} units available`, variant: "destructive" }); return; }
+			setCart(prev => prev.map(i => i.productId === product.id ? { ...i, quantity: newQty } : i));
+			return;
+		}
+		if (quantity > product.stock) { toast({ title: "Insufficient Stock", description: `Only ${product.stock} units available`, variant: "destructive" }); return; }
+		const newItem: CartItem = { id: product.id, productId: product.id, name: product.name, sku: product.sku, quantity, price: product.price, stock: product.stock };
+		setCart(prev => [...prev, newItem]);
 	};
 
-	const updateQuantity = (productId: string, newQuantity: number) => {
+const updateQuantity = (productId: string, newQuantity: number) => {
 		if (newQuantity <= 0) { removeFromCart(productId); return; }
-		setCart(prev => prev.map(item => {
-			if (item.productId !== productId) return item;
-			if (newQuantity > item.stock) { toast({ title: "Insufficient Stock", description: `Only ${item.stock} units available`, variant: "destructive" }); return item; }
-			return { ...item, quantity: newQuantity };
-		}));
+		const current = cart.find(i => i.productId === productId);
+		if (!current) return;
+		if (newQuantity > current.stock) { toast({ title: "Insufficient Stock", description: `Only ${current.stock} units available`, variant: "destructive" }); return; }
+		setCart(prev => prev.map(item => item.productId === productId ? { ...item, quantity: newQuantity } : item));
 	};
 
 	const removeFromCart = (productId: string) => setCart(prev => prev.filter(i => i.productId !== productId));
