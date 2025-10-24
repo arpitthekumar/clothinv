@@ -30,7 +30,7 @@ export function StatsGrid() {
   const statItems = [
     {
       title: "Today's Sales",
-      value: `₹${stats?.todaySales?.toLocaleString() || 0}`,
+      value: `₹${stats ? Math.round(stats.todaySales).toLocaleString() : 0}`,
       change: "+12% from yesterday",
       icon: TrendingUp,
       bgColor: "bg-green-100",

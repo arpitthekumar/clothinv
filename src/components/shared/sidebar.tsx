@@ -70,7 +70,7 @@ export function Sidebar({ isOpen }: SidebarProps) {
     { href: "/admin", icon: BarChart3, label: "Dashboard" },
     { href: "/admin/users", icon: Users, label: "Users" },
     { href: "/inventory", icon: Package, label: "Inventory" },
-    { href: "/purchasing", icon: RotateCcw, label: "Purchasing" },
+    // { href: "/purchasing", icon: RotateCcw, label: "Purchasing" },
     { href: "/sales", icon: Receipt, label: "Sales Management" },
     { href: "/reports", icon: FileBarChart, label: "Reports" },
     { href: "/settings", icon: Settings, label: "Settings" },

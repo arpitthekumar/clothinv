@@ -261,8 +261,8 @@ export default function SalesPage() {
                               </Badge>
                             </div>
                             <div className="text-right">
-                              <p className="font-semibold">₹{sale.totalAmount}</p>
-                              <p className="text-sm text-muted-foreground capitalize">
+                            <p className="font-semibold">₹{Math.round(sale.totalAmount)}</p>
+                            <p className="text-sm text-muted-foreground capitalize">
                                 {sale.paymentMethod}
                               </p>
                             </div>
