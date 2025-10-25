@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useRef, useState, useEffect } from "react";
 import html2canvas from "html2canvas";
 import jsPDF from "jspdf";
 import {
@@ -10,7 +10,6 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { ProductLabel } from "./product-label";
 
 type LabelPreviewDialogProps = {
@@ -33,8 +32,8 @@ export function LabelPreviewDialog({
   product,
 }: LabelPreviewDialogProps) {
   const labelRef = useRef<HTMLDivElement>(null);
-  const [qty, setQty] = useState<number>(1);
   const [loading, setLoading] = useState(false);
+  const [barcodeLoaded, setBarcodeLoaded] = useState(false);
 
   const code = (product.barcode || product.sku).trim();
 
@@ -63,49 +62,10 @@ export function LabelPreviewDialog({
     });
   };
 
-  const printLabel = async () => {
-    if (!labelRef.current) return;
-    await waitForImages(labelRef.current);
-
-    // Open native print dialog
-    const printWindow = window.open("", "_blank");
-    printWindow!.document.write(
-      `<html><head><title>Print Label</title></head><body>${labelRef.current!.outerHTML}</body></html>`
-    );
-    printWindow!.document.close();
-    printWindow!.focus();
-    printWindow!.print();
-  };
-
-  const downloadPDF = async () => {
-    setLoading(true);
-    const canvas = await generateCanvas();
-    if (!canvas) return setLoading(false);
-
-    const imgData = canvas.toDataURL("image/png");
-
-    const labelWidthMM = 90;
-    const labelHeightMM = 90;
-
-    const pdf = new jsPDF({
-      unit: "mm",
-      format: [labelWidthMM, labelHeightMM],
-      compress: true,
-    });
-
-    const copies = Math.max(1, Math.min(100, Number(qty) || 1));
-    for (let i = 0; i < copies; i++) {
-      if (i > 0) pdf.addPage([labelWidthMM, labelHeightMM]);
-      pdf.addImage(imgData, "PNG", 0, 0, labelWidthMM, labelHeightMM);
-    }
-
-    pdf.save(`label-${product.sku}.pdf`);
-    setLoading(false);
-  };
-
-  const shareLabel = async () => {
+  const handleGenerateFile = async (type: "print" | "download") => {
     if (!labelRef.current) return;
     setLoading(true);
+
     const canvas = await generateCanvas();
     if (!canvas) return setLoading(false);
 
@@ -116,17 +76,25 @@ export function LabelPreviewDialog({
       type: "image/png",
     });
 
-    if (navigator.canShare && navigator.canShare({ files: [file] })) {
-      navigator
-        .share({
-          files: [file],
-          title: "Product Label",
-          text: `Label for ${product.name}`,
-        })
-        .catch((err) => console.error("Share failed:", err));
+    if (type === "print") {
+      if (navigator.canShare && navigator.canShare({ files: [file] })) {
+        await navigator
+          .share({
+            files: [file],
+            title: "Product Label",
+            text: `Label for ${product.name}`,
+          })
+          .catch((err) => console.error("Share failed:", err));
+      } else {
+        alert("Sharing not supported on this device");
+      }
     } else {
-      alert("Sharing not supported on this device");
+      const link = document.createElement("a");
+      link.href = dataUrl;
+      link.download = `label-${product.sku}.png`;
+      link.click();
     }
+
     setLoading(false);
   };
 
@@ -140,33 +108,38 @@ export function LabelPreviewDialog({
         <div className="space-y-4 items-center">
           <ProductLabel
             ref={labelRef}
-            name={product.name}
-            sku={product.sku}
-            price={product.price}
-            size={product.size}
-            categoryName={product.categoryName}
+            name={product.name ?? ""}
+            sku={product.sku ?? ""}
+            price={product.price ?? ""}
+            size={product.size ?? ""}
+            categoryName={product.categoryName ?? ""}
             code={code}
+            onBarcodeLoad={() => setBarcodeLoaded(true)}
           />
 
-          <div className="flex items-center gap-2">
-            {/* <label className="text-sm">Quantity</label>
-            <Input
-              type="number"
-              min={1}
-              max={100}
-              value={qty}
-              onChange={(e) => setQty(parseInt(e.target.value || "1", 10))}
-              className="w-24"
-            /> */}
-            {/* <div className="flex-1" />
-            <Button onClick={printLabel}>Print Label</Button>
+          <div className="flex items-center justify-center gap-3">
+            <Button
+              variant="secondary"
+              onClick={() => handleGenerateFile("print")}
+              disabled={!barcodeLoaded || loading}
+            >
+              {loading
+                ? "Generating..."
+                : !barcodeLoaded
+                ? "Loading..."
+                : "Print"}
+            </Button>
 
-            <Button variant="outline" onClick={downloadPDF} disabled={loading}>
-              {loading ? "Generating..." : "Download PDF"}
-            </Button> */}
-
-            <Button variant="secondary" onClick={shareLabel} disabled={loading}>
-              {loading ? "Generating..." : "Print"}
+            <Button
+              variant="secondary"
+              onClick={() => handleGenerateFile("download")}
+              disabled={!barcodeLoaded || loading}
+            >
+              {loading
+                ? "Generating..."
+                : !barcodeLoaded
+                ? "Loading..."
+                : "Download"}
             </Button>
           </div>
         </div>

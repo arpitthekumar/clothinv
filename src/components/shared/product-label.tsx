@@ -5,11 +5,12 @@ import React from "react";
 type ProductLabelProps = {
   name: string;
   sku: string;
-  price?: string | number;
-  size?: string | null;
-  categoryName?: string | null;
-  code: string; // barcode or fallback code text
+  price: string | number;
+  size: string;
+  categoryName: string;
+  code: string;
   className?: string;
+  onBarcodeLoad?: () => void;
 };
 
 function getBarcodeUrl(payload: string): string {
@@ -18,62 +19,58 @@ function getBarcodeUrl(payload: string): string {
   const symbology = isEanCandidate ? "ean13" : "code128";
   return `https://bwipjs-api.metafloor.com/?bcid=${symbology}&text=${encodeURIComponent(
     value
-  )}&scale=3&includetext=true&guardwhitespace=true`;
+  )}&scale=4&includetext=true&guardwhitespace=true&backgroundcolor=ffffff&fmt=svg`;
 }
 
 export const ProductLabel = React.forwardRef<HTMLDivElement, ProductLabelProps>(
-  ({ name, sku, price, size, categoryName, code, className }, ref) => {
+  ({ sku, price, size, categoryName, code, className, onBarcodeLoad }, ref) => {
     const barcodeUrl = getBarcodeUrl(code);
 
     return (
       <div
         ref={ref}
-        className={"border-2 p-4 w-[300px] text-center bg-white " + (className || "")}
-        style={{
-          fontFamily: "Arial, sans-serif",
-          color: "#1f2937", // text-gray-800 replacement
-          borderColor: "#000000",
-          backgroundColor: "#ffffff",
-        }}
+        aria-describedby={undefined}
+        className={`relative flex flex-col justify-between border border-black bg-white text-black p-1 w-[380px] h-[200px] ${
+          className || ""
+        }`}
+        style={{ fontFamily: "Arial, sans-serif" }}
       >
-        {/* Header */}
-        <h1 style={{ fontWeight: 700, fontSize: "16px", marginBottom: "4px", color: "#111827" }}>
-          WTS cloths
-        </h1>
+        <div>
+          {/* Top Title */}
+          <h1 className="text-[28px] font-bold text-center">
+            Bhootia Fabric Collection
+          </h1>
 
-        {/* Product Name */}
-        <div style={{ fontWeight: 700, fontSize: "16px", marginBottom: "4px" }}>{name}</div>
+          <div className="flex flex-row text-[20px] font-semibold px-4">
+            <div className="flex flex-col">
+              <p className="flex flex-row">
+                Price: <span>{" "}{price}</span>
+              </p>
+              <p className="flex flex-row ">
+                SIZE: <span>{size}</span>
+              </p>
+              <p className="flex flex-row">
+                CT: <span>{categoryName}</span>
+              </p>
+              <div className="text-left text-[28px] font-extrabold">WTS</div>
+            </div>
 
-        {/* SKU */}
-        <div style={{ fontSize: "12px", marginBottom: "8px", color: "#4b5563" }}>SKU: {sku}</div>
-
-        {/* Barcode */}
-        <div style={{ margin: "8px 0", display: "flex", justifyContent: "center" }}>
-          <img src={barcodeUrl} alt="Barcode" crossOrigin="anonymous" />
-        </div>
-
-        {/* Barcode Text */}
-        <div style={{ fontFamily: "monospace", fontSize: "11px", letterSpacing: "2px", marginBottom: "8px" }}>
-          {code}
-        </div>
-
-        {/* Details Grid */}
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "4px", fontSize: "12px", textAlign: "left" }}>
-          <div>
-            <span style={{ color: "#111827", fontWeight: 500 }}>Price:</span>{" "}
-            <span style={{ fontWeight: 600 }}>{price !== undefined ? `₹${price}` : "-"}</span>
-          </div>
-          <div>
-            <span style={{ color: "#111827", fontWeight: 500 }}>Size:</span>{" "}
-            <span style={{ fontWeight: 600 }}>{size || "-"}</span>
-          </div>
-          <div style={{ gridColumn: "span 2" }}>
-            <span style={{ color: "#6b7280", fontWeight: 500 }}>Category:</span>{" "}
-            <span style={{ fontWeight: 600 }}>{categoryName || "-"}</span>
-          </div>
-          <div style={{ gridColumn: "span 2" }}>
-            <span style={{ color: "#6b7280", fontWeight: 500 }}>SKU:</span>{" "}
-            <span style={{ fontWeight: 600 }}>{sku}</span>
+            {/* Barcode */}
+            <div className="items-center ml-auto">
+              <p className="text-[20px] font-semibold text-center pb-2">
+                SKU: {sku}
+              </p>
+              <div className="flex justify-center">
+                <img
+                  src={barcodeUrl}
+                  alt="Barcode"
+                  crossOrigin="anonymous"
+                  className="w-[280px] h-[100px] object-cover object-bottom overflow-hidden"
+                  onLoad={onBarcodeLoad}
+                  onError={onBarcodeLoad}
+                />
+              </div>
+            </div>
           </div>
         </div>
       </div>
