@@ -5,6 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import { parseBarcode } from "@/lib/scanner";
+import { Card } from "../ui/card";
 
 interface ManualScannerProps {
   onScan: (barcode: string) => void;
@@ -74,7 +75,7 @@ export function ManualScanner({ onScan }: ManualScannerProps) {
   }, [manualInput, onScan, toast]);
 
   return (
-    <div className="border-t pt-4">
+    <Card className="border-t p-4">
       <div className="space-y-3">
         <div>
           <label className="text-sm font-medium">Manual Entry</label>
@@ -99,6 +100,6 @@ export function ManualScanner({ onScan }: ManualScannerProps) {
           </Button>
         </div>
       </div>
-    </div>
+    </Card>
   );
 }
