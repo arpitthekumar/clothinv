@@ -79,11 +79,7 @@ export function Sidebar({ isOpen }: SidebarProps) {
   const employeeMenuItems = [
     { href: "/", icon: RotateCcw, label: "Dashboard" },
     { href: "/inventory", icon: Search, label: "Find Products" },
-    {
-      href: "/inventory?action=update",
-      icon: PlusCircle,
-      label: "Update Stock",
-    },
+    
   ];
 
   const commonMenuItems = [
