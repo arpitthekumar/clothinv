@@ -75,4 +75,17 @@ UPDATE sales SET deleted = FALSE WHERE deleted IS NULL;
 -- Note: We'll create sale_items records manually for existing sales
 -- or let the system create them as needed for new sales
 
+-- 8. Add missing sale calculation columns
+ALTER TABLE sales 
+ADD COLUMN IF NOT EXISTS customer_name TEXT,
+ADD COLUMN IF NOT EXISTS customer_phone TEXT,
+ADD COLUMN IF NOT EXISTS subtotal DECIMAL(10, 2),
+ADD COLUMN IF NOT EXISTS tax_percent DECIMAL(5, 2) DEFAULT 0,
+ADD COLUMN IF NOT EXISTS tax_amount DECIMAL(10, 2) DEFAULT 0,
+ADD COLUMN IF NOT EXISTS discount_type TEXT, -- 'percentage' or 'fixed'
+ADD COLUMN IF NOT EXISTS discount_value DECIMAL(10, 2) DEFAULT 0,
+ADD COLUMN IF NOT EXISTS discount_amount DECIMAL(10, 2) DEFAULT 0;
 
+-- 9. Add indexes for new columns
+CREATE INDEX IF NOT EXISTS idx_sales_customer_name ON sales(customer_name);
+CREATE INDEX IF NOT EXISTS idx_sales_customer_phone ON sales(customer_phone);

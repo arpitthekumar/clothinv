@@ -1,8 +1,9 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { useToast } from "@/hooks/use-toast";
+import { calculateSaleTotals } from "@/lib/sales";
+import { useToast } from "./use-toast";
 import { useAuth } from "@/hooks/use-auth";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { invoicePrinter, type InvoiceData } from "@/lib/printer";
@@ -110,14 +111,53 @@ const updateQuantity = (productId: string, newQuantity: number) => {
 	};
 
 	const calculateTotals = () => {
-		const subtotal = cart.reduce((sum, item) => { const unit = parseFloat(item.price); const discounted = getDiscountedUnitPrice(item.productId, unit); return sum + discounted * item.quantity; }, 0);
-		let couponDiscount = 0; if (appliedCoupon) couponDiscount = subtotal * (parseFloat(appliedCoupon.percentage) / 100);
-		const afterCoupon = subtotal - couponDiscount; const tax = afterCoupon * 0.18; const total = afterCoupon + tax; return { subtotal, couponDiscount, afterCoupon, tax, total };
+		// Calculate subtotal with any product-specific discounts
+		const cartWithDiscounts = cart.map(item => ({
+			...item,
+			price: getDiscountedUnitPrice(item.productId, parseFloat(item.price))
+		}));
+		
+		// Use shared calculation function
+		const calculation = calculateSaleTotals(
+			cartWithDiscounts,
+			appliedCoupon ? "percentage" : null,
+			appliedCoupon ? parseFloat(appliedCoupon.percentage) : 0
+		);
+
+		return {
+			subtotal: calculation.subtotal,
+			couponDiscount: calculation.discountAmount,
+			afterCoupon: calculation.subtotal - calculation.discountAmount,
+			tax: calculation.taxAmount,
+			total: calculation.total,
+			taxPercent: 18
+		};
 	};
 
 	const createSaleMutation = useMutation({
-		mutationFn: async (saleData: any) => { const response = await apiRequest("POST", "/api/sales", saleData); return await response.json(); },
-		onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["/api/sales"] }); queryClient.invalidateQueries({ queryKey: ["/api/dashboard/stats"] }); },
+		mutationFn: async (saleData: any) => { 
+			try {
+				const response = await apiRequest("POST", "/api/sales", saleData); 
+				if (!response.ok) {
+					const error = await response.json();
+					throw new Error(error.error || "Failed to create sale");
+				}
+				return await response.json(); 
+			} catch (err: any) {
+				throw new Error(err.message || "Failed to create sale");
+			}
+		},
+		onSuccess: () => { 
+			queryClient.invalidateQueries({ queryKey: ["/api/sales"] }); 
+			queryClient.invalidateQueries({ queryKey: ["/api/dashboard/stats"] }); 
+		},
+		onError: (error: any) => {
+			toast({
+				title: "Sale Failed",
+				description: error.message || "Failed to create sale",
+				variant: "destructive"
+			});
+		},
 	});
 
 	const handleCheckout = async () => {
@@ -125,15 +165,57 @@ const updateQuantity = (productId: string, newQuantity: number) => {
 		if (!customerName.trim() || !customerPhone.trim()) { toast({ title: "Customer details required", description: "Enter customer name and phone number", variant: "destructive" }); return; }
 		setIsProcessing(true);
 		try {
-			const { subtotal, tax, total } = calculateTotals();
+			const calculation = calculateSaleTotals(
+				cart.map(item => ({ 
+					...item,
+					price: getDiscountedUnitPrice(item.productId, parseFloat(item.price))
+				})),
+				appliedCoupon ? "percentage" : null,
+				appliedCoupon ? parseFloat(appliedCoupon.percentage) : 0
+			);
+
 			const saleData = {
-				userId: user!.id,
-				items: cart.map(item => ({ productId: item.productId, quantity: item.quantity, price: getDiscountedUnitPrice(item.productId, parseFloat(item.price)).toFixed(2), name: item.name, sku: item.sku })),
-				totalAmount: total.toFixed(2),
-				paymentMethod,
+				user_id: user!.id,
+				customer_name: customerName.trim(),
+				customer_phone: customerPhone.trim(),
+				items: cart.map(item => ({ 
+					productId: item.productId, 
+					quantity: item.quantity, 
+					price: getDiscountedUnitPrice(item.productId, parseFloat(item.price)).toFixed(2), 
+					name: item.name, 
+					sku: item.sku 
+				})),
+				subtotal: calculation.subtotal.toFixed(2),
+				tax_percent: calculation.taxPercent.toFixed(2),
+				tax_amount: calculation.taxAmount.toFixed(2),
+				discount_type: calculation.discountType,
+				discount_value: calculation.discountValue.toFixed(2),
+				discount_amount: calculation.discountAmount.toFixed(2),
+				total_amount: calculation.total.toFixed(2),
+				payment_method: paymentMethod,
+				invoice_number: `INV-${Date.now()}`,
 			} as any;
 			const sale = await createSaleMutation.mutateAsync(saleData);
-			const invoiceData: InvoiceData = { invoiceNumber: sale.invoiceNumber || `INV-${Date.now()}`, date: new Date(), items: cart.map(item => ({ name: item.name, quantity: item.quantity, price: parseFloat(item.price), total: parseFloat(item.price) * item.quantity })), subtotal, tax, total, paymentMethod };
+			const invoiceData: InvoiceData = { 
+				invoiceNumber: sale.invoiceNumber || `INV-${Date.now()}`, 
+				date: new Date(),
+				customerName,
+				customerPhone, 
+				items: cart.map(item => ({ 
+					name: item.name, 
+					quantity: item.quantity, 
+					price: getDiscountedUnitPrice(item.productId, parseFloat(item.price)), 
+					total: getDiscountedUnitPrice(item.productId, parseFloat(item.price)) * item.quantity 
+				})), 
+				subtotal: calculation.subtotal, 
+				tax: calculation.taxAmount, 
+				taxPercent: calculation.taxPercent,
+				discountType: calculation.discountType || undefined,
+				discountValue: calculation.discountValue,
+				discountAmount: calculation.discountAmount,
+				total: calculation.total, 
+				paymentMethod 
+			};
 			setLastInvoiceData(invoiceData); setLastCustomerPhone(customerPhone); setShowConfirmPayment(true);
 		} catch (error) {
 			toast({ title: "Checkout Failed", description: (error as Error).message, variant: "destructive" });

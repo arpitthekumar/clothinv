@@ -9,9 +9,9 @@ export function RecentActivity() {
   const { data: sales, isLoading } = useQuery<Array<{
     id: string;
     items: string;
-    totalAmount: string;
-    invoiceNumber: string;
-    createdAt: string;
+     total_amount: string;
+     invoice_number: string;
+     created_at: string;
   }>>({
     queryKey: ["/api/sales/today"],
   });
@@ -71,14 +71,14 @@ export function RecentActivity() {
                 <div className={`w-2 h-2 ${getActivityColor(index)} rounded-full`} />
                 <div className="flex-1">
                   <p className="text-sm font-medium" data-testid={`activity-title-${index}`}>
-                    Sale #{sale.invoiceNumber?.split('-')[2] || 'Unknown'}
+                     Sale #{sale.invoice_number?.split('-')[2] || 'Unknown'}
                   </p>
                   <p className="text-xs text-muted-foreground" data-testid={`activity-details-${index}`}>
-                    ₹{sale.totalAmount} - {itemCount} items
+                     ₹{sale.total_amount} - {itemCount} items
                   </p>
                 </div>
                 <span className="text-xs text-muted-foreground" data-testid={`activity-time-${index}`}>
-                  {sale.createdAt ? formatDistanceToNow(new Date(sale.createdAt), { addSuffix: true }) : 'Unknown'}
+                  {sale.created_at ? formatDistanceToNow(new Date(sale.created_at), { addSuffix: true }) : 'Unknown'}
                 </span>
               </div>
             );

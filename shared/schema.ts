@@ -38,12 +38,20 @@ export const products = pgTable("products", {
 
 export const sales = pgTable("sales", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  userId: varchar("user_id").references(() => users.id).notNull(),
-  customerId: varchar("customer_id").references(() => customers.id),
+  user_id: varchar("user_id").notNull(),
+  customer_id: varchar("customer_id"),
+  customer_name: text("customer_name").notNull(),
+  customer_phone: text("customer_phone").notNull(),
   items: jsonb("items").notNull(), // Array of {productId, quantity, price}
-  totalAmount: decimal("total_amount", { precision: 10, scale: 2 }).notNull(),
-  paymentMethod: text("payment_method").notNull().default("cash"),
-  invoiceNumber: text("invoice_number").notNull().unique(),
+  subtotal: decimal("subtotal").notNull(),
+  tax_percent: decimal("tax_percent").notNull().default("0"),
+  tax_amount: decimal("tax_amount").notNull().default("0"),
+  discount_type: text("discount_type"), // 'percentage' or 'fixed'
+  discount_value: decimal("discount_value").notNull().default("0"),
+  discount_amount: decimal("discount_amount").notNull().default("0"),
+  total_amount: decimal("total_amount").notNull(),
+  payment_method: text("payment_method").notNull().default("cash"),
+  invoice_number: text("invoice_number").notNull().unique(),
   deleted: boolean("deleted").default(false),
   deletedAt: timestamp("deleted_at"),
   createdAt: timestamp("created_at").defaultNow(),
@@ -94,11 +102,19 @@ export const insertProductSchema = createInsertSchema(products).pick({
 });
 
 export const insertSaleSchema = createInsertSchema(sales).pick({
-  userId: true,
+  user_id: true,
+  customer_name: true,
+  customer_phone: true,
   items: true,
-  totalAmount: true,
-  paymentMethod: true,
-  invoiceNumber: true,
+  invoice_number: true,
+  subtotal: true,
+  tax_percent: true,
+  tax_amount: true,
+  discount_type: true,
+  discount_value: true,
+  discount_amount: true,
+  total_amount: true,
+  payment_method: true,
 });
 
 export const insertStockMovementSchema = createInsertSchema(stockMovements).pick({
@@ -116,7 +132,29 @@ export type Category = typeof categories.$inferSelect;
 export type InsertCategory = z.infer<typeof insertCategorySchema>;
 export type Product = typeof products.$inferSelect;
 export type InsertProduct = z.infer<typeof insertProductSchema>;
-export type Sale = typeof sales.$inferSelect;
+
+// Define Sale type manually to match Supabase exactly
+export type Sale = {
+  id: string;
+  user_id: string;
+  customer_id?: string | null;
+  customer_name: string;
+  customer_phone: string;
+  items: any; // Array of {productId, quantity, price}
+  subtotal: string;
+  tax_percent: string;
+  tax_amount: string;
+  discount_type?: string | null;
+  discount_value: string;
+  discount_amount: string;
+  total_amount: string;
+  payment_method: string;
+  invoice_number: string;
+  deleted?: boolean;
+  deleted_at?: Date | null;
+  created_at?: Date | null;
+};
+
 export type InsertSale = z.infer<typeof insertSaleSchema>;
 export type StockMovement = typeof stockMovements.$inferSelect;
 export type InsertStockMovement = z.infer<typeof insertStockMovementSchema>;

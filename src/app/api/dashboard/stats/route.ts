@@ -11,7 +11,7 @@ export async function GET() {
   const todayActiveSales = await storage.getSalesToday();
   const todaySales = todayActiveSales
     .filter(s => !s.deleted) // Double check to exclude deleted sales
-    .reduce((sum, s) => sum + parseFloat(s.totalAmount), 0);
+    .reduce((sum, s) => sum + parseFloat((s as any).total_amount || "0"), 0);
   
   const totalProducts = (await storage.getProducts()).length;
   const lowStockItems = (await storage.getProducts()).filter(p => p.stock <= (p.minStock || 5)).length;

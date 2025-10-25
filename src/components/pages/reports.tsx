@@ -68,16 +68,16 @@ export default function Reports() {
       "Payment Method",
     ];
     const rows = data.map((sale: Sale) => {
-      const createdAt = sale.createdAt
-        ? new Date((sale as any).createdAt as string | number | Date)
+      const createdAt = sale.created_at
+        ? new Date((sale as any).created_at as string | number | Date)
         : null;
       const items = normalizeItems((sale as any).items);
       return [
-        sale.invoiceNumber,
+         sale.invoice_number,
         createdAt ? createdAt.toLocaleDateString() : "",
-        sale.totalAmount,
+       sale.total_amount,
         Array.isArray(items) ? items.length : 0,
-        sale.paymentMethod,
+       sale.payment_method,
       ];
     });
 
@@ -102,8 +102,8 @@ export default function Reports() {
 
   const filteredSales =
     sales?.filter((sale: any) => {
-      const createdAt = sale?.createdAt
-        ? new Date(sale.createdAt as string | number | Date)
+      const createdAt = sale?.created_at
+        ? new Date(sale.created_at as string | number | Date)
         : null;
       if (!createdAt) return false;
       const saleDate = createdAt;
@@ -124,7 +124,7 @@ export default function Reports() {
     }) || [];
 
   const totalSales = filteredSales.reduce(
-    (sum: number, sale: any) => sum + parseFloat(sale.totalAmount),
+       (sum: number, sale: any) => sum + parseFloat(sale.total_amount || "0"),
     0
   );
   const totalTransactions = filteredSales.length;
@@ -399,15 +399,15 @@ export default function Reports() {
                               data-testid={`sale-row-${sale.id}`}
                             >
                               <TableCell className="font-medium">
-                                {sale.invoiceNumber?.split("-")[2] || "Unknown"}
+                                 {sale.invoice_number?.split("-")[2] || "Unknown"}
                               </TableCell>
                               <TableCell>
                                 <div>
-                                  {sale.createdAt ? (
+                                  {sale.created_at ? (
                                     <>
                                       <p className="text-sm font-medium">
                                         {new Date(
-                                          sale.createdAt as
+                                          sale.created_at as
                                             | string
                                             | number
                                             | Date
@@ -416,7 +416,7 @@ export default function Reports() {
                                       <p className="text-xs text-muted-foreground">
                                         {formatDistanceToNow(
                                           new Date(
-                                            sale.createdAt as
+                                            sale.created_at as
                                               | string
                                               | number
                                               | Date
@@ -436,13 +436,13 @@ export default function Reports() {
                               <TableCell className="font-medium">
                                 ₹
                                 {Math.round(
-                                  parseFloat(sale.totalAmount)
+                                  parseFloat(sale.total_amount || "0")
                                 ).toLocaleString()}
                               </TableCell>
 
                               <TableCell>
                                 <Badge variant="outline" className="capitalize">
-                                  {sale.paymentMethod}
+                                  {sale.payment_method}
                                 </Badge>
                               </TableCell>
                               <TableCell>

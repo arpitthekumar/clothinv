@@ -142,16 +142,16 @@ export class SupabaseStorage implements IStorage {
     if (!includeDeleted) {
       query = query.eq("deleted", false);
     }
-    const { data, error } = await query;
+    const { data, error } = await query.order("created_at", { ascending: false });
     if (error) throw error;
     return data as Sale[];
   }
   async getSalesByUser(userId: string, includeDeleted: boolean = false): Promise<Sale[]> {
-    let query = this.client.from("sales").select("*").eq("userId", userId);
+    let query = this.client.from("sales").select("*").eq("user_id", userId);
     if (!includeDeleted) {
       query = query.eq("deleted", false);
     }
-    const { data, error } = await query;
+    const { data, error } = await query.order("created_at", { ascending: false });
     if (error) throw error;
     return data as Sale[];
   }
@@ -161,13 +161,29 @@ export class SupabaseStorage implements IStorage {
     const { data, error } = await this.client
       .from("sales")
       .select("*")
-      .gte("createdAt", today.toISOString())
-      .eq("deleted", false); // Exclude deleted sales
+      .gte("created_at", today.toISOString())
+      .eq("deleted", false) // Exclude deleted sales
+      .order("created_at", { ascending: false });
     if (error) throw error;
     return data as Sale[];
   }
   async createSale(sale: InsertSale): Promise<Sale> {
-    const { data, error } = await this.client.from("sales").insert(sale).select("*").single();
+    const payload = {
+      user_id: sale.user_id,
+      customer_name: sale.customer_name?.trim() || "Walk-in Customer",
+      customer_phone: sale.customer_phone?.trim() || "N/A",
+      items: sale.items,
+      invoice_number: sale.invoice_number,
+      subtotal: parseFloat(sale.subtotal || "0").toFixed(2),
+      tax_percent: parseFloat(sale.tax_percent || "0").toFixed(2),
+      tax_amount: parseFloat(sale.tax_amount || "0").toFixed(2),
+      discount_type: sale.discount_type || null,
+      discount_value: parseFloat(sale.discount_value || "0").toFixed(2),
+      discount_amount: parseFloat(sale.discount_amount || "0").toFixed(2),
+      total_amount: parseFloat(sale.total_amount || "0").toFixed(2),
+      payment_method: sale.payment_method || "cash",
+    };
+    const { data, error } = await this.client.from("sales").insert(payload).select("*").single();
     if (error) throw error;
     return data as Sale;
   }

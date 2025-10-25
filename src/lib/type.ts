@@ -19,3 +19,12 @@ export interface SaleData {
   deleted?: boolean;
   deletedAt?: string | Date; // deleted_at
 }
+
+export interface InvoiceData {
+  items: any[];
+  invoiceNumber: string;
+  paymentMethod: string;
+  total: number; // probably exists instead of totalAmount
+  date: string;  // probably exists instead of createdAt
+  // other fields...
+}

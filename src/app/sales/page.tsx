@@ -42,18 +42,18 @@ export default function SalesPage() {
     try {
       const items = normalizeItems(sale.items);
       const invoice: InvoiceData = {
-        invoiceNumber: sale.invoiceNumber || `INV-${sale.id?.slice(0,6)}`,
-        date: new Date(sale.createdAt || Date.now()),
+        invoiceNumber: sale.invoice_number || `INV-${sale.id?.slice(0,6)}`,
+        date: new Date(sale.created_at || Date.now()),
         items: items.map((it: any) => ({
           name: it.name,
           quantity: it.quantity,
           price: parseFloat(it.price),
           total: parseFloat(it.price) * it.quantity,
         })),
-        subtotal: items.reduce((s: number, it: any) => s + parseFloat(it.price) * it.quantity, 0),
-        tax: 0, // unknown here; if you want 18% GST, compute like in POS
-        total: parseFloat(sale.totalAmount),
-        paymentMethod: sale.paymentMethod,
+        subtotal: parseFloat(sale.subtotal || "0"),
+        tax: parseFloat(sale.tax_amount || "0"),
+        total: parseFloat(sale.total_amount || "0"),
+        paymentMethod: sale.payment_method,
       };
       await invoicePrinter.printInvoice(invoice);
       toast({ title: "Printing", description: `Invoice ${invoice.invoiceNumber} sent to printer` });
@@ -121,10 +121,10 @@ export default function SalesPage() {
   });
 
   const filteredSales = sales.filter(sale => {
-    const matchesSearch = sale.invoiceNumber.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         sale.totalAmount.toString().includes(searchTerm) ||
-                         sale.paymentMethod.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesTrashFilter = showTrash ? sale.deleted : !sale.deleted;
+    const matchesSearch = (sale?.invoice_number?.toLowerCase() || "").includes(searchTerm.toLowerCase()) ||
+                         (sale?.total_amount?.toString() || "").includes(searchTerm) ||
+                         (sale?.payment_method?.toLowerCase() || "").includes(searchTerm.toLowerCase());
+    const matchesTrashFilter = showTrash ? sale?.deleted : !sale?.deleted;
     return matchesSearch && matchesTrashFilter;
   });
 
@@ -148,7 +148,7 @@ export default function SalesPage() {
       quantity: 0,
       maxQuantity: item.quantity,
       name: item.name,
-      price: item.price
+      price: item.price || "0"
     }));
     setReturnItems(returnItemsData);
     setShowReturnModal(true);
@@ -251,9 +251,9 @@ export default function SalesPage() {
                           <div className="flex items-center justify-between mb-3">
                             <div className="flex items-center gap-3">
                               <div>
-                                <h3 className="font-semibold">{sale.invoiceNumber}</h3>
+                                <h3 className="font-semibold">{sale.invoice_number}</h3>
                                 <p className="text-sm text-muted-foreground">
-                                  {formatDistanceToNow(new Date(sale.createdAt), { addSuffix: true })}
+                                  {formatDistanceToNow(new Date(sale.created_at || Date.now()), { addSuffix: true })}
                                 </p>
                               </div>
                               <Badge variant={sale.deleted ? "destructive" : "default"}>
@@ -261,9 +261,9 @@ export default function SalesPage() {
                               </Badge>
                             </div>
                             <div className="text-right">
-                            <p className="font-semibold">₹{Math.round(sale.totalAmount)}</p>
+                            <p className="font-semibold">₹{Math.round(parseFloat(sale.total_amount || "0"))}</p>
                             <p className="text-sm text-muted-foreground capitalize">
-                                {sale.paymentMethod}
+                                {sale.payment_method}
                               </p>
                             </div>
                           </div>
@@ -271,7 +271,7 @@ export default function SalesPage() {
                           <div className="flex items-center gap-2 mb-3">
                             <div className="flex items-center gap-1 text-sm text-muted-foreground">
                               <User className="h-4 w-4" />
-                              <span>User ID: {sale.userId.slice(0, 8)}</span>
+                              <span>User ID: {sale.user_id?.slice(0, 8)}</span>
                             </div>
                             <div className="flex items-center gap-1 text-sm text-muted-foreground">
                               <Package className="h-4 w-4" />
@@ -336,7 +336,7 @@ export default function SalesPage() {
       <Dialog open={showReturnModal} onOpenChange={setShowReturnModal}>
         <DialogContent className="max-w-2xl">
           <DialogHeader>
-            <DialogTitle>Process Return - {selectedSale?.invoiceNumber}</DialogTitle>
+            <DialogTitle>Process Return - {selectedSale?.invoice_number}</DialogTitle>
           </DialogHeader>
           <div className="space-y-4">
             <p className="text-sm text-muted-foreground">

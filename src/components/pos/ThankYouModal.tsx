@@ -1,12 +1,18 @@
 "use client";
 
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Printer } from "lucide-react";
-import { InvoiceData, invoicePrinter } from "@/lib/printer";
 import { useRef } from "react";
 import html2canvas from "html2canvas";
-import LabelBill from "./LabelBill"; // ← import your new LabelBill
+import LabelBill from "./LabelBill";
+import { SaleData } from "@/lib/type";
+import { InvoiceData } from "@/lib/printer"; // or wherever your InvoiceData is defined
 
 interface ThankYouModalProps {
   open: boolean;
@@ -47,6 +53,18 @@ export function ThankYouModal({
     }
   };
 
+  // Convert InvoiceData to SaleData for LabelBill
+  const saleData: SaleData | null = invoiceData
+  ? {
+      items: invoiceData.items ?? [],
+      totalAmount: invoiceData.total ?? 0,            // map total → totalAmount
+      paymentMethod: invoiceData.paymentMethod ?? "Cash",
+      invoiceNumber: invoiceData.invoiceNumber ?? "N/A",
+      createdAt: invoiceData.date ?? new Date().toISOString(), // map date → createdAt
+    }
+  : null;
+
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent>
@@ -56,7 +74,7 @@ export function ThankYouModal({
 
         {/* Hidden LabelBill div for image generation */}
         <div ref={invoiceRef} className="p-2 m-2 border border-black bg-white">
-          {invoiceData && <LabelBill data={invoiceData} />}
+          {saleData && <LabelBill data={saleData} />}
         </div>
 
         <div className="space-y-3 mt-4">
@@ -65,19 +83,22 @@ export function ThankYouModal({
             <Button onClick={handlePrintInvoice}>
               <Printer className="mr-2 h-4 w-4" /> Print Bill
             </Button>
-            <Button
+            {/* <Button
               variant="outline"
               onClick={async () => {
                 if (invoiceData && customerPhone) {
                   const phoneNumber = customerPhone.startsWith("+91")
                     ? customerPhone
                     : `+91${customerPhone}`;
-                  await invoicePrinter.shareViaWhatsApp(invoiceData, phoneNumber);
+                  await invoicePrinter.shareViaWhatsApp(
+                    invoiceData,
+                    phoneNumber
+                  ); // Use InvoiceData here
                 }
               }}
             >
               Share via WhatsApp
-            </Button>
+            </Button> */}
           </div>
         </div>
       </DialogContent>

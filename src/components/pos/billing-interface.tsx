@@ -24,7 +24,6 @@ import { MostSold } from "@/components/pos/MostSold";
 
 export function BillingInterface() {
   const {
-    // state
     cart,
     productCode,
     searchResults,
@@ -40,7 +39,6 @@ export function BillingInterface() {
     favorites,
     couponCode,
     appliedCoupon,
-    // setters
     setProductCode,
     setShowScanner,
     setPaymentMethod,
@@ -49,11 +47,9 @@ export function BillingInterface() {
     setCustomerPhone,
     setCustomerName,
     setCouponCode,
-    // data
     products,
     recentSales,
     mostSoldProducts,
-    // actions
     addToCart,
     updateQuantity,
     removeFromCart,

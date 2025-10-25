@@ -3,6 +3,7 @@ export interface InvoiceData {
   invoiceNumber: string;
   date: Date;
   customerName?: string;
+  customerPhone?: string;
   items: Array<{
     name: string;
     quantity: number;
@@ -13,6 +14,10 @@ export interface InvoiceData {
   tax: number;
   total: number;
   paymentMethod: string;
+  taxPercent?: number;
+  discountType?: 'percentage' | 'fixed';
+  discountValue?: number;
+  discountAmount?: number;
 }
 
 class InvoicePrinter {
