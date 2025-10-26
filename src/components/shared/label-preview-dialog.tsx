@@ -1,14 +1,8 @@
 "use client";
 
-import { useRef, useState, useEffect } from "react";
+import { useRef, useState } from "react";
 import html2canvas from "html2canvas";
-import jsPDF from "jspdf";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { ProductLabel } from "./product-label";
 
@@ -26,11 +20,7 @@ type LabelPreviewDialogProps = {
   };
 };
 
-export function LabelPreviewDialog({
-  open,
-  onOpenChange,
-  product,
-}: LabelPreviewDialogProps) {
+export function LabelPreviewDialog({ open, onOpenChange, product }: LabelPreviewDialogProps) {
   const labelRef = useRef<HTMLDivElement>(null);
   const [loading, setLoading] = useState(false);
   const [barcodeLoaded, setBarcodeLoaded] = useState(false);
@@ -62,12 +52,15 @@ export function LabelPreviewDialog({
     });
   };
 
-  const handleGenerateFile = async (type: "print" | "download") => {
+  const handleGenerateFile = async (type: "print" | "download" | "bluetooth") => {
     if (!labelRef.current) return;
     setLoading(true);
 
     const canvas = await generateCanvas();
-    if (!canvas) return setLoading(false);
+    if (!canvas) {
+      setLoading(false);
+      return;
+    }
 
     const dataUrl = canvas.toDataURL("image/png");
     const res = await fetch(dataUrl);
@@ -76,26 +69,41 @@ export function LabelPreviewDialog({
       type: "image/png",
     });
 
-    if (type === "print") {
-      if (navigator.canShare && navigator.canShare({ files: [file] })) {
-        await navigator
-          .share({
+    try {
+      if (type === "print") {
+        // 🔹 Share to system printer or nearby share
+        if (navigator.canShare && navigator.canShare({ files: [file] })) {
+          await navigator.share({
             files: [file],
             title: "Product Label",
             text: `Label for ${product.name}`,
-          })
-          .catch((err) => console.error("Share failed:", err));
-      } else {
-        alert("Sharing not supported on this device");
-      }
-    } else {
-      const link = document.createElement("a");
-      link.href = dataUrl;
-      link.download = `label-${product.sku}.png`;
-      link.click();
-    }
+          });
+        } else {
+          alert("Sharing not supported on this device");
+        }
+      } else if (type === "download") {
+        // 🔹 Download PNG
+        const link = document.createElement("a");
+        link.href = dataUrl;
+        link.download = `label-${product.sku}.png`;
+        link.click();
+      } else if (type === "bluetooth") {
+        // 🔹 Print directly via Mate Bluetooth Print app
+        const base64 = dataUrl.replace("data:image/png;base64,", "");
+        const printData = `<IMAGE>1#${base64}`; // align center
+        const intentUrl = `intent:${encodeURIComponent(
+          printData
+        )}#Intent;scheme=my.bluetoothprint.scheme;package=mate.bluetoothprint;end;`;
 
-    setLoading(false);
+        // Open Bluetooth Print app
+        window.location.href = intentUrl;
+      }
+    } catch (err) {
+      console.error(err);
+      alert("Action failed. Try again.");
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -117,17 +125,13 @@ export function LabelPreviewDialog({
             onBarcodeLoad={() => setBarcodeLoaded(true)}
           />
 
-          <div className="flex items-center justify-center gap-3">
+          <div className="flex items-center justify-center gap-3 flex-wrap">
             <Button
               variant="secondary"
               onClick={() => handleGenerateFile("print")}
               disabled={!barcodeLoaded || loading}
             >
-              {loading
-                ? "Generating..."
-                : !barcodeLoaded
-                ? "Loading..."
-                : "Print"}
+              {loading ? "Generating..." : !barcodeLoaded ? "Loading..." : "Print"}
             </Button>
 
             <Button
@@ -135,11 +139,15 @@ export function LabelPreviewDialog({
               onClick={() => handleGenerateFile("download")}
               disabled={!barcodeLoaded || loading}
             >
-              {loading
-                ? "Generating..."
-                : !barcodeLoaded
-                ? "Loading..."
-                : "Download"}
+              {loading ? "Generating..." : !barcodeLoaded ? "Loading..." : "Download"}
+            </Button>
+
+            <Button
+              className="bg-green-600 hover:bg-green-700 text-white"
+              onClick={() => handleGenerateFile("bluetooth")}
+              disabled={!barcodeLoaded || loading}
+            >
+              {loading ? "Connecting..." : "Bluetooth Print"}
             </Button>
           </div>
         </div>
