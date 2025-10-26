@@ -1,17 +1,16 @@
 "use client";
-import React, { useEffect, useMemo } from "react";
+
+import React, { useMemo } from "react";
 import { SaleData } from "@/lib/type";
 
-// ✅ Barcode generator helper
 function getBarcodeUrl(payload: string): string {
   const value = (payload || "").trim();
   const isEanCandidate = /^\d{12,13}$/.test(value);
   const symbology = isEanCandidate ? "ean13" : "code128";
   return `https://bwipjs-api.metafloor.com/?bcid=${symbology}&text=${encodeURIComponent(
     value
-  )}&scale=2.5&includetext=true&guardwhitespace=true&fmt=png`;
+  )}&scale=4&includetext=true&guardwhitespace=true&backgroundcolor=ffffff&fmt=svg`;
 }
-
 
 interface LabelBillProps {
   data: SaleData;
@@ -20,10 +19,6 @@ interface LabelBillProps {
 
 const LabelBill = React.forwardRef<HTMLDivElement, LabelBillProps>(
   ({ data, taxPercent = 18 }, ref) => {
-    useEffect(() => {
-      console.log("🧾 BILL DATA RECEIVED:", data);
-    }, [data]);
-
     const subtotal = data.items.reduce(
       (sum, item) => sum + item.price * item.quantity,
       0
@@ -44,112 +39,172 @@ const LabelBill = React.forwardRef<HTMLDivElement, LabelBillProps>(
     return (
       <div
         ref={ref}
-        className="p-2 border border-black bg-white text-black w-[210px] font-sans text-[11px]" // ✅ 210px ≈ 58mm
+        className="p-2 border border-black "
+        style={{
+          fontFamily: "Arial, sans-serif",
+          color: "#000000",
+          backgroundColor: "#ffffff",
+        }}
       >
         {/* HEADER */}
-        <h1 className="text-base font-bold text-center leading-tight">
+        <h1
+          className="text-center font-bold"
+          style={{ fontSize: "35px", margin: "0", lineHeight: 1.1 }}
+        >
           Bhootia Fabric Collection
         </h1>
-        <h2 className="text-[10px] text-center leading-tight">
+        <h2 className="text-center" style={{ fontSize: "18px", margin: 0 }}>
           Gandhi Nagar, Moti Ganj, Bharthana, U.P
         </h2>
-        <h2 className="text-[10px] text-center leading-tight">
+        <h2 className="text-center" style={{ fontSize: "15px", margin: 0 }}>
           Ph: 9876543210
         </h2>
-
-        <div className="border-t border-black my-1" />
-
+        <hr className="border-black my-1" />
         {/* CUSTOMER INFO */}
-        <div className="text-[10px] mb-1 leading-tight">
-          <p>
-            <strong>Invoice:</strong> {data.invoiceNumber || "N/A"}
-          </p>
-          <p>
-            <strong>Date:</strong>{" "}
-            {data.createdAt ? new Date(data.createdAt).toLocaleString() : "-"}
-          </p>
-          <p>
-            <strong>Customer:</strong>{" "}
-            {data.customerName || "Walk-in Customer"}
-          </p>
-          <p>
-            <strong>Phone:</strong> {data.customerPhone || "N/A"}
-          </p>
-        </div>
-
-        <div className="border-t border-black my-1" />
-
-        {/* ITEMS */}
-        <div className="text-[10px]">
-          <div className="flex justify-between font-semibold border-b border-black pb-[2px]">
-            <span>Item</span>
-            <span>Amt</span>
-          </div>
-          {data.items.map((item, idx) => (
-            <div key={idx} className="flex justify-between">
-              <span>
-                {item.name} x {item.quantity}
-                {item.discount_value ? ` (${item.discount_value}%)` : ""}
-              </span>
-              <span>
-                ₹
-                {(
-                  item.price * item.quantity -
-                  (item.discount_amount || 0)
-                ).toFixed(2)}
-              </span>
-            </div>
-          ))}
-        </div>
-
-        <div className="border-t border-black my-1" />
-
-        {/* BILL SUMMARY */}
-        <div className="text-[10px] space-y-[1px]">
+        <div
+          className="flex flex-col mb-1"
+          style={{ fontSize: "15px", lineHeight: 1.2 }}
+        >
           <div className="flex justify-between">
-            <span>Subtotal:</span>
-            <span>₹{subtotal.toFixed(2)}</span>
+            <p>
+              <strong>Invoice:</strong> {data.invoiceNumber || "N/A"}
+            </p>
+            <p>
+              <strong>Customer:</strong>{" "}
+              {data.customerName || "Walk-in Customer"}
+            </p>
+          </div>
+          <div className="flex justify-between">
+            <div className="flex">
+              <p>
+                <strong>Date:</strong>{" "}
+                {data.createdAt
+                  ? new Date(data.createdAt).toLocaleDateString()
+                  : "-"}
+              </p>
+              <p>
+                {" "}
+                <strong>Time:</strong>{" "}
+                {data.createdAt ? (
+                  <span style={{ fontWeight: "" }}>
+                    {new Date(data.createdAt).toLocaleTimeString([], {
+                      hour: "2-digit",
+                      minute: "2-digit",
+                    })}
+                  </span>
+                ) : (
+                  "-"
+                )}
+              </p>
+            </div>
+            <p>
+              <strong>Phone:</strong> {data.customerPhone || "N/A"}
+            </p>
+          </div>
+        </div>
+        <hr className="border-black my-1" />
+        <div style={{ fontSize: "16px", marginTop: "5px" }}>
+          {/* Table Header */}
+          <div
+            className="flex justify-between font-bold"
+            style={{ borderBottom: "1px solid #000", paddingBottom: "2px" }}
+          >
+            <span style={{ width: "45%" }}>Item</span>
+            <span style={{ width: "15%", textAlign: "center" }}>Qty</span>
+            <span style={{ width: "20%", textAlign: "right" }}>Price</span>
+            <span style={{ width: "20%", textAlign: "right" }}>Amt</span>
           </div>
 
+          {/* Table Rows */}
+          {data.items.map((item, idx) => {
+            const amount =
+              item.price * item.quantity - (item.discount_amount || 0);
+            return (
+              <div
+                key={idx}
+                className="flex justify-between"
+                style={{
+                  fontSize: "15px",
+                  borderBottom: "1px solid #ccc", // replace border-gray-300
+                  padding: "2px 0",
+                }}
+              >
+                <span style={{ width: "45%" }}>{item.name}</span>
+                <span style={{ width: "15%", textAlign: "center" }}>
+                  {item.quantity}
+                </span>
+                <span style={{ width: "20%", textAlign: "right" }}>
+                  ₹{item.price.toFixed(2)}
+                </span>
+                <span style={{ width: "20%", textAlign: "right" }}>
+                  ₹{amount.toFixed(2)}
+                </span>
+              </div>
+            );
+          })}
+
+          <h1 style={{ fontWeight: "bold", fontSize: "19px" }}>Total</h1>
+
+          <div
+            className="flex justify-between font-bold"
+            style={{
+              borderTop: "1px solid #000",
+              paddingTop: "2px",
+              fontSize: "15px",
+            }}
+          >
+            <span style={{ width: "45%" }}>{data.items.length}</span>
+            <span style={{ width: "15%", textAlign: "center" }}>
+              {data.items.reduce((sum, item) => sum + item.quantity, 0)}
+            </span>
+            <span style={{ width: "20%", textAlign: "right" }}></span>
+            <span style={{ width: "20%", textAlign: "right" }}>
+              ₹{subtotal.toFixed(2)}
+            </span>
+          </div>
+        </div>
+
+        <hr className="border-black my-1" />
+        <div style={{ fontSize: "16px", lineHeight: 1.2 }}>
+          <div className="flex justify-between">
+            <span>Tax ({taxPercent}%):</span>
+            <span>₹{taxAmount.toFixed(2)}</span>
+          </div>
           {totalDiscount > 0 && (
-            <div className="flex justify-between text-green-700">
+            <div className="flex justify-between" style={{ color: "#008000" }}>
               <span>Discount:</span>
               <span>-₹{totalDiscount.toFixed(2)}</span>
             </div>
           )}
 
-          <div className="flex justify-between">
-            <span>Tax ({taxPercent}%):</span>
-            <span>₹{taxAmount.toFixed(2)}</span>
-          </div>
-
-          <div className="border-t border-black my-[2px]" />
-          <div className="flex justify-between font-bold text-[12px]">
+          <hr className="border-black my-[2px]" />
+          <div
+            className="flex justify-between font-bold"
+            style={{ fontSize: "18px" }}
+          >
             <span>Total:</span>
             <span>₹{total.toFixed(2)}</span>
           </div>
         </div>
-
-        <div className="mt-[2px] text-[10px]">
-          <p>
-            <strong>Payment:</strong> {data.paymentMethod || "Cash"}
+        <div style={{ fontSize: "17px", marginTop: "2px" }}>
+          <p className="flex justify-between">
+            <strong>Payment:</strong>
+            <span>{data.paymentMethod || "Cash"}</span>
           </p>
         </div>
-
-        {/* ✅ BARCODE SECTION (58mm width) */}
         <div className="border-t border-black mt-[2px] pt-[2px] flex justify-center">
           <img
             src={barcodeUrl}
             alt="Barcode"
             crossOrigin="anonymous"
-            className="w-[190px] h-[50px] object-contain"
+            className="w-[450px] h-[100px] object-cover object-bottom overflow-hidden"
           />
         </div>
-
-        {/* FOOTER */}
-        <div className="border-t border-black mt-[2px] pt-[2px] text-center text-[9px] leading-tight">
-          <p>Thank you for shopping with us!</p>
-          <p>Visit Again ❤️</p>
+        <div
+          className="border-t border-black mt-[2px] pt-[2px] text-center"
+          style={{ fontSize: "28px", lineHeight: 1 }}
+        >
+          <p>Thank you Visit Again</p>
         </div>
       </div>
     );

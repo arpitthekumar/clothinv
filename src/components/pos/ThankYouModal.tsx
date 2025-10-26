@@ -1,18 +1,13 @@
 "use client";
 
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Printer } from "lucide-react";
-import { useRef } from "react";
+import { useRef, useState } from "react";
 import html2canvas from "html2canvas";
 import LabelBill from "./LabelBill";
 import { SaleData } from "@/lib/type";
-import { InvoiceData } from "@/lib/printer"; // or wherever your InvoiceData is defined
+import { InvoiceData } from "@/lib/printer";
 
 interface ThankYouModalProps {
   open: boolean;
@@ -21,41 +16,10 @@ interface ThankYouModalProps {
   customerPhone: string;
 }
 
-export function ThankYouModal({
-  open,
-  onOpenChange,
-  invoiceData,
-  customerPhone,
-}: ThankYouModalProps) {
+export function ThankYouModal({ open, onOpenChange, invoiceData, customerPhone }: ThankYouModalProps) {
   const invoiceRef = useRef<HTMLDivElement>(null);
+  const [loading, setLoading] = useState(false);
 
-  const handlePrintInvoice = async () => {
-    if (!invoiceRef.current) return;
-
-    const canvas = await html2canvas(invoiceRef.current);
-    const dataUrl = canvas.toDataURL("image/png");
-
-    const res = await fetch(dataUrl);
-    const blob = await res.blob();
-    const file = new File([blob], "invoice.png", { type: "image/png" });
-
-    if (navigator.canShare && navigator.canShare({ files: [file] })) {
-      navigator
-        .share({
-          files: [file],
-          title: "Invoice",
-          text: "Thank you for your purchase!",
-        })
-        .then(() => console.log("Shared successfully"))
-        .catch((err) => console.error("Share failed:", err));
-    } else {
-      alert("Sharing not supported on this device");
-    }
-  };
-
-  // Convert InvoiceData to SaleData for LabelBill
-  // Convert InvoiceData to SaleData for LabelBill
-  // Convert InvoiceData to SaleData for LabelBill
   const saleData: SaleData | null = invoiceData
     ? {
         items: (invoiceData.items ?? []).map((item: any) => ({
@@ -63,8 +27,8 @@ export function ThankYouModal({
           quantity: item.quantity,
           price: item.price,
           total: item.total,
-          discount_value: item.discountValue || item.discount_value || 0, // percent
-          discount_amount: item.discountAmount || item.discount_amount || 0, // actual ₹ discount
+          discount_value: item.discountValue || item.discount_value || 0,
+          discount_amount: item.discountAmount || item.discount_amount || 0,
         })),
         totalAmount: invoiceData.total ?? 0,
         paymentMethod: invoiceData.paymentMethod ?? "Cash",
@@ -75,6 +39,36 @@ export function ThankYouModal({
       }
     : null;
 
+  const handlePrintInvoice = async () => {
+    if (!invoiceRef.current) return;
+    setLoading(true);
+
+    const canvas = await html2canvas(invoiceRef.current, {
+      backgroundColor: "#ffffff",
+      scale: 3,
+      useCORS: true,
+      allowTaint: true,
+    });
+
+    const dataUrl = canvas.toDataURL("image/png");
+    const res = await fetch(dataUrl);
+    const blob = await res.blob();
+    const file = new File([blob], "invoice.png", { type: "image/png" });
+
+    if (navigator.canShare && navigator.canShare({ files: [file] })) {
+      await navigator
+        .share({ files: [file], title: "Invoice", text: "Thank you for your purchase!" })
+        .catch((err) => console.error("Share failed:", err));
+    } else {
+      const link = document.createElement("a");
+      link.href = dataUrl;
+      link.download = "invoice.png";
+      link.click();
+    }
+
+    setLoading(false);
+  };
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent>
@@ -82,34 +76,14 @@ export function ThankYouModal({
           <DialogTitle>Thank you for your purchase!</DialogTitle>
         </DialogHeader>
 
-        {/* Hidden LabelBill div for image generation */}
-        <div ref={invoiceRef} className="p-2 m-2 border border-black bg-white">
+        <div ref={invoiceRef}>
           {saleData && <LabelBill data={saleData} />}
         </div>
 
-        <div className="space-y-3 mt-4">
-          <p>Payment recorded. You can now print the bill or share it.</p>
-          <div className="grid grid-cols-2 gap-2">
-            <Button onClick={handlePrintInvoice}>
-              <Printer className="mr-2 h-4 w-4" /> Print Bill
-            </Button>
-            {/* <Button
-              variant="outline"
-              onClick={async () => {
-                if (invoiceData && customerPhone) {
-                  const phoneNumber = customerPhone.startsWith("+91")
-                    ? customerPhone
-                    : `+91${customerPhone}`;
-                  await invoicePrinter.shareViaWhatsApp(
-                    invoiceData,
-                    phoneNumber
-                  ); // Use InvoiceData here
-                }
-              }}
-            >
-              Share via WhatsApp
-            </Button> */}
-          </div>
+        <div className="mt-4 flex gap-2">
+          <Button onClick={handlePrintInvoice} disabled={loading}>
+            <Printer className="mr-2 h-4 w-4" /> {loading ? "Generating..." : "Print Bill"}
+          </Button>
         </div>
       </DialogContent>
     </Dialog>
