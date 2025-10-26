@@ -3,6 +3,7 @@
 import React, { useMemo } from "react";
 import { SaleData } from "@/lib/type";
 
+// ✅ Barcode generator function
 function getBarcodeUrl(payload: string): string {
   const value = (payload || "").trim();
   const isEanCandidate = /^\d{12,13}$/.test(value);
@@ -19,6 +20,9 @@ interface LabelBillProps {
 
 const LabelBill = React.forwardRef<HTMLDivElement, LabelBillProps>(
   ({ data, taxPercent = 18 }, ref) => {
+    // ✅ Safe defaults for undefined
+    const createdAt = data.createdAt ? new Date(data.createdAt) : new Date();
+
     const subtotal = data.items.reduce(
       (sum, item) => sum + item.price * item.quantity,
       0
@@ -47,8 +51,8 @@ const LabelBill = React.forwardRef<HTMLDivElement, LabelBillProps>(
           fontFamily: "Arial, sans-serif",
           color: "#000",
           fontSize: "14px",
-          margin: "0", // ✅ remove extra margin
-          boxSizing: "border-box", // ✅ fix content shift
+          margin: "0 ",
+          boxSizing: "border-box",
         }}
       >
         {/* HEADER */}
@@ -67,19 +71,18 @@ const LabelBill = React.forwardRef<HTMLDivElement, LabelBillProps>(
         {/* CUSTOMER INFO */}
         <div>
           <p>
-            <strong>Invoice:</strong> {data.invoiceNumber}
+            <strong>Invoice:</strong> {data.invoiceNumber || "N/A"}
           </p>
           <p>
-            <strong>Customer:</strong> {data.customerName}
+            <strong>Customer:</strong> {data.customerName || "Walk-in"}
           </p>
           <p>
-            <strong>Phone:</strong> {data.customerPhone}
+            <strong>Phone:</strong> {data.customerPhone || "—"}
           </p>
           <p>
-            <strong>Date:</strong>{" "}
-            {new Date(data.createdAt).toLocaleDateString()}{" "}
+            <strong>Date:</strong> {createdAt.toLocaleDateString()}{" "}
             <strong>Time:</strong>{" "}
-            {new Date(data.createdAt).toLocaleTimeString([], {
+            {createdAt.toLocaleTimeString([], {
               hour: "2-digit",
               minute: "2-digit",
             })}
@@ -89,7 +92,13 @@ const LabelBill = React.forwardRef<HTMLDivElement, LabelBillProps>(
         <hr style={{ borderColor: "#000", margin: "4px 0" }} />
 
         {/* ITEMS */}
-        <table style={{ width: "100%", fontSize: "13px" }}>
+        <table
+          style={{
+            width: "100%",
+            borderCollapse: "collapse",
+            fontSize: "13px",
+          }}
+        >
           <thead>
             <tr>
               <th align="left">Item</th>
@@ -131,7 +140,12 @@ const LabelBill = React.forwardRef<HTMLDivElement, LabelBillProps>(
           <p>
             <strong>Tax ({taxPercent}%):</strong> ₹{taxAmount.toFixed(2)}
           </p>
-          <p style={{ fontSize: "16px", fontWeight: "bold" }}>
+          <p
+            style={{
+              fontSize: "16px",
+              fontWeight: "bold",
+            }}
+          >
             Total: ₹{total.toFixed(2)}
           </p>
           <p>
@@ -146,7 +160,7 @@ const LabelBill = React.forwardRef<HTMLDivElement, LabelBillProps>(
             alt="barcode"
             width={240}
             height={60}
-            className=" h"
+            className="w-[280px] h-[70px] object-cover object-bottom overflow-hidden"
             crossOrigin="anonymous"
           />
         </div>

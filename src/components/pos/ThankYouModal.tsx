@@ -7,7 +7,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { Printer } from "lucide-react";
+import { Printer, Share2, Send } from "lucide-react";
 import { useRef, useState } from "react";
 import jsPDF from "jspdf";
 import html2canvas from "html2canvas";
@@ -50,45 +50,113 @@ export function ThankYouModal({
       }
     : null;
 
+  // ✅ Generate PDF blob for sharing/downloading
+  const generatePDF = async (): Promise<Blob | null> => {
+    if (!invoiceRef.current) return null;
+    try {
+      const canvas = await html2canvas(invoiceRef.current, {
+        backgroundColor: "#ffffff",
+        scale: 3,
+        useCORS: true,
+        allowTaint: true,
+        scrollX: 0,
+        scrollY: 0,
+      });
+
+      const imgData = canvas.toDataURL("image/png");
+      const pdfWidth = canvas.width * 0.75;
+      const pdfHeight = canvas.height * 0.75;
+
+      const pdf = new jsPDF({
+        orientation: "portrait",
+        unit: "pt",
+        format: [pdfWidth, pdfHeight],
+      });
+
+      pdf.addImage(imgData, "PNG", 0, 0, pdfWidth, pdfHeight);
+
+      return pdf.output("blob");
+    } catch (err) {
+      console.error("PDF Generation Failed:", err);
+      return null;
+    }
+  };
+
+  // ✅ Download PDF
   const handleDownloadPDF = async () => {
-  if (!invoiceRef.current) return;
-  setLoading(true);
-
-  try {
-    // Capture the bill area
-    const canvas = await html2canvas(invoiceRef.current, {
-      backgroundColor: "#ffffff",
-      scale: 3,
-      useCORS: true,
-      allowTaint: true,
-      removeContainer: true,
-      scrollX: 0,
-      scrollY: 0,
-      windowWidth: invoiceRef.current.scrollWidth,
-      windowHeight: invoiceRef.current.scrollHeight,
-    });
-
-    const imgData = canvas.toDataURL("image/png");
-
-    // Calculate exact PDF dimensions (matching rendered bill size)
-    const pdfWidth = canvas.width * 0.75; // pixels → points
-    const pdfHeight = canvas.height * 0.75;
-
-    const pdf = new jsPDF({
-      orientation: "portrait",
-      unit: "pt",
-      format: [pdfWidth, pdfHeight], // EXACT size of your bill, no margin
-    });
-
-    pdf.addImage(imgData, "PNG", 0, 0, pdfWidth, pdfHeight);
-    pdf.save(`Invoice_${saleData?.invoiceNumber || "Bill"}.pdf`);
-  } catch (err) {
-    console.error("PDF Generation Failed:", err);
-  } finally {
+    setLoading(true);
+    const pdfBlob = await generatePDF();
+    if (pdfBlob && saleData) {
+      const pdfFile = new File(
+        [pdfBlob],
+        `Invoice_${saleData.invoiceNumber}.pdf`,
+        { type: "application/pdf" }
+      );
+      const url = URL.createObjectURL(pdfFile);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = pdfFile.name;
+      a.click();
+      URL.revokeObjectURL(url);
+    }
     setLoading(false);
-  }
-};
+  };
 
+  // ✅ Share PDF via Web Share API
+  const handleSharePDF = async () => {
+    setLoading(true);
+    const pdfBlob = await generatePDF();
+    if (pdfBlob && saleData) {
+      const pdfFile = new File(
+        [pdfBlob],
+        `Invoice_${saleData.invoiceNumber}.pdf`,
+        { type: "application/pdf" }
+      );
+
+      if (navigator.canShare && navigator.canShare({ files: [pdfFile] })) {
+        try {
+          await navigator.share({
+            title: "Invoice",
+            text: `Here is your invoice from Bhootia Fabric Collection`,
+            files: [pdfFile],
+          });
+        } catch (err) {
+          console.error("Sharing failed:", err);
+        }
+      } else {
+        alert("Sharing not supported on this device. PDF will download instead.");
+        handleDownloadPDF();
+      }
+    }
+    setLoading(false);
+  };
+
+  // ✅ Send PDF via WhatsApp link
+  const handleSendToCustomer = async () => {
+    if (!customerPhone) return alert("Customer number not available");
+
+    setLoading(true);
+    const pdfBlob = await generatePDF();
+    if (pdfBlob) {
+      const pdfFile = new File(
+        [pdfBlob],
+        `Invoice_${saleData?.invoiceNumber}.pdf`,
+        { type: "application/pdf" }
+      );
+      const url = URL.createObjectURL(pdfFile);
+
+      // WhatsApp Web URL to prefill text with download link
+      const whatsappUrl = `https://wa.me/${customerPhone.replace(
+        /[^0-9]/g,
+        ""
+      )}?text=Hello%20${encodeURIComponent(
+        saleData?.customerName || ""
+      )},%20here%20is%20your%20invoice:%20${encodeURIComponent(url)}`;
+
+      window.open(whatsappUrl, "_blank");
+    }
+    setLoading(false);
+  };
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -99,14 +167,24 @@ export function ThankYouModal({
           </DialogTitle>
         </DialogHeader>
 
-        <div ref={invoiceRef}>
-          {saleData && <LabelBill data={saleData} />}
-        </div>
+        {/* Bill Preview */}
+        <div ref={invoiceRef}>{saleData && <LabelBill data={saleData} />}</div>
 
-        <div className="mt-4 flex gap-2">
+        {/* Buttons */}
+        <div className="mt-4 flex gap-2 flex-wrap justify-center">
           <Button onClick={handleDownloadPDF} disabled={loading}>
             <Printer className="mr-2 h-4 w-4" />
-            {loading ? "Generating..." : "Download PDF"}
+            {loading ? "Processing..." : "Download PDF"}
+          </Button>
+
+          <Button onClick={handleSharePDF} disabled={loading}>
+            <Share2 className="mr-2 h-4 w-4" />
+            {loading ? "Processing..." : "Share PDF"}
+          </Button>
+
+          <Button onClick={handleSendToCustomer} disabled={loading}>
+            <Send className="mr-2 h-4 w-4" />
+            {loading ? "Processing..." : "Send to Customer"}
           </Button>
         </div>
       </DialogContent>
