@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { ThankYouModal } from "@/components/pos/ThankYouModal"; // adjust path if needed
 import { Sidebar } from "@/components/shared/sidebar";
 import { Header } from "@/components/shared/header";
 import RequireAuth from "../_components/require-auth";
@@ -10,17 +11,23 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { 
-  Search, 
-  Trash2, 
-  RotateCcw, 
-  Eye, 
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
+import {
+  Search,
+  Trash2,
+  RotateCcw,
+  Eye,
   Edit,
   Calendar,
   User,
   CreditCard,
-  Package
+  Package,
 } from "lucide-react";
 import { getQueryFn, apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
@@ -29,36 +36,67 @@ import { invoicePrinter, type InvoiceData } from "@/lib/printer";
 import { normalizeItems } from "@/lib/json";
 
 export default function SalesPage() {
+  const [thankYouOpen, setThankYouOpen] = useState(false);
+  const [currentInvoice, setCurrentInvoice] = useState<InvoiceData | null>(
+    null
+  );
+  const [customerPhone, setCustomerPhone] = useState("");
+
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
   const [showTrash, setShowTrash] = useState(false);
   const [selectedSale, setSelectedSale] = useState<any>(null);
   const [showReturnModal, setShowReturnModal] = useState(false);
-  const [returnItems, setReturnItems] = useState<Array<{productId: string; quantity: number; maxQuantity: number; name: string; price: string}>>([]);
-  
+  const [returnItems, setReturnItems] = useState<
+    Array<{
+      productId: string;
+      quantity: number;
+      maxQuantity: number;
+      name: string;
+      price: string;
+    }>
+  >([]);
+
   const { toast } = useToast();
   const toggleSidebar = () => setSidebarOpen(!sidebarOpen);
   const handlePrintSale = async (sale: any) => {
     try {
       const items = normalizeItems(sale.items);
       const invoice: InvoiceData = {
-        invoiceNumber: sale.invoice_number || `INV-${sale.id?.slice(0,6)}`,
+        invoiceNumber: sale.invoice_number || `INV-${sale.id?.slice(0, 6)}`,
         date: new Date(sale.created_at || Date.now()),
         items: items.map((it: any) => ({
           name: it.name,
           quantity: it.quantity,
           price: parseFloat(it.price),
           total: parseFloat(it.price) * it.quantity,
+          discount_value: parseFloat(
+            it.discount_value || sale.discount_value || 0
+          ),
+          discount_amount: parseFloat(
+            it.discount_amount || sale.discount_amount || 0
+          ),
         })),
         subtotal: parseFloat(sale.subtotal || "0"),
         tax: parseFloat(sale.tax_amount || "0"),
         total: parseFloat(sale.total_amount || "0"),
         paymentMethod: sale.payment_method,
+        customerName: sale.customer_name || "Walk-in Customer",
+        discountType: sale.discount_type || "percentage",
+        discountValue: parseFloat(sale.discount_value || 0),
+        discountAmount: parseFloat(sale.discount_amount || 0),
       };
-      await invoicePrinter.printInvoice(invoice);
-      toast({ title: "Printing", description: `Invoice ${invoice.invoiceNumber} sent to printer` });
+
+      // Set invoice and open ThankYou modal
+      setCurrentInvoice(invoice);
+      setCustomerPhone(sale.customer_phone || "");
+      setThankYouOpen(true);
     } catch (e: any) {
-      toast({ title: "Print failed", description: e?.message || "Unable to print invoice", variant: "destructive" });
+      toast({
+        title: "Error",
+        description: e?.message || "Unable to prepare invoice for viewing",
+        variant: "destructive",
+      });
     }
   };
 
@@ -120,22 +158,35 @@ export default function SalesPage() {
     },
   });
 
-  const filteredSales = sales.filter(sale => {
-    const matchesSearch = (sale?.invoice_number?.toLowerCase() || "").includes(searchTerm.toLowerCase()) ||
-                         (sale?.total_amount?.toString() || "").includes(searchTerm) ||
-                         (sale?.payment_method?.toLowerCase() || "").includes(searchTerm.toLowerCase());
+  const filteredSales = sales.filter((sale) => {
+    const matchesSearch =
+      (sale?.invoice_number?.toLowerCase() || "").includes(
+        searchTerm.toLowerCase()
+      ) ||
+      (sale?.total_amount?.toString() || "").includes(searchTerm) ||
+      (sale?.payment_method?.toLowerCase() || "").includes(
+        searchTerm.toLowerCase()
+      );
     const matchesTrashFilter = showTrash ? sale?.deleted : !sale?.deleted;
     return matchesSearch && matchesTrashFilter;
   });
 
   const handleDeleteSale = (saleId: string) => {
-    if (confirm("Are you sure you want to delete this sale? It will be moved to trash.")) {
+    if (
+      confirm(
+        "Are you sure you want to delete this sale? It will be moved to trash."
+      )
+    ) {
       deleteSaleMutation.mutate(saleId);
     }
   };
 
   const handleRestoreSale = (saleId: string) => {
-    if (confirm("Are you sure you want to restore this sale? It will be moved back to active sales.")) {
+    if (
+      confirm(
+        "Are you sure you want to restore this sale? It will be moved back to active sales."
+      )
+    ) {
       restoreSaleMutation.mutate(saleId);
     }
   };
@@ -143,27 +194,34 @@ export default function SalesPage() {
   const handleReturnSale = (sale: any) => {
     setSelectedSale(sale);
     const items = normalizeItems(sale.items);
-    const returnItemsData = (Array.isArray(items) ? items : []).map((item: any) => ({
-      productId: item.productId,
-      quantity: 0,
-      maxQuantity: item.quantity,
-      name: item.name,
-      price: item.price || "0"
-    }));
+    const returnItemsData = (Array.isArray(items) ? items : []).map(
+      (item: any) => ({
+        productId: item.productId,
+        quantity: 0,
+        maxQuantity: item.quantity,
+        name: item.name,
+        price: item.price || "0",
+      })
+    );
     setReturnItems(returnItemsData);
     setShowReturnModal(true);
   };
 
   const updateReturnQuantity = (productId: string, quantity: number) => {
-    setReturnItems(prev => prev.map(item => 
-      item.productId === productId 
-        ? { ...item, quantity: Math.min(Math.max(0, quantity), item.maxQuantity) }
-        : item
-    ));
+    setReturnItems((prev) =>
+      prev.map((item) =>
+        item.productId === productId
+          ? {
+              ...item,
+              quantity: Math.min(Math.max(0, quantity), item.maxQuantity),
+            }
+          : item
+      )
+    );
   };
 
   const processReturn = () => {
-    const itemsToReturn = returnItems.filter(item => item.quantity > 0);
+    const itemsToReturn = returnItems.filter((item) => item.quantity > 0);
     if (itemsToReturn.length === 0) {
       toast({
         title: "No Items Selected",
@@ -175,11 +233,11 @@ export default function SalesPage() {
 
     const returnData = {
       saleId: selectedSale.id,
-      items: itemsToReturn.map(item => ({
+      items: itemsToReturn.map((item) => ({
         productId: item.productId,
         quantity: item.quantity,
-        refundAmount: (parseFloat(item.price) * item.quantity).toFixed(2)
-      }))
+        refundAmount: (parseFloat(item.price) * item.quantity).toFixed(2),
+      })),
     };
 
     returnSaleMutation.mutate(returnData);
@@ -229,7 +287,8 @@ export default function SalesPage() {
                 <CardHeader>
                   <CardTitle className="flex items-center justify-between">
                     <span>
-                      {showTrash ? "Deleted Sales" : "Active Sales"} ({filteredSales.length})
+                      {showTrash ? "Deleted Sales" : "Active Sales"} (
+                      {filteredSales.length})
                     </span>
                   </CardTitle>
                 </CardHeader>
@@ -241,7 +300,9 @@ export default function SalesPage() {
                   ) : filteredSales.length === 0 ? (
                     <div className="text-center py-8">
                       <p className="text-muted-foreground">
-                        {showTrash ? "No deleted sales found" : "No sales found"}
+                        {showTrash
+                          ? "No deleted sales found"
+                          : "No sales found"}
                       </p>
                     </div>
                   ) : (
@@ -251,23 +312,37 @@ export default function SalesPage() {
                           <div className="flex items-center justify-between mb-3">
                             <div className="flex items-center gap-3">
                               <div>
-                                <h3 className="font-semibold">{sale.invoice_number}</h3>
+                                <h3 className="font-semibold">
+                                  {sale.invoice_number}
+                                </h3>
                                 <p className="text-sm text-muted-foreground">
-                                  {formatDistanceToNow(new Date(sale.created_at || Date.now()), { addSuffix: true })}
+                                  {formatDistanceToNow(
+                                    new Date(sale.created_at || Date.now()),
+                                    { addSuffix: true }
+                                  )}
                                 </p>
                               </div>
-                              <Badge variant={sale.deleted ? "destructive" : "default"}>
+                              <Badge
+                                variant={
+                                  sale.deleted ? "destructive" : "default"
+                                }
+                              >
                                 {sale.deleted ? "Deleted" : "Active"}
                               </Badge>
                             </div>
                             <div className="text-right">
-                            <p className="font-semibold">₹{Math.round(parseFloat(sale.total_amount || "0"))}</p>
-                            <p className="text-sm text-muted-foreground capitalize">
+                              <p className="font-semibold">
+                                ₹
+                                {Math.round(
+                                  parseFloat(sale.total_amount || "0")
+                                )}
+                              </p>
+                              <p className="text-sm text-muted-foreground capitalize">
                                 {sale.payment_method}
                               </p>
                             </div>
                           </div>
-                          
+
                           <div className="flex items-center gap-2 mb-3">
                             <div className="flex items-center gap-1 text-sm text-muted-foreground">
                               <User className="h-4 w-4" />
@@ -301,6 +376,13 @@ export default function SalesPage() {
                                 >
                                   Print Bill
                                 </Button>
+                                <ThankYouModal
+                                  open={thankYouOpen}
+                                  onOpenChange={setThankYouOpen}
+                                  invoiceData={currentInvoice}
+                                  customerPhone={customerPhone}
+                                />
+
                                 <Button
                                   variant="destructive"
                                   size="sm"
@@ -336,16 +418,22 @@ export default function SalesPage() {
       <Dialog open={showReturnModal} onOpenChange={setShowReturnModal}>
         <DialogContent className="max-w-2xl">
           <DialogHeader>
-            <DialogTitle>Process Return - {selectedSale?.invoice_number}</DialogTitle>
+            <DialogTitle>
+              Process Return - {selectedSale?.invoice_number}
+            </DialogTitle>
           </DialogHeader>
           <div className="space-y-4">
             <p className="text-sm text-muted-foreground">
-              Select the quantity of each item to return. Inventory will be automatically updated.
+              Select the quantity of each item to return. Inventory will be
+              automatically updated.
             </p>
-            
+
             <div className="space-y-3 max-h-96 overflow-y-auto">
               {returnItems.map((item) => (
-                <div key={item.productId} className="flex items-center justify-between p-3 border rounded">
+                <div
+                  key={item.productId}
+                  className="flex items-center justify-between p-3 border rounded"
+                >
                   <div className="flex-1">
                     <p className="font-medium">{item.name}</p>
                     <p className="text-sm text-muted-foreground">
@@ -356,7 +444,9 @@ export default function SalesPage() {
                     <Button
                       variant="outline"
                       size="sm"
-                      onClick={() => updateReturnQuantity(item.productId, item.quantity - 1)}
+                      onClick={() =>
+                        updateReturnQuantity(item.productId, item.quantity - 1)
+                      }
                       disabled={item.quantity <= 0}
                     >
                       -
@@ -365,7 +455,9 @@ export default function SalesPage() {
                     <Button
                       variant="outline"
                       size="sm"
-                      onClick={() => updateReturnQuantity(item.productId, item.quantity + 1)}
+                      onClick={() =>
+                        updateReturnQuantity(item.productId, item.quantity + 1)
+                      }
                       disabled={item.quantity >= item.maxQuantity}
                     >
                       +
@@ -376,14 +468,19 @@ export default function SalesPage() {
             </div>
 
             <div className="flex justify-end gap-2 pt-4">
-              <Button variant="outline" onClick={() => setShowReturnModal(false)}>
+              <Button
+                variant="outline"
+                onClick={() => setShowReturnModal(false)}
+              >
                 Cancel
               </Button>
-              <Button 
+              <Button
                 onClick={processReturn}
                 disabled={returnSaleMutation.isPending}
               >
-                {returnSaleMutation.isPending ? "Processing..." : "Process Return"}
+                {returnSaleMutation.isPending
+                  ? "Processing..."
+                  : "Process Return"}
               </Button>
             </div>
           </div>

@@ -54,16 +54,26 @@ export function ThankYouModal({
   };
 
   // Convert InvoiceData to SaleData for LabelBill
+  // Convert InvoiceData to SaleData for LabelBill
+  // Convert InvoiceData to SaleData for LabelBill
   const saleData: SaleData | null = invoiceData
-  ? {
-      items: invoiceData.items ?? [],
-      totalAmount: invoiceData.total ?? 0,            // map total → totalAmount
-      paymentMethod: invoiceData.paymentMethod ?? "Cash",
-      invoiceNumber: invoiceData.invoiceNumber ?? "N/A",
-      createdAt: invoiceData.date ?? new Date().toISOString(), // map date → createdAt
-    }
-  : null;
-
+    ? {
+        items: (invoiceData.items ?? []).map((item: any) => ({
+          name: item.name,
+          quantity: item.quantity,
+          price: item.price,
+          total: item.total,
+          discount_value: item.discountValue || item.discount_value || 0, // percent
+          discount_amount: item.discountAmount || item.discount_amount || 0, // actual ₹ discount
+        })),
+        totalAmount: invoiceData.total ?? 0,
+        paymentMethod: invoiceData.paymentMethod ?? "Cash",
+        invoiceNumber: invoiceData.invoiceNumber ?? "N/A",
+        createdAt: invoiceData.date ?? new Date().toISOString(),
+        customerName: invoiceData.customerName || "Walk-in Customer",
+        customerPhone: customerPhone || "N/A",
+      }
+    : null;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
