@@ -20,20 +20,23 @@ interface LabelBillProps {
 
 const LabelBill = React.forwardRef<HTMLDivElement, LabelBillProps>(
   ({ data, taxPercent = 18 }, ref) => {
-    // ✅ Safe defaults for undefined
     const createdAt = data.createdAt ? new Date(data.createdAt) : new Date();
 
-    const subtotal = data.items.reduce(
-      (sum, item) => sum + item.price * item.quantity,
-      0
-    );
-    const totalDiscount = data.items.reduce(
-      (sum, item) => sum + (item.discount_amount || 0),
-      0
-    );
-    const taxableAmount = subtotal - totalDiscount;
-    const taxAmount = (taxableAmount * taxPercent) / 100;
-    const total = taxableAmount + taxAmount;
+    // ✅ Calculate item-level totals properly
+    const itemsWithTotals = data.items.map((item) => {
+      const itemSubtotal = item.price * item.quantity;
+      const itemDiscount = item.discount_amount || 0;
+      const itemTaxable = itemSubtotal - itemDiscount;
+      const itemTax = (itemTaxable * taxPercent) / 100;
+      const itemTotal = itemTaxable + itemTax;
+      return { ...item, itemSubtotal, itemDiscount, itemTax, itemTotal };
+    });
+
+    // ✅ Grand totals
+    const subtotal = itemsWithTotals.reduce((sum, i) => sum + i.itemSubtotal, 0);
+    const totalDiscount = itemsWithTotals.reduce((sum, i) => sum + i.itemDiscount, 0);
+    const taxAmount = itemsWithTotals.reduce((sum, i) => sum + i.itemTax, 0);
+    const total = itemsWithTotals.reduce((sum, i) => sum + i.itemTotal, 0);
 
     const barcodeUrl = useMemo(
       () => getBarcodeUrl(data.invoiceNumber || "000000"),
@@ -51,7 +54,7 @@ const LabelBill = React.forwardRef<HTMLDivElement, LabelBillProps>(
           fontFamily: "Arial, sans-serif",
           color: "#000",
           fontSize: "14px",
-          margin: "0 ",
+          margin: "0",
           boxSizing: "border-box",
         }}
       >
@@ -91,7 +94,7 @@ const LabelBill = React.forwardRef<HTMLDivElement, LabelBillProps>(
 
         <hr style={{ borderColor: "#000", margin: "4px 0" }} />
 
-        {/* ITEMS */}
+        {/* ITEMS TABLE */}
         <table
           style={{
             width: "100%",
@@ -108,18 +111,12 @@ const LabelBill = React.forwardRef<HTMLDivElement, LabelBillProps>(
             </tr>
           </thead>
           <tbody>
-            {data.items.map((item, i) => (
+            {itemsWithTotals.map((item, i) => (
               <tr key={i}>
                 <td>{item.name}</td>
                 <td align="center">{item.quantity}</td>
                 <td align="right">₹{item.price.toFixed(2)}</td>
-                <td align="right">
-                  ₹
-                  {(
-                    item.price * item.quantity -
-                    (item.discount_amount || 0)
-                  ).toFixed(2)}
-                </td>
+                <td align="right">₹{item.itemSubtotal.toFixed(2)}</td>
               </tr>
             ))}
           </tbody>
@@ -134,7 +131,7 @@ const LabelBill = React.forwardRef<HTMLDivElement, LabelBillProps>(
           </p>
           {totalDiscount > 0 && (
             <p style={{ color: "green" }}>
-              <strong>Discount:</strong> -₹{totalDiscount.toFixed(2)}
+              <strong>Discount: </strong> -₹{totalDiscount.toFixed(2)}
             </p>
           )}
           <p>

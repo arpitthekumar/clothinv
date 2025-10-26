@@ -77,7 +77,7 @@ export async function GET() {
     // Try to fetch today's sales summary
     try {
       const todaySales = await storage.getSalesToday();
-      const totalToday = todaySales.reduce((sum, s) => sum + Number(s.totalAmount), 0);
+      const totalToday = todaySales.reduce((sum, s) => sum + Number(s.total_amount), 0);
       
       // Only show sales summary if there are sales today
       if (todaySales.length > 0) {

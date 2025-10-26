@@ -10,16 +10,16 @@ export async function GET() {
   const sales = await storage.getSales();
   const recentSales = sales
     .sort((a, b) => {
-      const dateA = a.createdAt ? new Date(a.createdAt).getTime() : 0;
-      const dateB = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+      const dateA = a.created_at ? new Date(a.created_at).getTime() : 0;
+      const dateB = b.created_at ? new Date(b.created_at).getTime() : 0;
       return dateB - dateA;
     })
     .slice(0, 10)
     .map(sale => ({
       id: sale.id,
-      invoiceNumber: sale.invoiceNumber,
-      totalAmount: sale.totalAmount,
-      createdAt: sale.createdAt,
+      invoiceNumber: sale.invoice_number,
+      totalAmount: sale.total_amount,
+      createdAt: sale.created_at,
       items: sale.items
     }));
   

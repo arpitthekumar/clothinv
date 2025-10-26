@@ -17,10 +17,10 @@ export function RecentSales({ recentSales, onAddRecentSaleToCart }: RecentSalesP
 				<div key={sale.id} className="flex items-center justify-between p-2 border rounded">
 					<div className="flex-1 min-w-0">
 						<p className="text-sm font-medium truncate">{sale.invoiceNumber}</p>
-						<p className="text-xs text-muted-foreground">₹{sale.totalAmount}</p>
+						<p className="text-xs text-muted-foreground">₹{sale.invoice_amount}</p>
 					</div>
 					<Button size="sm" variant="outline" onClick={() => onAddRecentSaleToCart(sale)} className="ml-2">+ Add</Button>
-				</div>
+				</div>	
 			))}
 		</div>
 	);
