@@ -9,7 +9,7 @@ function getBarcodeUrl(payload: string): string {
   const symbology = isEanCandidate ? "ean13" : "code128";
   return `https://bwipjs-api.metafloor.com/?bcid=${symbology}&text=${encodeURIComponent(
     value
-  )}&scale=4&includetext=true&guardwhitespace=true&backgroundcolor=ffffff&fmt=svg`;
+  )}&scale=3&includetext=true&backgroundcolor=ffffff&fmt=svg`;
 }
 
 interface LabelBillProps {
@@ -39,172 +39,123 @@ const LabelBill = React.forwardRef<HTMLDivElement, LabelBillProps>(
     return (
       <div
         ref={ref}
-        className="p-2 border border-black "
         style={{
+          width: "280px",
+          padding: "8px",
+          border: "2px solid #000",
+          backgroundColor: "#fff",
           fontFamily: "Arial, sans-serif",
-          color: "#000000",
-          backgroundColor: "#ffffff",
-          
+          color: "#000",
+          fontSize: "14px",
+          margin: "0", // ✅ remove extra margin
+          boxSizing: "border-box", // ✅ fix content shift
         }}
       >
         {/* HEADER */}
-        <h1
-          className="text-center font-bold"
-          style={{ fontSize: "35px", margin: "0", lineHeight: 1.1 }}
-        >
-          Bhootia Fabric Collection
-        </h1>
-        <h2 className="text-center" style={{ fontSize: "18px", margin: 0 }}>
-          Gandhi Nagar, Moti Ganj, Bharthana, U.P
-        </h2>
-        <h2 className="text-center" style={{ fontSize: "15px", margin: 0 }}>
-          Ph: 9876543210
-        </h2>
-        {/* <hr className="border-black my-1" /> */}
+        <div style={{ textAlign: "center" }}>
+          <h1 style={{ fontSize: "22px", margin: 0, fontWeight: "bold" }}>
+            Bhootia Fabric Collection
+          </h1>
+          <p style={{ margin: "2px 0", fontSize: "12px" }}>
+            Gandhi Nagar, Moti Ganj, Bharthana, U.P
+          </p>
+          <p style={{ margin: "2px 0", fontSize: "12px" }}>Ph: 9876543210</p>
+        </div>
+
+        <hr style={{ borderColor: "#000", margin: "4px 0" }} />
+
         {/* CUSTOMER INFO */}
-        <div
-          className="flex flex-col mb-1"
-          style={{ fontSize: "15px", lineHeight: 1.2 }}
-        >
-          <div className="flex justify-between">
-            <p>
-              <strong>Invoice:</strong> {data.invoiceNumber || "N/A"}
-            </p>
-            <p>
-              <strong>Customer:</strong>{" "}
-              {data.customerName || "Walk-in Customer"}
-            </p>
-          </div>
-          <div className="flex justify-between">
-            <div className="flex">
-              <p>
-                <strong>Date:</strong>{" "}
-                {data.createdAt
-                  ? new Date(data.createdAt).toLocaleDateString()
-                  : "-"}
-              </p>
-              <p>
-                {" "}
-                <strong>Time:</strong>{" "}
-                {data.createdAt ? (
-                  <span style={{ fontWeight: "" }}>
-                    {new Date(data.createdAt).toLocaleTimeString([], {
-                      hour: "2-digit",
-                      minute: "2-digit",
-                    })}
-                  </span>
-                ) : (
-                  "-"
-                )}
-              </p>
-            </div>
-            <p>
-              <strong>Phone:</strong> {data.customerPhone || "N/A"}
-            </p>
-          </div>
-        </div>
-        {/* <hr className="border-black my-1" /> */}
-        <div style={{ fontSize: "16px" }}>
-          {/* Table Header */}
-          <div
-            className="flex justify-between font-bold pb-3"
-            style={{ borderBottom: "1px solid #000", paddingBottom: "2px" }}
-          >
-            <span style={{ width: "45%" }}>Item</span>
-            <span style={{ width: "15%", textAlign: "center" }}>Qty</span>
-            <span style={{ width: "20%", textAlign: "right" }}>Price</span>
-            <span style={{ width: "20%", textAlign: "right" }}>Amt</span>
-          </div>
-
-          {/* Table Rows */}
-          {data.items.map((item, idx) => {
-            const amount =
-              item.price * item.quantity - (item.discount_amount || 0);
-            return (
-              <div
-                key={idx}
-                className="flex justify-between"
-                style={{
-                  fontSize: "15px",
-                  // borderBottom: "1px solid #ccc", // replace border-gray-300
-                  // padding: "2px 0",
-                }}
-              >
-                <span style={{ width: "45%" }}>{item.name}</span>
-                <span style={{ width: "15%", textAlign: "center" }}>
-                  {item.quantity}
-                </span>
-                <span style={{ width: "20%", textAlign: "right" }}>
-                  ₹{item.price.toFixed(2)}
-                </span>
-                <span style={{ width: "20%", textAlign: "right" }}>
-                  ₹{amount.toFixed(2)}
-                </span>
-              </div>
-            );
-          })}
-
-          <h1 className="pb-2" style={{ fontWeight: "bold", fontSize: "19px",  }}>Total</h1>
-
-          <div
-            className="flex justify-between font-bold"
-            style={{
-              borderTop: "1px solid #000",
-              fontSize: "15px",
-            }}
-          >
-            <span style={{ width: "45%" }}>{data.items.length}</span>
-            <span style={{ width: "15%", textAlign: "center" }}>
-              {data.items.reduce((sum, item) => sum + item.quantity, 0)}
-            </span>
-            <span style={{ width: "20%", textAlign: "right" }}></span>
-            <span style={{ width: "20%", textAlign: "right" }}>
-              ₹{subtotal.toFixed(2)}
-            </span>
-          </div>
-        </div>
-
-        {/* <hr className="border-black my-1" /> */}
-        <div style={{ fontSize: "16px", lineHeight: 1.2 }}>
-          <div className="flex justify-between">
-            <span>Tax ({taxPercent}%):</span>
-            <span>₹{taxAmount.toFixed(2)}</span>
-          </div>
-          {totalDiscount > 0 && (
-            <div className="flex justify-between" style={{ color: "#008000" }}>
-              <span>Discount:</span>
-              <span>-₹{totalDiscount.toFixed(2)}</span>
-            </div>
-          )}
-
-          {/* <hr className="border-black my-[2px]" /> */}
-          <div
-            className="flex justify-between font-bold"
-            style={{ fontSize: "18px" }}
-          >
-            <span>Total:</span>
-            <span>₹{total.toFixed(2)}</span>
-          </div>
-        </div>
-        <div style={{ fontSize: "17px", marginTop: "2px" }}>
-          <p className="flex justify-between pb-2">
-            <strong>Payment:</strong>
-            <span>{data.paymentMethod || "Cash"}</span>
+        <div>
+          <p>
+            <strong>Invoice:</strong> {data.invoiceNumber}
+          </p>
+          <p>
+            <strong>Customer:</strong> {data.customerName}
+          </p>
+          <p>
+            <strong>Phone:</strong> {data.customerPhone}
+          </p>
+          <p>
+            <strong>Date:</strong>{" "}
+            {new Date(data.createdAt).toLocaleDateString()}{" "}
+            <strong>Time:</strong>{" "}
+            {new Date(data.createdAt).toLocaleTimeString([], {
+              hour: "2-digit",
+              minute: "2-digit",
+            })}
           </p>
         </div>
-        <div className="border-t border-black mt-[6px] pt-[6px] flex justify-center">
+
+        <hr style={{ borderColor: "#000", margin: "4px 0" }} />
+
+        {/* ITEMS */}
+        <table style={{ width: "100%", fontSize: "13px" }}>
+          <thead>
+            <tr>
+              <th align="left">Item</th>
+              <th align="center">Qty</th>
+              <th align="right">Rate</th>
+              <th align="right">Amt</th>
+            </tr>
+          </thead>
+          <tbody>
+            {data.items.map((item, i) => (
+              <tr key={i}>
+                <td>{item.name}</td>
+                <td align="center">{item.quantity}</td>
+                <td align="right">₹{item.price.toFixed(2)}</td>
+                <td align="right">
+                  ₹
+                  {(
+                    item.price * item.quantity -
+                    (item.discount_amount || 0)
+                  ).toFixed(2)}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+
+        <hr style={{ borderColor: "#000", margin: "4px 0" }} />
+
+        {/* TOTALS */}
+        <div style={{ fontSize: "13px" }}>
+          <p>
+            <strong>Subtotal:</strong> ₹{subtotal.toFixed(2)}
+          </p>
+          {totalDiscount > 0 && (
+            <p style={{ color: "green" }}>
+              <strong>Discount:</strong> -₹{totalDiscount.toFixed(2)}
+            </p>
+          )}
+          <p>
+            <strong>Tax ({taxPercent}%):</strong> ₹{taxAmount.toFixed(2)}
+          </p>
+          <p style={{ fontSize: "16px", fontWeight: "bold" }}>
+            Total: ₹{total.toFixed(2)}
+          </p>
+          <p>
+            <strong>Payment:</strong> {data.paymentMethod || "Cash"}
+          </p>
+        </div>
+
+        {/* BARCODE */}
+        <div style={{ textAlign: "center", marginTop: "8px" }}>
           <img
             src={barcodeUrl}
-            alt="Barcode"
+            alt="barcode"
+            width={240}
+            height={60}
+            className=" h"
             crossOrigin="anonymous"
-            className="w-[450px] h-[100px] object-cover object-bottom overflow-hidden mb-3"
           />
         </div>
-        <div
-          className="border-t border-black  pb-[12px] text-center"
-          style={{ fontSize: "28px", lineHeight: 1 }}
-        >
-          <p>Thank you, Visit Again</p>
+
+        {/* FOOTER */}
+        <div style={{ textAlign: "center", marginTop: "8px" }}>
+          <p style={{ fontSize: "14px", fontWeight: "bold" }}>
+            Thank you, Visit Again!
+          </p>
         </div>
       </div>
     );

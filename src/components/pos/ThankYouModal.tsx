@@ -9,6 +9,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Printer } from "lucide-react";
 import { useRef, useState } from "react";
+import jsPDF from "jspdf";
 import html2canvas from "html2canvas";
 import LabelBill from "./LabelBill";
 import { SaleData } from "@/lib/type";
@@ -49,53 +50,63 @@ export function ThankYouModal({
       }
     : null;
 
-  const handlePrintInvoice = async () => {
-    if (!invoiceRef.current) return;
-    setLoading(true);
+  const handleDownloadPDF = async () => {
+  if (!invoiceRef.current) return;
+  setLoading(true);
 
+  try {
+    // Capture the bill area
     const canvas = await html2canvas(invoiceRef.current, {
       backgroundColor: "#ffffff",
-      scale: 4, // sharper
+      scale: 3,
       useCORS: true,
       allowTaint: true,
+      removeContainer: true,
+      scrollX: 0,
+      scrollY: 0,
+      windowWidth: invoiceRef.current.scrollWidth,
+      windowHeight: invoiceRef.current.scrollHeight,
     });
 
-    const dataUrl = canvas.toDataURL("image/png");
-    const res = await fetch(dataUrl);
-    const blob = await res.blob();
-    const file = new File([blob], "invoice.png", { type: "image/png" });
+    const imgData = canvas.toDataURL("image/png");
 
-    if (navigator.canShare && navigator.canShare({ files: [file] })) {
-      await navigator
-        .share({
-          files: [file],
-          title: "Invoice",
-          text: "Thank you for your purchase!",
-        })
-        .catch((err) => console.error("Share failed:", err));
-    } else {
-      const link = document.createElement("a");
-      link.href = dataUrl;
-      link.download = "invoice.png";
-      link.click();
-    }
+    // Calculate exact PDF dimensions (matching rendered bill size)
+    const pdfWidth = canvas.width * 0.75; // pixels → points
+    const pdfHeight = canvas.height * 0.75;
 
+    const pdf = new jsPDF({
+      orientation: "portrait",
+      unit: "pt",
+      format: [pdfWidth, pdfHeight], // EXACT size of your bill, no margin
+    });
+
+    pdf.addImage(imgData, "PNG", 0, 0, pdfWidth, pdfHeight);
+    pdf.save(`Invoice_${saleData?.invoiceNumber || "Bill"}.pdf`);
+  } catch (err) {
+    console.error("PDF Generation Failed:", err);
+  } finally {
     setLoading(false);
-  };
+  }
+};
+
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent>
+      <DialogContent className="max-w-[380px]">
         <DialogHeader>
-          <DialogTitle>Thank you for your purchase!</DialogTitle>
+          <DialogTitle className="text-lg font-bold">
+            Thank you for your purchase!
+          </DialogTitle>
         </DialogHeader>
 
-        <div ref={invoiceRef}>{saleData && <LabelBill data={saleData} />}</div>
+        <div ref={invoiceRef}>
+          {saleData && <LabelBill data={saleData} />}
+        </div>
 
         <div className="mt-4 flex gap-2">
-          <Button onClick={handlePrintInvoice} disabled={loading}>
-            <Printer className="mr-2 h-4 w-4" />{" "}
-            {loading ? "Generating..." : "Print Bill"}
+          <Button onClick={handleDownloadPDF} disabled={loading}>
+            <Printer className="mr-2 h-4 w-4" />
+            {loading ? "Generating..." : "Download PDF"}
           </Button>
         </div>
       </DialogContent>
