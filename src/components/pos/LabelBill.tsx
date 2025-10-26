@@ -44,6 +44,7 @@ const LabelBill = React.forwardRef<HTMLDivElement, LabelBillProps>(
           fontFamily: "Arial, sans-serif",
           color: "#000000",
           backgroundColor: "#ffffff",
+          
         }}
       >
         {/* HEADER */}
@@ -59,7 +60,7 @@ const LabelBill = React.forwardRef<HTMLDivElement, LabelBillProps>(
         <h2 className="text-center" style={{ fontSize: "15px", margin: 0 }}>
           Ph: 9876543210
         </h2>
-        <hr className="border-black my-1" />
+        {/* <hr className="border-black my-1" /> */}
         {/* CUSTOMER INFO */}
         <div
           className="flex flex-col mb-1"
@@ -102,11 +103,11 @@ const LabelBill = React.forwardRef<HTMLDivElement, LabelBillProps>(
             </p>
           </div>
         </div>
-        <hr className="border-black my-1" />
-        <div style={{ fontSize: "16px", marginTop: "5px" }}>
+        {/* <hr className="border-black my-1" /> */}
+        <div style={{ fontSize: "16px" }}>
           {/* Table Header */}
           <div
-            className="flex justify-between font-bold"
+            className="flex justify-between font-bold pb-3"
             style={{ borderBottom: "1px solid #000", paddingBottom: "2px" }}
           >
             <span style={{ width: "45%" }}>Item</span>
@@ -125,8 +126,8 @@ const LabelBill = React.forwardRef<HTMLDivElement, LabelBillProps>(
                 className="flex justify-between"
                 style={{
                   fontSize: "15px",
-                  borderBottom: "1px solid #ccc", // replace border-gray-300
-                  padding: "2px 0",
+                  // borderBottom: "1px solid #ccc", // replace border-gray-300
+                  // padding: "2px 0",
                 }}
               >
                 <span style={{ width: "45%" }}>{item.name}</span>
@@ -143,13 +144,12 @@ const LabelBill = React.forwardRef<HTMLDivElement, LabelBillProps>(
             );
           })}
 
-          <h1 style={{ fontWeight: "bold", fontSize: "19px" }}>Total</h1>
+          <h1 className="pb-2" style={{ fontWeight: "bold", fontSize: "19px",  }}>Total</h1>
 
           <div
             className="flex justify-between font-bold"
             style={{
               borderTop: "1px solid #000",
-              paddingTop: "2px",
               fontSize: "15px",
             }}
           >
@@ -164,7 +164,7 @@ const LabelBill = React.forwardRef<HTMLDivElement, LabelBillProps>(
           </div>
         </div>
 
-        <hr className="border-black my-1" />
+        {/* <hr className="border-black my-1" /> */}
         <div style={{ fontSize: "16px", lineHeight: 1.2 }}>
           <div className="flex justify-between">
             <span>Tax ({taxPercent}%):</span>
@@ -177,7 +177,7 @@ const LabelBill = React.forwardRef<HTMLDivElement, LabelBillProps>(
             </div>
           )}
 
-          <hr className="border-black my-[2px]" />
+          {/* <hr className="border-black my-[2px]" /> */}
           <div
             className="flex justify-between font-bold"
             style={{ fontSize: "18px" }}
@@ -187,24 +187,24 @@ const LabelBill = React.forwardRef<HTMLDivElement, LabelBillProps>(
           </div>
         </div>
         <div style={{ fontSize: "17px", marginTop: "2px" }}>
-          <p className="flex justify-between">
+          <p className="flex justify-between pb-2">
             <strong>Payment:</strong>
             <span>{data.paymentMethod || "Cash"}</span>
           </p>
         </div>
-        <div className="border-t border-black mt-[2px] pt-[2px] flex justify-center">
+        <div className="border-t border-black mt-[6px] pt-[6px] flex justify-center">
           <img
             src={barcodeUrl}
             alt="Barcode"
             crossOrigin="anonymous"
-            className="w-[450px] h-[100px] object-cover object-bottom overflow-hidden"
+            className="w-[450px] h-[100px] object-cover object-bottom overflow-hidden mb-3"
           />
         </div>
         <div
-          className="border-t border-black mt-[2px] pt-[2px] text-center"
+          className="border-t border-black  pb-[12px] text-center"
           style={{ fontSize: "28px", lineHeight: 1 }}
         >
-          <p>Thank you Visit Again</p>
+          <p>Thank you, Visit Again</p>
         </div>
       </div>
     );

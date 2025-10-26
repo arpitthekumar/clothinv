@@ -1,6 +1,11 @@
 "use client";
 
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Printer } from "lucide-react";
 import { useRef, useState } from "react";
@@ -16,7 +21,12 @@ interface ThankYouModalProps {
   customerPhone: string;
 }
 
-export function ThankYouModal({ open, onOpenChange, invoiceData, customerPhone }: ThankYouModalProps) {
+export function ThankYouModal({
+  open,
+  onOpenChange,
+  invoiceData,
+  customerPhone,
+}: ThankYouModalProps) {
   const invoiceRef = useRef<HTMLDivElement>(null);
   const [loading, setLoading] = useState(false);
 
@@ -45,7 +55,7 @@ export function ThankYouModal({ open, onOpenChange, invoiceData, customerPhone }
 
     const canvas = await html2canvas(invoiceRef.current, {
       backgroundColor: "#ffffff",
-      scale: 3,
+      scale: 4, // sharper
       useCORS: true,
       allowTaint: true,
     });
@@ -57,7 +67,11 @@ export function ThankYouModal({ open, onOpenChange, invoiceData, customerPhone }
 
     if (navigator.canShare && navigator.canShare({ files: [file] })) {
       await navigator
-        .share({ files: [file], title: "Invoice", text: "Thank you for your purchase!" })
+        .share({
+          files: [file],
+          title: "Invoice",
+          text: "Thank you for your purchase!",
+        })
         .catch((err) => console.error("Share failed:", err));
     } else {
       const link = document.createElement("a");
@@ -76,13 +90,12 @@ export function ThankYouModal({ open, onOpenChange, invoiceData, customerPhone }
           <DialogTitle>Thank you for your purchase!</DialogTitle>
         </DialogHeader>
 
-        <div ref={invoiceRef}>
-          {saleData && <LabelBill data={saleData} />}
-        </div>
+        <div ref={invoiceRef}>{saleData && <LabelBill data={saleData} />}</div>
 
         <div className="mt-4 flex gap-2">
           <Button onClick={handlePrintInvoice} disabled={loading}>
-            <Printer className="mr-2 h-4 w-4" /> {loading ? "Generating..." : "Print Bill"}
+            <Printer className="mr-2 h-4 w-4" />{" "}
+            {loading ? "Generating..." : "Print Bill"}
           </Button>
         </div>
       </DialogContent>
