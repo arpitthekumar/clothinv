@@ -27,7 +27,15 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Download, FileText, Calendar, TrendingUp } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import { normalizeItems } from "@/lib/json";
-
+interface NotSellingProduct {
+  productId: string;
+  name: string;
+  sku: string;
+  stock: number;
+  lastSoldAt: string | null;
+  deleted_at: string | null;
+  isDeleted: boolean;
+}
 export default function Reports() {
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [reportType, setReportType] = useState("daily");
@@ -43,13 +51,11 @@ export default function Reports() {
   const { data: profit } = useQuery<any>({
     queryKey: ["/api/reports/profit-margins", { sinceDays: 30 }],
   });
-  const { data: notSelling } = useQuery<any[]>({
+  const { data: notSelling = [] } = useQuery<NotSellingProduct[]>({
     queryKey: ["/api/reports/not-selling", { sinceDays: 30 }],
   });
 
-  const filteredNotSelling = notSelling || []; // all items here are active now
-  console.log("Not Selling Data:", filteredNotSelling);
-
+  const filteredNotSelling = notSelling; // already array
   const toggleSidebar = () => setSidebarOpen(!sidebarOpen);
 
   const handleExportReport = () => {
@@ -326,15 +332,14 @@ export default function Reports() {
                   </TableHeader>
                   <TableBody>
                     {filteredNotSelling.slice(0, 10).map((p) => (
-                      <TableRow key={p.productId || p.product_id}>
+                      <TableRow key={p.productId}>
                         <TableCell>{p.name}</TableCell>
                         <TableCell>{p.sku}</TableCell>
                         <TableCell>{p.stock}</TableCell>
-                        <TableCell>
-                          {p.lastSoldAt || p.last_sold_at || "Never"}
-                        </TableCell>
+                        <TableCell>{p.lastSoldAt || "Never"}</TableCell>
                       </TableRow>
                     ))}
+
                     {filteredNotSelling.length === 0 && (
                       <TableRow>
                         <TableCell

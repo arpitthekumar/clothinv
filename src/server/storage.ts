@@ -61,38 +61,115 @@ export interface IStorage {
 
   // Suppliers
   getSuppliers(): Promise<import("@shared/schema").Supplier[]>;
-  createSupplier(supplier: import("@shared/schema").InsertSupplier): Promise<import("@shared/schema").Supplier>;
+  createSupplier(
+    supplier: import("@shared/schema").InsertSupplier
+  ): Promise<import("@shared/schema").Supplier>;
 
   // Purchase Orders
   getPurchaseOrders(): Promise<import("@shared/schema").PurchaseOrder[]>;
-  createPurchaseOrder(po: import("@shared/schema").InsertPurchaseOrder): Promise<import("@shared/schema").PurchaseOrder>;
-  addPurchaseOrderItem(item: import("@shared/schema").InsertPurchaseOrderItem): Promise<import("@shared/schema").PurchaseOrderItem>;
-  receivePurchaseOrderItems(params: { items: Array<{ purchaseOrderItemId: string; quantity: number }>; userId: string }): Promise<void>;
+  createPurchaseOrder(
+    po: import("@shared/schema").InsertPurchaseOrder
+  ): Promise<import("@shared/schema").PurchaseOrder>;
+  addPurchaseOrderItem(
+    item: import("@shared/schema").InsertPurchaseOrderItem
+  ): Promise<import("@shared/schema").PurchaseOrderItem>;
+  receivePurchaseOrderItems(params: {
+    items: Array<{ purchaseOrderItemId: string; quantity: number }>;
+    userId: string;
+  }): Promise<void>;
 
   // Sales normalization & Returns
-  createSaleItems(saleId: string, items: Array<{ productId: string; quantity: number; price: string; name: string; sku: string }>): Promise<void>;
-  createSalesReturn(params: { saleId: string; customerId?: string; reason?: string; items: Array<{ productId: string; saleItemId?: string; quantity: number; refundAmount?: string }>; userId: string }): Promise<{ salesReturnId: string }>;
+  createSaleItems(
+    saleId: string,
+    items: Array<{
+      productId: string;
+      quantity: number;
+      price: string;
+      name: string;
+      sku: string;
+    }>
+  ): Promise<void>;
+  createSalesReturn(params: {
+    saleId: string;
+    customerId?: string;
+    reason?: string;
+    items: Array<{
+      productId: string;
+      saleItemId?: string;
+      quantity: number;
+      refundAmount?: string;
+    }>;
+    userId: string;
+  }): Promise<{ salesReturnId: string }>;
 
   // Promotions
   getPromotions(): Promise<import("@shared/schema").Promotion[]>;
-  createPromotion(promo: import("@shared/schema").InsertPromotion): Promise<import("@shared/schema").Promotion>;
-  addPromotionTarget(target: import("@shared/schema").InsertPromotionTarget): Promise<import("@shared/schema").PromotionTarget>;
+  createPromotion(
+    promo: import("@shared/schema").InsertPromotion
+  ): Promise<import("@shared/schema").Promotion>;
+  addPromotionTarget(
+    target: import("@shared/schema").InsertPromotionTarget
+  ): Promise<import("@shared/schema").PromotionTarget>;
   getPromotionTargets(): Promise<import("@shared/schema").PromotionTarget[]>;
 
   // Reports
-  getNotSellingProducts(params: { sinceDays: number }): Promise<Array<{ productId: string; name: string; sku: string; stock: number; lastSoldAt: string | null; deleted_at: string | null; isDeleted: boolean }>>;
-  getStockValuation(): Promise<{ totalValuation: number; byProduct: Array<{ productId: string; name: string; stock: number; cost: number; valuation: number }> }>;
-  getProfitMargins(params: { sinceDays: number }): Promise<{ totalProfit: number; byProduct: Array<{ productId: string; name: string; quantity: number; revenue: number; cost: number; profit: number; marginPercent: number }> }>;
+  getNotSellingProducts(params: { sinceDays: number }): Promise<
+    Array<{
+      productId: string;
+      name: string;
+      sku: string;
+      stock: number;
+      lastSoldAt: string | null;
+      deleted_at: string | null;
+      isDeleted: boolean;
+    }>
+  >;
+  getStockValuation(): Promise<{
+    totalValuation: number;
+    byProduct: Array<{
+      productId: string;
+      name: string;
+      stock: number;
+      cost: number;
+      valuation: number;
+    }>;
+  }>;
+  getProfitMargins(params: {
+    sinceDays: number;
+  }): Promise<{
+    totalProfit: number;
+    byProduct: Array<{
+      productId: string;
+      name: string;
+      quantity: number;
+      revenue: number;
+      cost: number;
+      profit: number;
+      marginPercent: number;
+    }>;
+  }>;
 
   // Payments
-  createPayment(payment: import("@shared/schema").InsertPayment): Promise<import("@shared/schema").Payment>;
-  updatePayment(id: string, data: Partial<import("@shared/schema").InsertPayment>): Promise<import("@shared/schema").Payment | undefined>;
+  createPayment(
+    payment: import("@shared/schema").InsertPayment
+  ): Promise<import("@shared/schema").Payment>;
+  updatePayment(
+    id: string,
+    data: Partial<import("@shared/schema").InsertPayment>
+  ): Promise<import("@shared/schema").Payment | undefined>;
 
   // Discount Coupons
   getDiscountCoupons(): Promise<import("@shared/schema").DiscountCoupon[]>;
-  createDiscountCoupon(coupon: import("@shared/schema").InsertDiscountCoupon): Promise<import("@shared/schema").DiscountCoupon>;
-  getDiscountCouponByName(name: string): Promise<import("@shared/schema").DiscountCoupon | undefined>;
-  updateDiscountCoupon(id: string, coupon: Partial<import("@shared/schema").InsertDiscountCoupon>): Promise<import("@shared/schema").DiscountCoupon | undefined>;
+  createDiscountCoupon(
+    coupon: import("@shared/schema").InsertDiscountCoupon
+  ): Promise<import("@shared/schema").DiscountCoupon>;
+  getDiscountCouponByName(
+    name: string
+  ): Promise<import("@shared/schema").DiscountCoupon | undefined>;
+  updateDiscountCoupon(
+    id: string,
+    coupon: Partial<import("@shared/schema").InsertDiscountCoupon>
+  ): Promise<import("@shared/schema").DiscountCoupon | undefined>;
   deleteDiscountCoupon(id: string): Promise<boolean>;
 }
 

@@ -106,7 +106,10 @@ export async function DELETE(request: NextRequest) {
     const saleId = pathParts[pathParts.length - 1];
 
     if (!saleId) {
-      return NextResponse.json({ error: "Sale ID is required" }, { status: 400 });
+      return NextResponse.json(
+        { error: "Sale ID is required" },
+        { status: 400 }
+      );
     }
 
     await storage.softDeleteSale(saleId);
