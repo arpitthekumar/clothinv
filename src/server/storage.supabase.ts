@@ -872,7 +872,6 @@ export class SupabaseStorage implements IStorage {
     const { data, error } = await this.client
       .from("discount_coupons")
       .select("*")
-      .eq("active", true)
       .order("created_at", { ascending: false });
     if (error) throw error;
     return data as import("@shared/schema").DiscountCoupon[];
