@@ -80,7 +80,7 @@ export interface IStorage {
   getPromotionTargets(): Promise<import("@shared/schema").PromotionTarget[]>;
 
   // Reports
-  getNotSellingProducts(params: { sinceDays: number }): Promise<Array<{ productId: string; name: string; sku: string; stock: number; lastSoldAt: string | null }>>;
+  getNotSellingProducts(params: { sinceDays: number }): Promise<Array<{ productId: string; name: string; sku: string; stock: number; lastSoldAt: string | null; deleted_at: string | null; isDeleted: boolean }>>;
   getStockValuation(): Promise<{ totalValuation: number; byProduct: Array<{ productId: string; name: string; stock: number; cost: number; valuation: number }> }>;
   getProfitMargins(params: { sinceDays: number }): Promise<{ totalProfit: number; byProduct: Array<{ productId: string; name: string; quantity: number; revenue: number; cost: number; profit: number; marginPercent: number }> }>;
 
