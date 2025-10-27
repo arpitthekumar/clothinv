@@ -12,9 +12,8 @@ import {
   FileBarChart,
   Settings,
   Search,
-  PlusCircle,
-  ScanBarcode,
   RotateCcw,
+  ScanBarcode,
   Receipt,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -70,7 +69,6 @@ export function Sidebar({ isOpen }: SidebarProps) {
     { href: "/admin", icon: BarChart3, label: "Dashboard" },
     { href: "/admin/users", icon: Users, label: "Users" },
     { href: "/inventory", icon: Package, label: "Inventory" },
-    // { href: "/purchasing", icon: RotateCcw, label: "Purchasing" },
     { href: "/sales", icon: Receipt, label: "Sales Management" },
     { href: "/reports", icon: FileBarChart, label: "Reports" },
     { href: "/settings", icon: Settings, label: "Settings" },
@@ -79,7 +77,6 @@ export function Sidebar({ isOpen }: SidebarProps) {
   const employeeMenuItems = [
     { href: "/", icon: RotateCcw, label: "Dashboard" },
     { href: "/inventory", icon: Search, label: "Find Products" },
-    
   ];
 
   const commonMenuItems = [
@@ -91,13 +88,14 @@ export function Sidebar({ isOpen }: SidebarProps) {
   return (
     <div
       className={cn(
-        "bg-card border-r border-border transition-all duration-300 flex-shrink-0",
+        "bg-card border-r border-border transition-all duration-300 flex-shrink-0 h-screen",
+        "overflow-y-auto scrollbar-thin scrollbar-thumb-muted scrollbar-track-transparent",
         isOpen ? "w-64" : "w-0 lg:w-64"
       )}
     >
       <div
         className={cn(
-          "flex flex-col h-full overflow-hidden",
+          "flex flex-col min-h-full",
           isOpen ? "block" : "hidden lg:flex"
         )}
       >
@@ -180,9 +178,6 @@ export function Sidebar({ isOpen }: SidebarProps) {
                   <Button
                     variant={location === item.href ? "default" : "ghost"}
                     className="w-full justify-start"
-                    data-testid={`nav-${item.label
-                      .toLowerCase()
-                      .replace(/\s+/g, "-")}`}
                   >
                     <item.icon className="mr-2 h-4 w-4" />
                     {item.label}
@@ -198,9 +193,6 @@ export function Sidebar({ isOpen }: SidebarProps) {
                   <Button
                     variant={location === item.href ? "default" : "ghost"}
                     className="w-full justify-start"
-                    data-testid={`nav-${item.label
-                      .toLowerCase()
-                      .replace(/\s+/g, "-")}`}
                   >
                     <item.icon className="mr-2 h-4 w-4" />
                     {item.label}
