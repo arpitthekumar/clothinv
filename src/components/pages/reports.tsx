@@ -44,6 +44,7 @@ export default function Reports() {
   const { data: sales = [], isLoading: salesLoading } = useQuery<Sale[]>({
     queryKey: ["/api/sales"],
   });
+  console.log(sales);
 
   const { data: valuation } = useQuery<any>({
     queryKey: ["/api/reports/stock-valuation"],
@@ -56,6 +57,7 @@ export default function Reports() {
   });
 
   const filteredNotSelling = notSelling; // already array
+
   const toggleSidebar = () => setSidebarOpen(!sidebarOpen);
 
   const handleExportReport = () => {
@@ -405,27 +407,32 @@ export default function Reports() {
                               data-testid={`sale-row-${sale.id}`}
                             >
                               <TableCell className="font-medium">
-                                {sale.invoice_number?.split("-")[2] ||
-                                  "Unknown"}
+                                {sale.invoice_number || "Unknown"}
                               </TableCell>
+
                               <TableCell>
                                 {sale.created_at ? (
                                   <>
                                     <p className="text-sm font-medium">
                                       {new Date(
-                                        sale.created_at as
-                                          | string
-                                          | number
-                                          | Date
-                                      ).toLocaleString()}
+                                        sale.created_at.endsWith("Z")
+                                          ? sale.created_at
+                                          : sale.created_at + "Z"
+                                      ).toLocaleString("en-IN", {
+                                        hour12: true,
+                                        hour: "2-digit",
+                                        minute: "2-digit",
+                                        day: "2-digit",
+                                        month: "2-digit",
+                                        year: "numeric",
+                                      })}
                                     </p>
                                     <p className="text-xs text-muted-foreground">
                                       {formatDistanceToNow(
                                         new Date(
-                                          sale.created_at as
-                                            | string
-                                            | number
-                                            | Date
+                                          sale.created_at.endsWith("Z")
+                                            ? sale.created_at
+                                            : sale.created_at + "Z"
                                         ),
                                         { addSuffix: true }
                                       )}

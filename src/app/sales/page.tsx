@@ -317,7 +317,9 @@ export default function SalesPage() {
                                 </h3>
                                 <p className="text-sm text-muted-foreground">
                                   {formatDistanceToNow(
-                                    new Date(sale.created_at || Date.now()),
+                                    new Date(
+                                      (sale.created_at || Date.now()) + "Z"
+                                    ),
                                     { addSuffix: true }
                                   )}
                                 </p>

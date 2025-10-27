@@ -20,7 +20,9 @@ interface LabelBillProps {
 
 const LabelBill = React.forwardRef<HTMLDivElement, LabelBillProps>(
   ({ data, taxPercent = 18 }, ref) => {
-    const createdAt = data.createdAt ? new Date(data.createdAt) : new Date();
+const createdAt = data.createdAt
+  ? new Date(`${data.createdAt}Z`) // ensures UTC interpretation
+  : new Date();
 
     // ✅ Calculate item-level totals properly
     const itemsWithTotals = data.items.map((item) => {

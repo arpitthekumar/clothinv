@@ -148,30 +148,35 @@ export function ThankYouModal({
     setLoading(false);
   };
 
-  // ✅ Send PDF via WhatsApp link
+  // ✅ Send WhatsApp Message Only (no PDF)
   const handleSendToCustomer = async () => {
     if (!customerPhone) return alert("Customer number not available");
 
     setLoading(true);
-    const pdfBlob = await generatePDF();
-    if (pdfBlob) {
-      const pdfFile = new File(
-        [pdfBlob],
-        `Invoice_${saleData?.invoiceNumber}.pdf`,
-        { type: "application/pdf" }
-      );
-      const url = URL.createObjectURL(pdfFile);
 
-      // WhatsApp Web URL to prefill text with download link
+    if (saleData) {
+      // ✅ Custom WhatsApp message
+      const message = `Hello ${saleData.customerName || "dear customer"}! 😊
+Thank you for shopping with *Bhootia Fabric Collection* 🛍️
+
+🧾 *Invoice Details*
+• Invoice No: ${saleData.invoiceNumber}
+• Date: ${new Date(saleData.createdAt ?? new Date()).toLocaleDateString()}
+• Payment Method: ${saleData.paymentMethod}
+• Total Amount: ₹${saleData.totalAmount.toFixed(2)}
+
+We appreciate your purchase ❤️`;
+
+      // ✅ Create WhatsApp message link
       const whatsappUrl = `https://wa.me/${customerPhone.replace(
         /[^0-9]/g,
         ""
-      )}?text=Hello%20${encodeURIComponent(
-        saleData?.customerName || ""
-      )},%20here%20is%20your%20invoice:%20${encodeURIComponent(url)}`;
+      )}?text=${encodeURIComponent(message)}`;
 
+      // ✅ Open WhatsApp directly
       window.open(whatsappUrl, "_blank");
     }
+
     setLoading(false);
   };
 
