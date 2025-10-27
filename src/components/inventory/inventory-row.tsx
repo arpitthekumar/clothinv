@@ -4,7 +4,16 @@ import { Edit, QrCode, Trash2, RotateCcw, Package } from "lucide-react";
 import { LabelPreviewDialog } from "@/components/shared/label-preview-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { AlertDialog, AlertDialogContent, AlertDialogHeader, AlertDialogFooter, AlertDialogTitle, AlertDialogDescription, AlertDialogCancel, AlertDialogAction } from "@/components/ui/alert-dialog";
+import {
+  AlertDialog,
+  AlertDialogContent,
+  AlertDialogHeader,
+  AlertDialogFooter,
+  AlertDialogTitle,
+  AlertDialogDescription,
+  AlertDialogCancel,
+  AlertDialogAction,
+} from "@/components/ui/alert-dialog";
 import { Product } from "@shared/schema";
 import { useToast } from "@/hooks/use-toast";
 import { useMutation } from "@tanstack/react-query";
@@ -56,31 +65,43 @@ export function InventoryRow({ product, categories, showTrash, onEdit }: Invento
 
   return (
     <>
-      <tr className="hover:bg-muted/50 align-top">
-        <td className="p-4">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 md:w-12 md:h-12 bg-muted rounded-lg flex items-center justify-center flex-shrink-0">
-              <Package className="text-muted-foreground h-6 w-6" />
+      <tr className="hover:bg-muted/50 align-top border-b">
+        <td className="p-2 sm:p-4">
+          <div className="flex items-center gap-2 sm:gap-3">
+            <div className="w-10 h-10 sm:w-12 sm:h-12 bg-muted rounded-lg hidden md:flex items-center justify-center flex-shrink-0">
+              <Package className="text-muted-foreground h-5 w-5 sm:h-6 sm:w-6" />
             </div>
             <div className="min-w-0">
-              <p className="font-medium truncate max-w-[180px] md:max-w-none">{product.name}</p>
-              <p className="text-xs md:text-sm text-muted-foreground truncate">SKU: {product.sku}</p>
+              <p className="font-medium truncate text-sm sm:text-base">{product.name}</p>
+              <p className="text-xs text-muted-foreground truncate">SKU: {product.sku}</p>
+              <div className="flex flex-wrap gap-1 mt-1 sm:hidden">
+                <Badge variant="outline">{category?.name || "Uncategorized"}</Badge>
+                <Badge
+                  variant={getStockStatus(product.stock, product.minStock ?? undefined).variant}
+                >
+                  {getStockStatus(product.stock, product.minStock ?? undefined).label}
+                </Badge>
+              </div>
             </div>
           </div>
         </td>
-        <td className="p-4 hidden lg:table-cell">
+
+        <td className="p-2 sm:p-4 hidden sm:table-cell">
           <Badge variant="outline">{category?.name || "Uncategorized"}</Badge>
         </td>
-        <td className="p-4 text-sm hidden lg:table-cell">{product.size || "-"}</td>
-        <td className="p-4">{product.stock} units</td>
-        <td className="p-4 font-medium">₹{product.price}</td>
-        <td className="p-4 hidden sm:table-cell">
+
+        <td className="p-2 sm:p-4 text-sm hidden md:table-cell">{product.size || "-"}</td>
+
+        <td className="p-2 sm:p-4 text-sm">{product.stock} units</td>
+        <td className="p-2 sm:p-4 font-medium text-sm sm:text-base">₹{product.price}</td>
+        <td className="p-2 sm:p-4 hidden sm:table-cell">
           <Badge variant={getStockStatus(product.stock, product.minStock ?? undefined).variant}>
             {getStockStatus(product.stock, product.minStock ?? undefined).label}
           </Badge>
         </td>
-        <td className="p-4">
-          <div className="flex gap-2 flex-wrap md:flex-nowrap">
+
+        <td className="p-2 sm:p-4">
+          <div className="flex gap-1 sm:gap-2 flex-wrap md:flex-nowrap">
             {showTrash ? (
               <Button variant="ghost" size="sm" onClick={() => restoreMutation.mutate(product.id)}>
                 <RotateCcw className="h-4 w-4 text-blue-600" />
@@ -95,11 +116,7 @@ export function InventoryRow({ product, categories, showTrash, onEdit }: Invento
                   <QrCode className="h-4 w-4 text-green-600" />
                 </Button>
 
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => setConfirmDelete(true)}
-                >
+                <Button variant="ghost" size="sm" onClick={() => setConfirmDelete(true)}>
                   <Trash2 className="h-4 w-4 text-red-600" />
                 </Button>
 

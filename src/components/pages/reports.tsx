@@ -37,7 +37,6 @@ export default function Reports() {
     queryKey: ["/api/sales"],
   });
 
-  // New report data
   const { data: valuation } = useQuery<any>({
     queryKey: ["/api/reports/stock-valuation"],
   });
@@ -48,44 +47,29 @@ export default function Reports() {
     queryKey: ["/api/reports/not-selling", { sinceDays: 30 }],
   });
 
-  const toggleSidebar = () => {
-    setSidebarOpen(!sidebarOpen);
-  };
+  const toggleSidebar = () => setSidebarOpen(!sidebarOpen);
 
   const handleExportReport = () => {
-    // This would generate and download a report file
     const reportData = sales || [];
     const csvContent = generateCSVReport(reportData);
     downloadFile(csvContent, `sales-report-${Date.now()}.csv`, "text/csv");
   };
 
   const generateCSVReport = (data: Sale[]) => {
-    const headers = [
-      "Invoice Number",
-      "Date",
-      "Total Amount",
-      "Items",
-      "Payment Method",
-    ];
+    const headers = ["Invoice Number", "Date", "Total Amount", "Items", "Payment Method"];
     const rows = data.map((sale: Sale) => {
-      const createdAt = sale.created_at
-        ? new Date((sale as any).created_at as string | number | Date)
-        : null;
+      const createdAt = sale.created_at ? new Date(sale.created_at as string | number | Date) : null;
       const items = normalizeItems((sale as any).items);
       return [
-         sale.invoice_number,
-        createdAt ? createdAt.toLocaleDateString() : "",
-       sale.total_amount,
+        sale.invoice_number,
+        createdAt ? createdAt.toLocaleString() : "",
+        sale.total_amount,
         Array.isArray(items) ? items.length : 0,
-       sale.payment_method,
+        sale.payment_method,
       ];
     });
 
-    const csvContent = [headers, ...rows]
-      .map((row) => row.map((field) => `"${field}"`).join(","))
-      .join("\n");
-
-    return csvContent;
+    return [headers, ...rows].map(row => row.map(field => `"${field}"`).join(",")).join("\n");
   };
 
   const downloadFile = (content: string, filename: string, _type: string) => {
@@ -100,48 +84,53 @@ export default function Reports() {
     URL.revokeObjectURL(url);
   };
 
-  const filteredSales =
-    sales?.filter((sale: any) => {
-      const createdAt = sale?.created_at
-        ? new Date(sale.created_at as string | number | Date)
-        : null;
-      if (!createdAt) return false;
-      const saleDate = createdAt;
-      const today = new Date();
+  // Helper function to compare dates safely (ignores timezones)
+  const isSameDay = (d1: Date, d2: Date) =>
+    d1.getFullYear() === d2.getFullYear() &&
+    d1.getMonth() === d2.getMonth() &&
+    d1.getDate() === d2.getDate();
 
-      switch (dateRange) {
-        case "today":
-          return saleDate.toDateString() === today.toDateString();
-        case "week":
-          const weekAgo = new Date(today.getTime() - 7 * 24 * 60 * 60 * 1000);
-          return saleDate >= weekAgo;
-        case "month":
-          const monthAgo = new Date(today.getTime() - 30 * 24 * 60 * 60 * 1000);
-          return saleDate >= monthAgo;
-        default:
-          return true;
+  const filteredSales = sales?.filter((sale: any) => {
+    if (!sale.created_at) return false;
+    const saleDate = new Date(sale.created_at as string | number | Date);
+    const today = new Date();
+
+    switch (dateRange) {
+      case "today":
+        return isSameDay(saleDate, today);
+      case "week": {
+        const weekAgo = new Date();
+        weekAgo.setDate(today.getDate() - 7);
+        return saleDate >= weekAgo;
       }
-    }) || [];
+      case "month": {
+        const monthAgo = new Date();
+        monthAgo.setMonth(today.getMonth() - 1);
+        return saleDate >= monthAgo;
+      }
+      case "all":
+        return true;
+      default:
+        return true;
+    }
+  }) || [];
 
   const totalSales = filteredSales.reduce(
-       (sum: number, sale: any) => sum + parseFloat(sale.total_amount || "0"),
+    (sum: number, sale: any) => sum + parseFloat(sale.total_amount || "0"),
     0
   );
   const totalTransactions = filteredSales.length;
-  const averageTicket =
-    totalTransactions > 0 ? totalSales / totalTransactions : 0;
+  const averageTicket = totalTransactions > 0 ? totalSales / totalTransactions : 0;
 
   return (
     <div className="flex h-screen overflow-hidden bg-background">
       <Sidebar isOpen={sidebarOpen} />
-
       <div className="flex-1 flex flex-col overflow-hidden">
         <Header
           title="Reports & Analytics"
           subtitle="View sales performance and generate reports"
           onSidebarToggle={toggleSidebar}
         />
-
         <main className="flex-1 overflow-auto p-6 space-y-6">
           {/* Report Controls */}
           <Card>
@@ -154,9 +143,7 @@ export default function Reports() {
             <CardContent>
               <div className="flex flex-col sm:flex-row gap-4 items-end">
                 <div className="flex-1">
-                  <label className="text-sm font-medium mb-2 block">
-                    Report Type
-                  </label>
+                  <label className="text-sm font-medium mb-2 block">Report Type</label>
                   <Select value={reportType} onValueChange={setReportType}>
                     <SelectTrigger data-testid="select-report-type">
                       <SelectValue />
@@ -165,17 +152,12 @@ export default function Reports() {
                       <SelectItem value="daily">Daily Sales</SelectItem>
                       <SelectItem value="weekly">Weekly Summary</SelectItem>
                       <SelectItem value="monthly">Monthly Report</SelectItem>
-                      <SelectItem value="inventory">
-                        Inventory Report
-                      </SelectItem>
+                      <SelectItem value="inventory">Inventory Report</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
-
                 <div className="flex-1">
-                  <label className="text-sm font-medium mb-2 block">
-                    Date Range
-                  </label>
+                  <label className="text-sm font-medium mb-2 block">Date Range</label>
                   <Select value={dateRange} onValueChange={setDateRange}>
                     <SelectTrigger data-testid="select-date-range">
                       <SelectValue />
@@ -188,11 +170,7 @@ export default function Reports() {
                     </SelectContent>
                   </Select>
                 </div>
-
-                <Button
-                  onClick={handleExportReport}
-                  data-testid="button-export-report"
-                >
+                <Button onClick={handleExportReport} data-testid="button-export-report">
                   <Download className="mr-2 h-4 w-4" />
                   Export CSV
                 </Button>
@@ -206,13 +184,8 @@ export default function Reports() {
               <CardContent className="p-6">
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="text-sm font-medium text-muted-foreground">
-                      Total Sales
-                    </p>
-                    <p
-                      className="text-2xl font-bold"
-                      data-testid="text-total-sales"
-                    >
+                    <p className="text-sm font-medium text-muted-foreground">Total Sales</p>
+                    <p className="text-2xl font-bold" data-testid="text-total-sales">
                       ₹{Math.round(totalSales).toLocaleString()}
                     </p>
                   </div>
@@ -227,13 +200,8 @@ export default function Reports() {
               <CardContent className="p-6">
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="text-sm font-medium text-muted-foreground">
-                      Transactions
-                    </p>
-                    <p
-                      className="text-2xl font-bold"
-                      data-testid="text-total-transactions"
-                    >
+                    <p className="text-sm font-medium text-muted-foreground">Transactions</p>
+                    <p className="text-2xl font-bold" data-testid="text-total-transactions">
                       {totalTransactions}
                     </p>
                   </div>
@@ -248,13 +216,8 @@ export default function Reports() {
               <CardContent className="p-6">
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="text-sm font-medium text-muted-foreground">
-                      Average Ticket
-                    </p>
-                    <p
-                      className="text-2xl font-bold"
-                      data-testid="text-average-ticket"
-                    >
+                    <p className="text-sm font-medium text-muted-foreground">Average Ticket</p>
+                    <p className="text-2xl font-bold" data-testid="text-average-ticket">
                       ₹{Math.round(averageTicket).toLocaleString()}
                     </p>
                   </div>
@@ -266,19 +229,14 @@ export default function Reports() {
             </Card>
           </div>
 
-          {/* New KPI Widgets: Profit, Stock Valuation, Not Selling */}
+          {/* KPI Widgets */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             <Card>
               <CardHeader>
                 <CardTitle>Profit (30 days)</CardTitle>
               </CardHeader>
               <CardContent>
-                <p className="text-2xl font-bold">
-                  ₹
-                  {Math.round(
-                    Number(profit?.totalProfit || 0)
-                  ).toLocaleString()}
-                </p>{" "}
+                <p className="text-2xl font-bold">₹{Math.round(Number(profit?.totalProfit || 0)).toLocaleString()}</p>
               </CardContent>
             </Card>
             <Card>
@@ -286,12 +244,7 @@ export default function Reports() {
                 <CardTitle>Stock Valuation</CardTitle>
               </CardHeader>
               <CardContent>
-                <p className="text-2xl font-bold">
-                  ₹
-                  {Math.round(
-                    Number(valuation?.totalValuation || 0)
-                  ).toLocaleString()}
-                </p>{" "}
+                <p className="text-2xl font-bold">₹{Math.round(Number(valuation?.totalValuation || 0)).toLocaleString()}</p>
               </CardContent>
             </Card>
             <Card>
@@ -299,14 +252,12 @@ export default function Reports() {
                 <CardTitle>Not Selling (30 days)</CardTitle>
               </CardHeader>
               <CardContent>
-                <p className="text-2xl font-bold">
-                  {Array.isArray(notSelling) ? notSelling.length : 0}
-                </p>
+                <p className="text-2xl font-bold">{Array.isArray(notSelling) ? notSelling.length : 0}</p>
               </CardContent>
             </Card>
           </div>
 
-          {/* Not Selling Preview Table */}
+          {/* Not Selling Table */}
           <Card>
             <CardHeader>
               <CardTitle>Products Not Selling (Top 10)</CardTitle>
@@ -329,17 +280,12 @@ export default function Reports() {
                           <TableCell>{p.name}</TableCell>
                           <TableCell>{p.sku}</TableCell>
                           <TableCell>{p.stock}</TableCell>
-                          <TableCell>
-                            {p.lastSoldAt || p.last_sold_at || "Never"}
-                          </TableCell>
+                          <TableCell>{p.lastSoldAt || p.last_sold_at || "Never"}</TableCell>
                         </TableRow>
                       ))
                     ) : (
                       <TableRow>
-                        <TableCell
-                          colSpan={4}
-                          className="text-center py-6 text-muted-foreground"
-                        >
+                        <TableCell colSpan={4} className="text-center py-6 text-muted-foreground">
                           No items to show
                         </TableCell>
                       </TableRow>
@@ -379,79 +325,38 @@ export default function Reports() {
                       {filteredSales.length === 0 ? (
                         <TableRow>
                           <TableCell colSpan={6} className="text-center py-8">
-                            <p className="text-muted-foreground">
-                              No sales data available for the selected period
-                            </p>
+                            <p className="text-muted-foreground">No sales data available for the selected period</p>
                           </TableCell>
                         </TableRow>
                       ) : (
                         filteredSales.map((sale: any) => {
                           const items = normalizeItems(sale.items);
-                          const itemCount = items.reduce(
-                            (sum: number, item: any) =>
-                              sum + (item?.quantity || 0),
-                            0
-                          );
+                          const itemCount = items.reduce((sum: number, item: any) => sum + (item?.quantity || 0), 0);
 
                           return (
-                            <TableRow
-                              key={sale.id}
-                              data-testid={`sale-row-${sale.id}`}
-                            >
-                              <TableCell className="font-medium">
-                                 {sale.invoice_number?.split("-")[2] || "Unknown"}
-                              </TableCell>
+                            <TableRow key={sale.id} data-testid={`sale-row-${sale.id}`}>
+                              <TableCell className="font-medium">{sale.invoice_number?.split("-")[2] || "Unknown"}</TableCell>
                               <TableCell>
-                                <div>
-                                  {sale.created_at ? (
-                                    <>
-                                      <p className="text-sm font-medium">
-                                        {new Date(
-                                          sale.created_at as
-                                            | string
-                                            | number
-                                            | Date
-                                        ).toLocaleDateString()}
-                                      </p>
-                                      <p className="text-xs text-muted-foreground">
-                                        {formatDistanceToNow(
-                                          new Date(
-                                            sale.created_at as
-                                              | string
-                                              | number
-                                              | Date
-                                          ),
-                                          { addSuffix: true }
-                                        )}
-                                      </p>
-                                    </>
-                                  ) : (
-                                    <p className="text-sm text-muted-foreground">
-                                      —
+                                {sale.created_at ? (
+                                  <>
+                                    <p className="text-sm font-medium">
+                                      {new Date(sale.created_at as string | number | Date).toLocaleString()}
                                     </p>
-                                  )}
-                                </div>
+                                    <p className="text-xs text-muted-foreground">
+                                      {formatDistanceToNow(new Date(sale.created_at as string | number | Date), { addSuffix: true })}
+                                    </p>
+                                  </>
+                                ) : (
+                                  <p className="text-sm text-muted-foreground">—</p>
+                                )}
                               </TableCell>
                               <TableCell>{itemCount} items</TableCell>
-                              <TableCell className="font-medium">
-                                ₹
-                                {Math.round(
-                                  parseFloat(sale.total_amount || "0")
-                                ).toLocaleString()}
-                              </TableCell>
-
+                              <TableCell className="font-medium">₹{Math.round(parseFloat(sale.total_amount || "0")).toLocaleString()}</TableCell>
                               <TableCell>
-                                <Badge variant="outline" className="capitalize">
-                                  {sale.payment_method}
-                                </Badge>
+                                <Badge variant="outline" className="capitalize">{sale.payment_method}</Badge>
                               </TableCell>
                               <TableCell>
-                                <Badge
-                                  variant="default"
-                                  className="bg-green-100 text-green-800"
-                                >
-                                  Completed
-                                </Badge>
+                                <Badge variant="default" className="bg-green-100 text-green-800">Completed</Badge>
                               </TableCell>
                             </TableRow>
                           );

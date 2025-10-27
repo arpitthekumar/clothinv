@@ -358,24 +358,28 @@ export default function SalesPage() {
 
                           <Separator className="my-3" />
 
-                          <div className="flex gap-2">
+                          <div className="flex flex-col sm:flex-row sm:gap-2 gap-2 w-full">
                             {!sale.deleted ? (
                               <>
                                 <Button
                                   variant="outline"
                                   size="sm"
+                                  className="w-full sm:w-auto flex items-center justify-center"
                                   onClick={() => handleReturnSale(sale)}
                                 >
                                   <RotateCcw className="mr-2 h-4 w-4" />
                                   Return/Edit
                                 </Button>
+
                                 <Button
                                   variant="outline"
                                   size="sm"
+                                  className="w-full sm:w-auto flex items-center justify-center"
                                   onClick={() => handlePrintSale(sale)}
                                 >
                                   Print Bill
                                 </Button>
+
                                 <ThankYouModal
                                   open={thankYouOpen}
                                   onOpenChange={setThankYouOpen}
@@ -386,6 +390,7 @@ export default function SalesPage() {
                                 <Button
                                   variant="destructive"
                                   size="sm"
+                                  className="w-full sm:w-auto flex items-center justify-center"
                                   onClick={() => handleDeleteSale(sale.id)}
                                 >
                                   <Trash2 className="mr-2 h-4 w-4" />
@@ -396,6 +401,7 @@ export default function SalesPage() {
                               <Button
                                 variant="outline"
                                 size="sm"
+                                className="w-full sm:w-auto flex items-center justify-center"
                                 onClick={() => handleRestoreSale(sale.id)}
                               >
                                 <RotateCcw className="mr-2 h-4 w-4" />

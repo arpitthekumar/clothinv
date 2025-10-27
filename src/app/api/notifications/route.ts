@@ -84,7 +84,7 @@ export async function GET() {
         notifications.push({
           id: `sales_${new Date().toDateString()}`,
           title: `Today's Performance`,
-          description: `${todaySales.length} orders • $${totalToday.toFixed(2)} total`,
+          description: `${todaySales.length} orders • ₹${totalToday.toFixed(2)} total`,
           createdAt: now,
           type: "sales_summary",
           priority: "low"
