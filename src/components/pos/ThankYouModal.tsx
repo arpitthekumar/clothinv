@@ -53,19 +53,33 @@ export function ThankYouModal({
   // ✅ Generate PDF blob for sharing/downloading
   const generatePDF = async (): Promise<Blob | null> => {
     if (!invoiceRef.current) return null;
+
     try {
-      const canvas = await html2canvas(invoiceRef.current, {
+      const element = invoiceRef.current;
+
+      // Force element width to a fixed size during capture
+      const originalWidth = element.style.width;
+      element.style.width = `${element.scrollWidth}px`;
+
+      const canvas = await html2canvas(element, {
         backgroundColor: "#ffffff",
         scale: 3,
         useCORS: true,
         allowTaint: true,
         scrollX: 0,
         scrollY: 0,
+        windowWidth: element.scrollWidth,
       });
 
+      // Restore element width after render
+      element.style.width = originalWidth;
+
       const imgData = canvas.toDataURL("image/png");
-      const pdfWidth = canvas.width * 0.75;
-      const pdfHeight = canvas.height * 0.75;
+      const contentWidth = canvas.width;
+      const contentHeight = canvas.height;
+
+      const pdfWidth = contentWidth * 0.75;
+      const pdfHeight = contentHeight * 0.75;
 
       const pdf = new jsPDF({
         orientation: "portrait",
@@ -73,7 +87,8 @@ export function ThankYouModal({
         format: [pdfWidth, pdfHeight],
       });
 
-      pdf.addImage(imgData, "PNG", 0, 0, pdfWidth, pdfHeight);
+      // ✅ Full fill, no edges visible
+      pdf.addImage(imgData, "PNG", 0, 0, pdfWidth + 3, pdfHeight);
 
       return pdf.output("blob");
     } catch (err) {
@@ -124,7 +139,9 @@ export function ThankYouModal({
           console.error("Sharing failed:", err);
         }
       } else {
-        alert("Sharing not supported on this device. PDF will download instead.");
+        alert(
+          "Sharing not supported on this device. PDF will download instead."
+        );
         handleDownloadPDF();
       }
     }
@@ -168,7 +185,12 @@ export function ThankYouModal({
         </DialogHeader>
 
         {/* Bill Preview */}
-        <div ref={invoiceRef}>{saleData && <LabelBill data={saleData} />}</div>
+        {/* Bill Preview */}
+        <div className="flex justify-center">
+          <div ref={invoiceRef} className="scale-[0.95] origin-top">
+            {saleData && <LabelBill data={saleData} />}
+          </div>
+        </div>
 
         {/* Buttons */}
         <div className="mt-4 flex gap-2 flex-wrap justify-center">
