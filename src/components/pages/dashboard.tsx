@@ -20,7 +20,7 @@ export default function Dashboard() {
   return (
     <div className="flex h-dvh md:h-screen overflow-hidden bg-background">
       <Sidebar isOpen={sidebarOpen} />
-      
+
       <div className="flex-1 flex flex-col overflow-hidden">
         <Header
           title={`${user?.role === "admin" ? "Admin" : "Employee"} Dashboard`}
@@ -41,10 +41,14 @@ export default function Dashboard() {
               <RecentActivity />
             </div>
           </div>
-
+          <div>
+            
+          </div>
           {/* Inventory Overview */}
           <div>
-            <h3 className="text-lg font-semibold mb-4">Recent Inventory Updates</h3>
+            <h3 className="text-lg font-semibold mb-4">
+              Recent Inventory Updates
+            </h3>
             <InventoryTable />
           </div>
         </main>

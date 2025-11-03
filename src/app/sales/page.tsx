@@ -339,9 +339,34 @@ export default function SalesPage() {
                                   parseFloat(sale.total_amount || "0")
                                 )}
                               </p>
-                              <p className="text-sm text-muted-foreground capitalize">
-                                {sale.payment_method}
-                              </p>
+                              {(() => {
+                                const method =
+                                  sale.payment_method?.toLowerCase() || "other";
+
+                                let colorClasses = "";
+                                switch (method) {
+                                  case "upi":
+                                    colorClasses = "text-green-600";
+                                    break;
+                                  case "cash":
+                                    colorClasses = "text-yellow-600";
+                                    break;
+                                  case "card":
+                                    colorClasses = "text-blue-600";
+                                    break;
+                                  default:
+                                    colorClasses = "text-gray-600";
+                                    break;
+                                }
+
+                                return (
+                                  <p
+                                    className={`text-sm font-medium capitalize ${colorClasses}`}
+                                  >
+                                    {sale.payment_method || "Other"}
+                                  </p>
+                                );
+                              })()}
                             </div>
                           </div>
 

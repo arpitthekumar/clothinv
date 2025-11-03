@@ -27,7 +27,12 @@ interface InventoryRowProps {
   onEdit?: (product: Product) => void;
 }
 
-export function InventoryRow({ product, categories, showTrash, onEdit }: InventoryRowProps) {
+export function InventoryRow({
+  product,
+  categories,
+  showTrash,
+  onEdit,
+}: InventoryRowProps) {
   const { toast } = useToast();
   const [showLabel, setShowLabel] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
@@ -41,7 +46,11 @@ export function InventoryRow({ product, categories, showTrash, onEdit }: Invento
       toast({ title: "Product moved to trash" });
     },
     onError: (err: Error) =>
-      toast({ title: "Error", description: err.message, variant: "destructive" }),
+      toast({
+        title: "Error",
+        description: err.message,
+        variant: "destructive",
+      }),
   });
 
   const restoreMutation = useMutation({
@@ -52,12 +61,18 @@ export function InventoryRow({ product, categories, showTrash, onEdit }: Invento
       toast({ title: "Product restored" });
     },
     onError: (err: Error) =>
-      toast({ title: "Error", description: err.message, variant: "destructive" }),
+      toast({
+        title: "Error",
+        description: err.message,
+        variant: "destructive",
+      }),
   });
 
   const getStockStatus = (stock: number, minStock: number = 5) => {
-    if (stock === 0) return { label: "Out of Stock", variant: "destructive" as const };
-    if (stock <= minStock) return { label: "Low Stock", variant: "secondary" as const };
+    if (stock === 0)
+      return { label: "Out of Stock", variant: "destructive" as const };
+    if (stock <= minStock)
+      return { label: "Low Stock", variant: "secondary" as const };
     return { label: "In Stock", variant: "default" as const };
   };
 
@@ -68,18 +83,27 @@ export function InventoryRow({ product, categories, showTrash, onEdit }: Invento
       <tr className="hover:bg-muted/50 align-top border-b">
         <td className="p-2 sm:p-4">
           <div className="flex items-center gap-2 sm:gap-3">
-            <div className="w-10 h-10 sm:w-12 sm:h-12 bg-muted rounded-lg hidden md:flex items-center justify-center flex-shrink-0">
-              <Package className="text-muted-foreground h-5 w-5 sm:h-6 sm:w-6" />
-            </div>
             <div className="min-w-0">
-              <p className="font-medium truncate text-sm sm:text-base">{product.name}</p>
-              <p className="text-xs text-muted-foreground truncate">SKU: {product.sku}</p>
+              <p className="font-medium truncate text-sm sm:text-base">
+                {product.name}
+              </p>
+              <p className="text-xs text-muted-foreground truncate">
+                SKU: {product.sku}
+              </p>
               <div className="flex flex-wrap gap-1 mt-1 sm:hidden">
-                <Badge variant="outline">{category?.name || "Uncategorized"}</Badge>
+                <Badge variant="outline">
+                  {category?.name || "Uncategorized"}
+                </Badge>
                 <Badge
-                  variant={getStockStatus(product.stock, product.minStock ?? undefined).variant}
+                  variant={
+                    getStockStatus(product.stock, product.minStock ?? undefined)
+                      .variant
+                  }
                 >
-                  {getStockStatus(product.stock, product.minStock ?? undefined).label}
+                  {
+                    getStockStatus(product.stock, product.minStock ?? undefined)
+                      .label
+                  }
                 </Badge>
               </div>
             </div>
@@ -87,15 +111,64 @@ export function InventoryRow({ product, categories, showTrash, onEdit }: Invento
         </td>
 
         <td className="p-2 sm:p-4 hidden sm:table-cell">
-          <Badge variant="outline">{category?.name || "Uncategorized"}</Badge>
+          {(() => {
+            const name = category?.name?.toLowerCase() || "uncategorized";
+
+            let colorClasses = "";
+
+            switch (name) {
+              case "shirts":
+                colorClasses = "bg-blue-100 text-blue-800 border-blue-300";
+                break;
+              case "t-shirts":
+                colorClasses = "bg-green-100 text-green-800 border-green-300";
+                break;
+              case "pants":
+              case "jeans":
+                colorClasses =
+                  "bg-yellow-100 text-yellow-800 border-yellow-300";
+                break;
+              case "dresses":
+              case "sarees":
+                colorClasses = "bg-pink-100 text-pink-800 border-pink-300";
+                break;
+              case "accessories":
+                colorClasses =
+                  "bg-purple-100 text-purple-800 border-purple-300";
+                break;
+              case "footwear":
+                colorClasses =
+                  "bg-orange-100 text-orange-800 border-orange-300";
+                break;
+              default:
+                colorClasses = "bg-gray-100 text-gray-800 border-gray-300";
+                break;
+            }
+
+            return (
+              <Badge variant="outline" className={`capitalize ${colorClasses}`}>
+                {category?.name || "Uncategorized"}
+              </Badge>
+            );
+          })()}
         </td>
 
-        <td className="p-2 sm:p-4 text-sm hidden md:table-cell">{product.size || "-"}</td>
+        <td className="p-2 sm:p-4 text-sm hidden md:table-cell">
+          {product.size || "-"}
+        </td>
 
         <td className="p-2 sm:p-4 text-sm">{product.stock} units</td>
-        <td className="p-2 sm:p-4 font-medium text-sm sm:text-base">₹{product.price}</td>
+        <td className="p-2 sm:p-4 font-medium text-sm sm:text-base">
+          ₹{product.price}
+        </td>
         <td className="p-2 sm:p-4 hidden sm:table-cell">
-          <Badge variant={getStockStatus(product.stock, product.minStock ?? undefined).variant}>
+          <Badge
+            variant={
+              getStockStatus(product.stock, product.minStock ?? undefined)
+                .variant
+            }
+            className="whitespace-nowrap flex items-center justify-center text-sm font-medium px-3 py-1"
+          >
             {getStockStatus(product.stock, product.minStock ?? undefined).label}
           </Badge>
         </td>
@@ -103,20 +176,36 @@ export function InventoryRow({ product, categories, showTrash, onEdit }: Invento
         <td className="p-2 sm:p-4">
           <div className="flex gap-1 sm:gap-2 flex-wrap md:flex-nowrap">
             {showTrash ? (
-              <Button variant="ghost" size="sm" onClick={() => restoreMutation.mutate(product.id)}>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => restoreMutation.mutate(product.id)}
+              >
                 <RotateCcw className="h-4 w-4 text-blue-600" />
               </Button>
             ) : (
               <>
-                <Button variant="ghost" size="sm" onClick={() => onEdit?.(product)}>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => onEdit?.(product)}
+                >
                   <Edit className="h-4 w-4 text-blue-600" />
                 </Button>
 
-                <Button variant="ghost" size="sm" onClick={() => setShowLabel(true)}>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setShowLabel(true)}
+                >
                   <QrCode className="h-4 w-4 text-green-600" />
                 </Button>
 
-                <Button variant="ghost" size="sm" onClick={() => setConfirmDelete(true)}>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setConfirmDelete(true)}
+                >
                   <Trash2 className="h-4 w-4 text-red-600" />
                 </Button>
 
@@ -145,7 +234,8 @@ export function InventoryRow({ product, categories, showTrash, onEdit }: Invento
           <AlertDialogHeader>
             <AlertDialogTitle>Move to Trash?</AlertDialogTitle>
             <AlertDialogDescription>
-              This product will be moved to the trash. You can restore it later if needed.
+              This product will be moved to the trash. You can restore it later
+              if needed.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

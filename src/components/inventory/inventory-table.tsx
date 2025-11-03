@@ -70,8 +70,8 @@ export function InventoryTable() {
         <CardContent className="p-0">
           <div className="overflow-x-auto">
             <table className="w-full table-fixed md:table-auto">
-              <thead>
-                <tr className="bg-muted">
+              <thead className="hidden lg:table-header-group">
+                <tr className="bg-muted ">
                   <th className="p-4 text-left w-[45%] md:w-auto">Product</th>
                   <th className="p-4 text-left hidden lg:table-cell">Category</th>
                   <th className="p-4 text-left hidden lg:table-cell">Size</th>
