@@ -1,6 +1,13 @@
 "use client";
 
-import { Edit, QrCode, Trash2, RotateCcw, Package } from "lucide-react";
+import {
+  Edit,
+  QrCode,
+  Trash2,
+  RotateCcw,
+  Package,
+  XCircle,
+} from "lucide-react";
 import { LabelPreviewDialog } from "@/components/shared/label-preview-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -36,7 +43,9 @@ export function InventoryRow({
   const { toast } = useToast();
   const [showLabel, setShowLabel] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const [confirmPermanentDelete, setConfirmPermanentDelete] = useState(false);
 
+  // Move to trash
   const deleteMutation = useMutation({
     mutationFn: async (productId: string) => {
       await apiRequest("DELETE", "/api/products", { id: productId });
@@ -53,6 +62,7 @@ export function InventoryRow({
       }),
   });
 
+  // Restore product
   const restoreMutation = useMutation({
     mutationFn: async (productId: string) =>
       apiRequest("POST", `/api/products/${productId}/restore`),
@@ -63,6 +73,26 @@ export function InventoryRow({
     onError: (err: Error) =>
       toast({
         title: "Error",
+        description: err.message,
+        variant: "destructive",
+      }),
+  });
+
+  // Permanent delete
+  const permanentDeleteMutation = useMutation({
+    mutationFn: async (productId: string) => {
+      await apiRequest("DELETE", `/api/products/${productId}/permanent`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/products"] });
+      toast({
+        title: "Product permanently deleted",
+        description: "This product has been removed completely.",
+      });
+    },
+    onError: (err: Error) =>
+      toast({
+        title: "Error deleting product",
         description: err.message,
         variant: "destructive",
       }),
@@ -111,46 +141,12 @@ export function InventoryRow({
         </td>
 
         <td className="p-2 sm:p-4 hidden sm:table-cell">
-          {(() => {
-            const name = category?.name?.toLowerCase() || "uncategorized";
-
-            let colorClasses = "";
-
-            switch (name) {
-              case "shirts":
-                colorClasses = "bg-blue-100 text-blue-800 border-blue-300";
-                break;
-              case "t-shirts":
-                colorClasses = "bg-green-100 text-green-800 border-green-300";
-                break;
-              case "pants":
-              case "jeans":
-                colorClasses =
-                  "bg-yellow-100 text-yellow-800 border-yellow-300";
-                break;
-              case "dresses":
-              case "sarees":
-                colorClasses = "bg-pink-100 text-pink-800 border-pink-300";
-                break;
-              case "accessories":
-                colorClasses =
-                  "bg-purple-100 text-purple-800 border-purple-300";
-                break;
-              case "footwear":
-                colorClasses =
-                  "bg-orange-100 text-orange-800 border-orange-300";
-                break;
-              default:
-                colorClasses = "bg-gray-100 text-gray-800 border-gray-300";
-                break;
-            }
-
-            return (
-              <Badge variant="outline" className={`capitalize ${colorClasses}`}>
-                {category?.name || "Uncategorized"}
-              </Badge>
-            );
-          })()}
+          <Badge
+            variant="outline"
+            className="capitalize bg-gray-100 text-gray-800 border-gray-300"
+          >
+            {category?.name || "Uncategorized"}
+          </Badge>
         </td>
 
         <td className="p-2 sm:p-4 text-sm hidden md:table-cell">
@@ -176,13 +172,23 @@ export function InventoryRow({
         <td className="p-2 sm:p-4">
           <div className="flex gap-1 sm:gap-2 flex-wrap md:flex-nowrap">
             {showTrash ? (
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => restoreMutation.mutate(product.id)}
-              >
-                <RotateCcw className="h-4 w-4 text-blue-600" />
-              </Button>
+              <>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => restoreMutation.mutate(product.id)}
+                >
+                  <RotateCcw className="h-4 w-4 text-blue-600" />
+                </Button>
+
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setConfirmPermanentDelete(true)}
+                >
+                  <XCircle className="h-4 w-4 text-red-600" />
+                </Button>
+              </>
             ) : (
               <>
                 <Button
@@ -228,14 +234,14 @@ export function InventoryRow({
         </td>
       </tr>
 
-      {/* Confirmation dialog */}
+      {/* Move to Trash confirmation */}
       <AlertDialog open={confirmDelete} onOpenChange={setConfirmDelete}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Move to Trash?</AlertDialogTitle>
             <AlertDialogDescription>
-              This product will be moved to the trash. You can restore it later
-              if needed.
+              This product will be moved to trash. You can restore it later if
+              needed.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -245,6 +251,31 @@ export function InventoryRow({
               className="bg-red-600 hover:bg-red-700 text-white"
             >
               Move to Trash
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Permanent Delete confirmation */}
+      <AlertDialog
+        open={confirmPermanentDelete}
+        onOpenChange={setConfirmPermanentDelete}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Permanently?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will permanently remove the product from your inventory. This
+              action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => permanentDeleteMutation.mutate(product.id)}
+              className="bg-red-700 hover:bg-red-800 text-white"
+            >
+              Delete Permanently
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

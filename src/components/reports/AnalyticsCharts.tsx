@@ -30,7 +30,7 @@ export default function AnalyticsCharts({
   const COLORS = ["#0088FE", "#00C49F", "#FFBB28", "#FF8042"];
 
   return (
-    <div className="grid gap-6 md:grid-cols-2 xl:grid-cols-3">
+    <div className="grid gap-6 grid-cols-1 md:grid-cols-2 xl:grid-cols-3">
       {/* Sales Trend */}
       <div className="bg-card p-4 rounded-lg shadow">
         <h3 className="font-semibold mb-2 text-center">Sales Trend</h3>
@@ -79,8 +79,8 @@ export default function AnalyticsCharts({
         )}
       </div>
 
-      {/* Top Products */}
-      <div className="bg-card p-4 rounded-lg shadow">
+      {/* Top Products (Full Width on Tablet, Equal Width on Desktop) */}
+      <div className="bg-card p-4 rounded-lg shadow md:col-span-2 xl:col-span-1">
         <h3 className="font-semibold mb-2 text-center">Top Products</h3>
         {topProducts.length === 0 ? (
           <p className="text-center text-sm text-muted-foreground">
@@ -93,30 +93,9 @@ export default function AnalyticsCharts({
               <XAxis dataKey="name" />
               <YAxis />
               <Tooltip />
+              <Legend />
               <Bar dataKey="sales" fill="#82ca9d" />
             </BarChart>
-          </ResponsiveContainer>
-        )}
-      </div>
-
-      {/* Profit Trend */}
-      <div className="bg-card p-4 rounded-lg shadow md:col-span-2 xl:col-span-3">
-        <h3 className="font-semibold mb-2 text-center">Profit vs Expense</h3>
-        {profitData.length === 0 ? (
-          <p className="text-center text-sm text-muted-foreground">
-            No data available
-          </p>
-        ) : (
-          <ResponsiveContainer width="100%" height={300}>
-            <LineChart data={profitData}>
-              <CartesianGrid strokeDasharray="3 3" />
-              <XAxis dataKey="name" />
-              <YAxis />
-              <Tooltip />
-              <Legend />
-              <Line type="monotone" dataKey="profit" stroke="#4ade80" />
-              <Line type="monotone" dataKey="expense" stroke="#f87171" />
-            </LineChart>
           </ResponsiveContainer>
         )}
       </div>

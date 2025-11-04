@@ -53,6 +53,8 @@ export interface IStorage {
   createSale(sale: InsertSale): Promise<Sale>;
   softDeleteSale(saleId: string): Promise<boolean>;
   restoreSale(saleId: string): Promise<boolean>;
+  // Permanently delete a sale
+  deleteSale(saleId: string): Promise<boolean>;
 
   // Stock Movements
   getStockMovements(): Promise<StockMovement[]>;

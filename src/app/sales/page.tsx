@@ -29,6 +29,7 @@ import {
   CreditCard,
   Package,
 } from "lucide-react";
+import { XCircle } from "lucide-react";
 import { getQueryFn, apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { formatDistanceToNow } from "date-fns";
@@ -139,6 +140,21 @@ export default function SalesPage() {
     },
   });
 
+  // Permanent delete mutation (admin-only)
+  const permanentDeleteMutation = useMutation({
+    mutationFn: async (saleId: string) => {
+      const res = await apiRequest("DELETE", `/api/sales/${saleId}/permanent`);
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/sales"] });
+      toast({ title: "Sale Deleted", description: "Sale has been permanently deleted" });
+    },
+    onError: (err: any) => {
+      toast({ title: "Error", description: err?.message || "Failed to delete sale", variant: "destructive" });
+    },
+  });
+
   const returnSaleMutation = useMutation({
     mutationFn: async (returnData: any) => {
       const res = await apiRequest("POST", "/api/sales/returns", returnData);
@@ -188,6 +204,16 @@ export default function SalesPage() {
       )
     ) {
       restoreSaleMutation.mutate(saleId);
+    }
+  };
+
+  const handlePermanentDelete = (saleId: string) => {
+    if (
+      confirm(
+        "Are you sure you want to permanently delete this sale? This action cannot be undone."
+      )
+    ) {
+      permanentDeleteMutation.mutate(saleId);
     }
   };
 
@@ -425,15 +451,26 @@ export default function SalesPage() {
                                 </Button>
                               </>
                             ) : (
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                className="w-full sm:w-auto flex items-center justify-center"
-                                onClick={() => handleRestoreSale(sale.id)}
-                              >
-                                <RotateCcw className="mr-2 h-4 w-4" />
-                                Restore
-                              </Button>
+                              <>
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  className="w-full sm:w-auto flex items-center justify-center"
+                                  onClick={() => handleRestoreSale(sale.id)}
+                                >
+                                  <RotateCcw className="mr-2 h-4 w-4" />
+                                  Restore
+                                </Button>
+                                <Button
+                                  variant="destructive"
+                                  size="sm"
+                                  className="w-full sm:w-auto flex items-center justify-center"
+                                  onClick={() => handlePermanentDelete(sale.id)}
+                                >
+                                  <XCircle className="mr-2 h-4 w-4" />
+                                  Delete Permanently
+                                </Button>
+                              </>
                             )}
                           </div>
                         </div>

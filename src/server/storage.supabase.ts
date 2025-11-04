@@ -298,6 +298,14 @@ export class SupabaseStorage implements IStorage {
     if (error) throw error;
     return true;
   }
+  async deleteSale(saleId: string): Promise<boolean> {
+    const { error } = await this.client
+      .from("sales")
+      .delete()
+      .eq("id", saleId);
+    if (error) throw error;
+    return true;
+  }
 
   // Stock Movements
   async getStockMovements(): Promise<StockMovement[]> {
