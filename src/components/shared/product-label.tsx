@@ -42,17 +42,19 @@ export const ProductLabel = React.forwardRef<HTMLDivElement, ProductLabelProps>(
           </h1>
 
           <div className="flex flex-row text-[20px] font-semibold px-4">
-            <div className="flex flex-col">
-              <p className="flex flex-row">
-                Price: <span> {price}</span>
+            <div className="flex flex-col gap-1">
+              <p className="flex flex-row text-[16px]">
+                Price: <span className="font-normal ml-1">{price}</span>
               </p>
-              <p className="flex flex-row ">
-                SIZE: <span>{size}</span>
+              <p className="flex flex-row text-[13px]">
+                SIZE: <span className="font-normal ml-1">{size}</span>
               </p>
-              <p className="flex flex-row">
-                CT: <span>{categoryName}</span>
+              <p className="flex flex-row text-[16px]">
+                CT: <span className="font-normal ml-1">{categoryName}</span>
               </p>
-              <div className="text-left text-[28px] font-extrabold">WTS</div>
+              <div className="text-left text-[28px] font-extrabold mt-1">
+                WTS
+              </div>
             </div>
 
             {/* Barcode */}

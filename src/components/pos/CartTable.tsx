@@ -33,7 +33,7 @@ export function CartTable({ items, onDecrease, onIncrease, onRemove }: CartTable
 	return (
 		<div className="space-y-3 md:space-y-4">
 			{items.map((item) => (
-				<div key={item.id} className="flex items-center justify-between gap-3 border-b pb-3 md:pb-4">
+				<div key={item.id} className="flex sm:flex-col flex-col md:flex-row md:items-center justify-between gap-3 border-b pb-3 md:pb-4">
 					<div className="flex-1 min-w-0">
 						<h4 className="font-medium truncate">{item.name}</h4>
 						<p className="text-sm text-muted-foreground">SKU: {item.sku} • ₹{item.price}</p>
