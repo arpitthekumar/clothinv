@@ -19,25 +19,23 @@ interface LabelBillProps {
 }
 
 const LabelBill = React.forwardRef<HTMLDivElement, LabelBillProps>(
-  ({ data, taxPercent = 18 }, ref) => {
+  ({ data, taxPercent = 0 }, ref) => {
 const createdAt = data.createdAt
   ? new Date(`${data.createdAt}Z`) // ensures UTC interpretation
   : new Date();
 
-    // ✅ Calculate item-level totals properly
+    // ✅ Calculate item-level totals properly (no tax)
     const itemsWithTotals = data.items.map((item) => {
       const itemSubtotal = item.price * item.quantity;
       const itemDiscount = item.discount_amount || 0;
-      const itemTaxable = itemSubtotal - itemDiscount;
-      const itemTax = (itemTaxable * taxPercent) / 100;
-      const itemTotal = itemTaxable + itemTax;
-      return { ...item, itemSubtotal, itemDiscount, itemTax, itemTotal };
+      const itemTotal = itemSubtotal - itemDiscount;
+      return { ...item, itemSubtotal, itemDiscount, itemTotal };
     });
 
-    // ✅ Grand totals
+    // ✅ Grand totals (no tax)
     const subtotal = itemsWithTotals.reduce((sum, i) => sum + i.itemSubtotal, 0);
     const totalDiscount = itemsWithTotals.reduce((sum, i) => sum + i.itemDiscount, 0);
-    const taxAmount = itemsWithTotals.reduce((sum, i) => sum + i.itemTax, 0);
+    const taxAmount = 0;
     const total = itemsWithTotals.reduce((sum, i) => sum + i.itemTotal, 0);
 
     const barcodeUrl = useMemo(
@@ -63,12 +61,12 @@ const createdAt = data.createdAt
         {/* HEADER */}
         <div style={{ textAlign: "center" }}>
           <h1 style={{ fontSize: "22px", margin: 0, fontWeight: "bold" }}>
-            Bhootia Fabric Collection
+          Bhootiya  Fabric Collection
           </h1>
           <p style={{ margin: "2px 0", fontSize: "12px" }}>
             Gandhi Nagar, Moti Ganj, Bharthana, U.P
           </p>
-          <p style={{ margin: "2px 0", fontSize: "12px" }}>Ph: 9876543210</p>
+          <p style={{ margin: "2px 0", fontSize: "12px" }}>Ph: +91 82736 89065</p>
         </div>
 
         <hr style={{ borderColor: "#000", margin: "4px 0" }} />
@@ -136,9 +134,6 @@ const createdAt = data.createdAt
               <strong>Discount: </strong> -₹{totalDiscount.toFixed(2)}
             </p>
           )}
-          <p>
-            <strong>Tax ({taxPercent}%):</strong> ₹{taxAmount.toFixed(2)}
-          </p>
           <p
             style={{
               fontSize: "16px",

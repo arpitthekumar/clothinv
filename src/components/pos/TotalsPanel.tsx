@@ -20,10 +20,6 @@ export function TotalsPanel({ subtotal, couponDiscount, tax, total }: TotalsPane
 					<span>-₹{couponDiscount.toFixed(2)}</span>
 				</div>
 			)}
-			<div className="flex justify-between">
-				<span>GST (18%):</span>
-				<span data-testid="text-tax">₹{tax.toFixed(2)}</span>
-			</div>
 			<div className="flex justify-between text-lg font-bold">
 				<span>Total:</span>
 				<span data-testid="text-total">₹{total.toFixed(2)}</span>

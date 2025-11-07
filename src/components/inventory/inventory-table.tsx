@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Product } from "@shared/schema";
@@ -25,6 +25,55 @@ export function InventoryTable() {
   const { data: categories = [] } = useQuery<any[]>({
     queryKey: ["/api/categories"],
   });
+
+  const { data: sales = [] } = useQuery<any[]>({
+    queryKey: ["/api/sales"],
+  });
+
+  const productStats = useMemo(() => {
+    const map = new Map<string, { revenue: number; cost: number; profit: number; quantity: number }>();
+    const productMap = new Map<string, Product>();
+    products.forEach((p) => {
+      productMap.set(p.id, p);
+    });
+
+    (sales || []).forEach((sale: any) => {
+      if (!sale?.items) return;
+      let items: any[] = [];
+      try {
+        items = Array.isArray(sale.items) ? sale.items : JSON.parse(sale.items || "[]");
+      } catch {
+        return;
+      }
+
+      const saleRevenue = Number(sale.total_amount || 0);
+      const itemRevenues = items.map((it: any) => Number(it.quantity || 0) * Number(it.price || 0));
+      const totalItemRevenue = itemRevenues.reduce((sum, val) => sum + val, 0);
+
+      items.forEach((item: any, index: number) => {
+        const productId = item.productId;
+        if (!productId) return;
+        const qty = Number(item.quantity || 0);
+        const rawItemRevenue = itemRevenues[index] || 0;
+        const effectiveRevenue =
+          totalItemRevenue > 0 ? (rawItemRevenue / totalItemRevenue) * saleRevenue : rawItemRevenue;
+
+        const product = productMap.get(productId);
+        const buyingPrice = product ? Number((product as any).buyingPrice ?? product.price ?? 0) : 0;
+        const cost = qty * buyingPrice;
+        const profit = effectiveRevenue - cost;
+
+        const current = map.get(productId) || { revenue: 0, cost: 0, profit: 0, quantity: 0 };
+        current.revenue += effectiveRevenue;
+        current.cost += cost;
+        current.profit += profit;
+        current.quantity += qty;
+        map.set(productId, current);
+      });
+    });
+
+    return map;
+  }, [sales, products]);
 
   if (isLoading) {
     return <InventorySkeleton />;
@@ -77,6 +126,7 @@ export function InventoryTable() {
                   <th className="p-4 text-left hidden lg:table-cell">Size</th>
                   <th className="p-4 text-left">Stock</th>
                   <th className="p-4 text-left">Price</th>
+                  <th className="p-4 text-left hidden lg:table-cell">Total Profit</th>
                   <th className="p-4 text-left hidden sm:table-cell">Status</th>
                   <th className="p-4 text-left w-[120px] md:w-auto">Actions</th>
                 </tr>
@@ -84,7 +134,7 @@ export function InventoryTable() {
               <tbody>
                 {paginatedProducts.length === 0 ? (
                   <tr>
-                    <td colSpan={7} className="text-center py-8">
+                    <td colSpan={8} className="text-center py-8">
                       No products found.
                     </td>
                   </tr>
@@ -95,6 +145,7 @@ export function InventoryTable() {
                       product={product}
                       categories={categories}
                       showTrash={showTrash}
+                      stats={productStats.get(product.id)}
                       onEdit={(p) => setEditProduct(p)}
                     />
                   ))

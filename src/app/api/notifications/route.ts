@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { storage } from "@server/storage";
 import { requireAuth } from "../_lib/session";
 import { hasSupabase } from "@server/supabase";
+import { mapProductFromDb } from "@/lib/db-column-mapper";
 
 type NotificationItem = {
   id: string;
@@ -35,7 +36,8 @@ export async function GET() {
 
     // Try to fetch products for low stock notifications
     try {
-      const products = await storage.getProducts();
+      const productsRaw = await storage.getProducts();
+      const products = productsRaw.map(mapProductFromDb);
       const lowStock = products.filter((p) => p.stock <= (p.minStock || 5));
       
       // Add low stock notifications (limit to 5 to avoid spam)

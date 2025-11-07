@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAuth } from "../../_lib/session";
 import { storage } from "@server/storage";
+import { mapProductFromDb } from "@/lib/db-column-mapper";
 
 function formatDayShort(d: Date) {
   return d.toLocaleDateString("en-US", { weekday: "short" });
@@ -19,7 +20,7 @@ export async function GET(request: NextRequest) {
   const salesWindow = parseInt(url.searchParams.get("salesWindowDays") || "7", 10);
 
   // Read-only: use storage to fetch required data
-  const [sales, products, categories, profitMargins, stockValuation, notSelling] =
+  const [sales, productsRaw, categories, profitMargins, stockValuation, notSelling] =
     await Promise.all([
       storage.getSales(false),
       storage.getProducts(),
@@ -28,6 +29,8 @@ export async function GET(request: NextRequest) {
       storage.getStockValuation(),
       storage.getNotSellingProducts({ sinceDays }),
     ]);
+
+  const products = (productsRaw || []).map(mapProductFromDb);
 
   const now = new Date();
 
@@ -124,6 +127,7 @@ export async function GET(request: NextRequest) {
     monthBuckets[key] = { profit: 0, expense: 0 };
   }
 
+  let totalProfitCalc = 0;
   for (const s of sales || []) {
     if (!s.created_at || !s.items) continue;
     const saleDate = new Date(s.created_at);
@@ -135,17 +139,21 @@ export async function GET(request: NextRequest) {
     } catch (e) {
       continue;
     }
+
+    let costSum = 0;
     for (const it of items) {
       const qty = Number(it.quantity || 0);
-      const price = Number(it.price || 0);
-      const revenue = qty * price;
       const prod = productMap[it.productId];
-      const costPerUnit = prod ? Number(prod.price || 0) : 0;
-      const cost = qty * costPerUnit;
-      const profit = revenue - cost;
-      monthBuckets[key].profit += profit;
-      monthBuckets[key].expense += cost;
+      const costPerUnit = prod ? Number(prod.buyingPrice ?? prod.price ?? 0) : 0;
+      costSum += qty * costPerUnit;
     }
+
+    const saleRevenue = Number((s as any).total_amount || 0);
+    const saleProfit = saleRevenue - costSum;
+
+    monthBuckets[key].profit += saleProfit;
+    monthBuckets[key].expense += costSum;
+    totalProfitCalc += saleProfit;
   }
 
   const profitData = Object.keys(monthBuckets).map((k) => {
@@ -160,7 +168,9 @@ export async function GET(request: NextRequest) {
     };
   });
 
-  const totalProfit = (profitMargins && (profitMargins as any).totalProfit) || 0;
+  const totalProfitFromRpc = (profitMargins && (profitMargins as any).totalProfit) || 0;
+  const calculatedProfit = totalProfitCalc;
+  const totalProfit = calculatedProfit || totalProfitFromRpc;
   const totalValuation = (stockValuation && (stockValuation as any).totalValuation) || 0;
   const notSellingCount = Array.isArray(notSelling) ? notSelling.length : 0;
 

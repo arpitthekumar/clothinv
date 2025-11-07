@@ -20,7 +20,7 @@ export default function ReportSummary({
             <p className="text-sm font-medium text-muted-foreground">
               Total Sales
             </p>
-            <p className="text-2xl font-bold">₹{Math.round(totalSales).toLocaleString()}</p>
+            <p className="text-2xl font-bold">₹{totalSales.toFixed(2)}</p>
           </div>
           <div className="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center">
             <TrendingUp className="text-green-600" />
@@ -44,7 +44,7 @@ export default function ReportSummary({
         <CardContent className="p-6 flex items-center justify-between">
           <div>
             <p className="text-sm font-medium text-muted-foreground">Average Ticket</p>
-            <p className="text-2xl font-bold">₹{Math.round(averageTicket).toLocaleString()}</p>
+            <p className="text-2xl font-bold">₹{averageTicket.toFixed(2)}</p>
           </div>
           <div className="w-12 h-12 bg-purple-100 rounded-lg flex items-center justify-center">
             <Calendar className="text-purple-600" />

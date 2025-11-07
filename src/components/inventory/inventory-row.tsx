@@ -1,13 +1,6 @@
 "use client";
 
-import {
-  Edit,
-  QrCode,
-  Trash2,
-  RotateCcw,
-  Package,
-  XCircle,
-} from "lucide-react";
+import { Edit, QrCode, Trash2, RotateCcw, XCircle } from "lucide-react";
 import { LabelPreviewDialog } from "@/components/shared/label-preview-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -26,12 +19,19 @@ import { useToast } from "@/hooks/use-toast";
 import { useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useState } from "react";
+import { useAuth } from "@/hooks/use-auth";
 
 interface InventoryRowProps {
   product: Product;
   categories: any[];
   showTrash: boolean;
   onEdit?: (product: Product) => void;
+  stats?: {
+    revenue: number;
+    cost: number;
+    profit: number;
+    quantity: number;
+  };
 }
 
 export function InventoryRow({
@@ -39,13 +39,27 @@ export function InventoryRow({
   categories,
   showTrash,
   onEdit,
+  stats,
 }: InventoryRowProps) {
   const { toast } = useToast();
   const [showLabel, setShowLabel] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [confirmPermanentDelete, setConfirmPermanentDelete] = useState(false);
+  const { user } = useAuth();
 
-  // Move to trash
+  // ✅ Role checks
+  const isSystemAdmin = user?.role === "admin" && user?.username?.toLowerCase() === "admin";
+  const isAdmin = user?.role === "admin";
+  const isEmployee = user?.role === "employee";
+  console.log("USER DEBUG =>", {
+    username: user?.username,
+    fullName: user?.fullName,
+    isSystemAdmin,
+    isAdmin,
+    isEmployee,
+  });
+
+  // 🗑️ Move to trash
   const deleteMutation = useMutation({
     mutationFn: async (productId: string) => {
       await apiRequest("DELETE", "/api/products", { id: productId });
@@ -62,7 +76,7 @@ export function InventoryRow({
       }),
   });
 
-  // Restore product
+  // 🔄 Restore product
   const restoreMutation = useMutation({
     mutationFn: async (productId: string) =>
       apiRequest("POST", `/api/products/${productId}/restore`),
@@ -78,7 +92,7 @@ export function InventoryRow({
       }),
   });
 
-  // Permanent delete
+  // ❌ Permanent delete
   const permanentDeleteMutation = useMutation({
     mutationFn: async (productId: string) => {
       await apiRequest("DELETE", `/api/products/${productId}/permanent`);
@@ -154,9 +168,48 @@ export function InventoryRow({
         </td>
 
         <td className="p-2 sm:p-4 text-sm">{product.stock} units</td>
+
         <td className="p-2 sm:p-4 font-medium text-sm sm:text-base">
-          ₹{product.price}
+          <div>₹{product.price}</div>
+          {!isEmployee && product.buyingPrice && (
+            <div className="text-xs text-muted-foreground font-normal">
+              Cost: ₹{product.buyingPrice}
+            </div>
+          )}
         </td>
+
+        {/* ✅ Only show for Admins and System Admins */}
+        {!isEmployee ? (
+          <td className="p-2 sm:p-4 hidden lg:table-cell text-sm">
+            {stats ? (
+              <div className="space-y-1">
+                <div>
+                  Profit:
+                  <span
+                    className={`ml-1 font-semibold ${
+                      stats.profit >= 0 ? "text-green-600" : "text-red-600"
+                    }`}
+                  >
+                    ₹{stats.profit.toFixed(2)}
+                  </span>
+                </div>
+                <div className="text-xs text-muted-foreground">
+                  Revenue: ₹{stats.revenue.toFixed(2)}
+                </div>
+                <div className="text-xs text-muted-foreground">
+                  Cost: ₹{stats.cost.toFixed(2)} • Sold: {stats.quantity}
+                </div>
+              </div>
+            ) : (
+              <span className="text-xs text-muted-foreground">No sales</span>
+            )}
+          </td>
+        ) : (
+          <td className="p-2 sm:p-4 hidden lg:table-cell text-sm text-muted-foreground text-center">
+            —
+          </td>
+        )}
+
         <td className="p-2 sm:p-4 hidden sm:table-cell">
           <Badge
             variant={
@@ -181,13 +234,15 @@ export function InventoryRow({
                   <RotateCcw className="h-4 w-4 text-blue-600" />
                 </Button>
 
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => setConfirmPermanentDelete(true)}
-                >
-                  <XCircle className="h-4 w-4 text-red-600" />
-                </Button>
+                {isSystemAdmin && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setConfirmPermanentDelete(true)}
+                  >
+                    <XCircle className="h-4 w-4 text-red-600" />
+                  </Button>
+                )}
               </>
             ) : (
               <>
@@ -234,7 +289,7 @@ export function InventoryRow({
         </td>
       </tr>
 
-      {/* Move to Trash confirmation */}
+      {/* 🗑️ Move to Trash confirmation */}
       <AlertDialog open={confirmDelete} onOpenChange={setConfirmDelete}>
         <AlertDialogContent>
           <AlertDialogHeader>
@@ -256,30 +311,32 @@ export function InventoryRow({
         </AlertDialogContent>
       </AlertDialog>
 
-      {/* Permanent Delete confirmation */}
-      <AlertDialog
-        open={confirmPermanentDelete}
-        onOpenChange={setConfirmPermanentDelete}
-      >
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Delete Permanently?</AlertDialogTitle>
-            <AlertDialogDescription>
-              This will permanently remove the product from your inventory. This
-              action cannot be undone.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction
-              onClick={() => permanentDeleteMutation.mutate(product.id)}
-              className="bg-red-700 hover:bg-red-800 text-white"
-            >
-              Delete Permanently
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+      {/* 🧨 Permanent Delete confirmation */}
+      {isSystemAdmin && (
+        <AlertDialog
+          open={confirmPermanentDelete}
+          onOpenChange={setConfirmPermanentDelete}
+        >
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Delete Permanently?</AlertDialogTitle>
+              <AlertDialogDescription>
+                This will permanently remove the product from your inventory.
+                This action cannot be undone.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Cancel</AlertDialogCancel>
+              <AlertDialogAction
+                onClick={() => permanentDeleteMutation.mutate(product.id)}
+                className="bg-red-700 hover:bg-red-800 text-white"
+              >
+                Delete Permanently
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+      )}
     </>
   );
 }

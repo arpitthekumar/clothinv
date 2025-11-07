@@ -38,13 +38,13 @@ export const ProductLabel = React.forwardRef<HTMLDivElement, ProductLabelProps>(
         <div>
           {/* Top Title */}
           <h1 className="text-[28px] font-bold text-center">
-            Bhootia Fabric Collection
+            Bhootiya Fabric Collection
           </h1>
 
           <div className="flex flex-row text-[20px] font-semibold px-4">
             <div className="flex flex-col">
               <p className="flex flex-row">
-                Price: <span>{" "}{price}</span>
+                Price: <span> {price}</span>
               </p>
               <p className="flex flex-row ">
                 SIZE: <span>{size}</span>

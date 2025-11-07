@@ -1,4 +1,5 @@
 "use client";
+import { useMemo } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Table, TableHeader, TableRow, TableHead, TableBody, TableCell } from "@/components/ui/table";
@@ -6,7 +7,21 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { formatDistanceToNow } from "date-fns";
 import { normalizeItems } from "@/lib/json";
 
-export default function SalesTable({ sales, loading }: { sales: any[]; loading: boolean }) {
+interface SalesTableProps {
+  sales: any[];
+  loading: boolean;
+  products: any[];
+}
+
+export default function SalesTable({ sales, loading, products }: SalesTableProps) {
+  const productMap = useMemo(() => {
+    const map: Record<string, any> = {};
+    for (const p of products || []) {
+      if (p?.id) map[p.id] = p;
+    }
+    return map;
+  }, [products]);
+
   return (
     <Card>
       <CardHeader>
@@ -27,7 +42,9 @@ export default function SalesTable({ sales, loading }: { sales: any[]; loading: 
                   <TableHead>Invoice</TableHead>
                   <TableHead>Date & Time</TableHead>
                   <TableHead>Items</TableHead>
-                  <TableHead>Amount</TableHead>
+                  <TableHead>Buy Cost</TableHead>
+                  <TableHead>Revenue</TableHead>
+                  <TableHead>Profit</TableHead>
                   <TableHead>Payment</TableHead>
                   <TableHead>Status</TableHead>
                 </TableRow>
@@ -35,17 +52,28 @@ export default function SalesTable({ sales, loading }: { sales: any[]; loading: 
               <TableBody>
                 {sales.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
+                    <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
                       No sales data available
                     </TableCell>
                   </TableRow>
                 ) : (
                   sales.map((sale) => {
                     const items = normalizeItems(sale.items);
-                    const itemCount = items.reduce(
-                      (sum: number, item: any) => sum + (item?.quantity || 0),
-                      0
-                    );
+                    const itemCount = items.reduce((sum: number, item: any) => sum + (Number(item?.quantity) || 0), 0);
+                    const revenue = Number(sale.total_amount || 0);
+                    let cost = 0;
+                    const itemSummary = items
+                      .map((item: any) => {
+                        const qty = Number(item?.quantity || 0);
+                        const prod = productMap[item?.productId];
+                        const costPerUnit = prod ? Number(prod.buyingPrice ?? prod.price ?? 0) : Number(item?.cost || 0);
+                        cost += qty * costPerUnit;
+                        const displayName = item?.name || prod?.name || "Product";
+                        return `${displayName} ×${qty}`;
+                      })
+                      .join(", ");
+
+                    const profit = revenue - cost;
                     return (
                       <TableRow key={sale.id}>
                         <TableCell>{sale.invoice_number}</TableCell>
@@ -70,8 +98,21 @@ export default function SalesTable({ sales, loading }: { sales: any[]; loading: 
                             "—"
                           )}
                         </TableCell>
-                        <TableCell>{itemCount} items</TableCell>
-                        <TableCell>₹{Math.round(Number(sale.total_amount || 0)).toLocaleString()}</TableCell>
+                        <TableCell>
+                          <div className="text-sm font-medium">{itemCount} items</div>
+                          {itemSummary && (
+                            <p className="text-xs text-muted-foreground max-w-xs truncate" title={itemSummary}>
+                              {itemSummary}
+                            </p>
+                          )}
+                        </TableCell>
+                        <TableCell>₹{cost.toFixed(2)}</TableCell>
+                        <TableCell>₹{revenue.toFixed(2)}</TableCell>
+                        <TableCell>
+                          <span className={profit >= 0 ? "text-green-600 font-semibold" : "text-red-600 font-semibold"}>
+                            ₹{profit.toFixed(2)}
+                          </span>
+                        </TableCell>
                         <TableCell>
                           <Badge variant="outline">{sale.payment_method || "Other"}</Badge>
                         </TableCell>

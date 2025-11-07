@@ -74,8 +74,15 @@ export default function AdminUsersPage() {
       toast({ title: "User created" });
     },
   });
+  const isSystemAdmin =
+    user?.username === "@admin" || user?.fullName === "System Administrator";
 
-  const newUser = { username: "", fullName: "", password: "", role: "employee" };
+  const newUser = {
+    username: "",
+    fullName: "",
+    password: "",
+    role: "employee",
+  };
 
   const [editingUser, setEditingUser] = useState<User | null>(null);
   const [editOpen, setEditOpen] = useState(false);
@@ -101,7 +108,7 @@ export default function AdminUsersPage() {
 
   return (
     <div className="flex h-screen overflow-hidden bg-background">
-      <Sidebar isOpen={sidebarOpen}  />
+      <Sidebar isOpen={sidebarOpen} />
 
       <div className="flex-1 flex flex-col overflow-hidden">
         <Header
@@ -231,23 +238,32 @@ export default function AdminUsersPage() {
                             : "-"}
                         </div>
                         <div className="flex justify-end gap-2">
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => {
-                              setEditingUser(u);
-                              setEditOpen(true);
-                            }}
-                          >
-                            Edit
-                          </Button>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => deleteMutation.mutate(u.id)}
-                          >
-                            Delete
-                          </Button>
+                          {/* System Admin can edit/delete everyone */}
+                          {/* Normal Admin/Employee cannot edit/delete System Admin */}
+                          {!(
+                            !isSystemAdmin &&
+                            u.fullName === "System Administrator"
+                          ) && (
+                            <>
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => {
+                                  setEditingUser(u);
+                                  setEditOpen(true);
+                                }}
+                              >
+                                Edit
+                              </Button>
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => deleteMutation.mutate(u.id)}
+                              >
+                                Delete
+                              </Button>
+                            </>
+                          )}
                         </div>
                       </div>
                     ))

@@ -3,6 +3,7 @@
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+import { Zap } from "lucide-react";
 
 interface PaymentDetailsProps {
 	paymentMethod: string;
@@ -48,14 +49,41 @@ export function PaymentDetails({
 				</Select>
 			</div>
 			<div>
-				<label className="text-sm font-medium mb-2 block">Customer Name</label>
-				<Input placeholder="Full name" value={customerName} onChange={(e) => onChangeCustomerName(e.target.value)} data-testid="input-customer-name" />
+				<label className="text-sm font-medium mb-2 flex items-center justify-between">
+					<span>Customer Name</span>
+					<Button
+						type="button"
+						variant="ghost"
+						size="sm"
+						className="h-7 text-xs"
+						onClick={() => {
+							onChangeCustomerName("Walk-in Customer");
+							onChangeCustomerPhone("0000000000");
+						}}
+					>
+						<Zap className="h-3 w-3 mr-1" />
+						Quick Fill
+					</Button>
+				</label>
+				<Input 
+					placeholder="Full name (or use Quick Fill)" 
+					value={customerName} 
+					onChange={(e) => onChangeCustomerName(e.target.value)} 
+					data-testid="input-customer-name" 
+				/>
 			</div>
 			<div>
 				<label className="text-sm font-medium mb-2 block">Customer Phone</label>
 				<div className="flex items-center border rounded-md overflow-hidden">
 					<span className="px-3 text-gray-600 bg-gray-100 border-r">+91</span>
-					<Input type="tel" placeholder="WhatsApp number for receipt" value={customerPhone} onChange={(e) => onChangeCustomerPhone(e.target.value)} data-testid="input-customer-phone" className="border-0 focus:ring-0 focus:outline-none flex-1" />
+					<Input 
+						type="tel" 
+						placeholder="Phone number (optional)" 
+						value={customerPhone} 
+						onChange={(e) => onChangeCustomerPhone(e.target.value)} 
+						data-testid="input-customer-phone" 
+						className="border-0 focus:ring-0 focus:outline-none flex-1" 
+					/>
 				</div>
 			</div>
 			<div>

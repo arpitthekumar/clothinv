@@ -105,7 +105,7 @@ class InvoicePrinter {
         
         <div class="totals">
           <div class="total-line">Subtotal: ₹${invoice.subtotal.toFixed(2)}</div>
-          <div class="total-line">Tax: ₹${invoice.tax.toFixed(2)}</div>
+          ${invoice.discountAmount && invoice.discountAmount > 0 ? `<div class="total-line" style="color: green;">Discount: -₹${invoice.discountAmount.toFixed(2)}</div>` : ''}
           <div class="total-line grand-total">Total: ₹${invoice.total.toFixed(2)}</div>
           <div class="total-line">Payment Method: ${invoice.paymentMethod}</div>
         </div>
@@ -148,8 +148,7 @@ class InvoicePrinter {
 ${itemsList}
 
 💰 *Subtotal:* ₹${invoice.subtotal.toFixed(2)}
-💰 *Tax:* ₹${invoice.tax.toFixed(2)}
-💰 *Total:* ₹${invoice.total.toFixed(2)}
+${invoice.discountAmount && invoice.discountAmount > 0 ? `💰 *Discount:* -₹${invoice.discountAmount.toFixed(2)}\n` : ''}💰 *Total:* ₹${invoice.total.toFixed(2)}
 
 💳 Payment: ${invoice.paymentMethod}
 
@@ -210,7 +209,9 @@ Thank you for shopping with us! 🙏
     printData += '--------------------------------\n';
     
     printData += `Subtotal: ₹${invoice.subtotal.toFixed(2)}\n`;
-    printData += `Tax: ₹${invoice.tax.toFixed(2)}\n`;
+    if (invoice.discountAmount && invoice.discountAmount > 0) {
+      printData += `Discount: -₹${invoice.discountAmount.toFixed(2)}\n`;
+    }
     printData += BOLD_ON + `TOTAL: ₹${invoice.total.toFixed(2)}\n` + BOLD_OFF;
     printData += `Payment: ${invoice.paymentMethod}\n\n`;
     

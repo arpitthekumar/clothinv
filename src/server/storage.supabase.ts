@@ -817,7 +817,7 @@ export class SupabaseStorage implements IStorage {
     // ✅ Fetch all products
     const { data: products, error } = await this.client
       .from("products")
-      .select("id, name, price, stock, deleted");
+      .select("id, name, price, stock, deleted, buying_price");
 
     if (error) throw error;
 
@@ -825,13 +825,16 @@ export class SupabaseStorage implements IStorage {
     const validProducts = (products || []).filter((p: any) => !p.deleted);
 
     // ✅ Calculate per-product valuation
-    const byProduct = validProducts.map((p: any) => ({
-      productId: p.id,
-      name: p.name,
-      stock: p.stock || 0,
-      cost: Number(p.price) || 0, // renamed cost = price
-      valuation: (p.stock || 0) * (Number(p.price) || 0),
-    }));
+    const byProduct = validProducts.map((p: any) => {
+      const cost = Number(p.buying_price ?? p.price ?? 0);
+      return {
+        productId: p.id,
+        name: p.name,
+        stock: p.stock || 0,
+        cost,
+        valuation: (p.stock || 0) * cost,
+      };
+    });
 
     // ✅ Calculate total valuation
     const totalValuation = byProduct.reduce((sum, p) => sum + p.valuation, 0);

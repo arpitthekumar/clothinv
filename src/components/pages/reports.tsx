@@ -23,6 +23,10 @@ export default function Reports() {
     queryKey: ["/api/sales"],
   });
 
+  const { data: products = [] } = useQuery<any[]>({
+    queryKey: ["/api/products"],
+  });
+
   // Map dateRange to numeric sinceDays for report APIs
   const mapDateRangeToDays = (range: string) => {
     switch (range) {
@@ -144,7 +148,7 @@ export default function Reports() {
 
           <NotSellingTable products={analytics.notSelling || []} />
 
-          <SalesTable sales={filteredSales} loading={isLoading} />
+          <SalesTable sales={filteredSales} loading={isLoading} products={products} />
         </main>
       </div>
     </div>

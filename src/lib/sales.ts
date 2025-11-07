@@ -27,9 +27,9 @@ export function calculateSaleTotals(items: Array<{ quantity: number; price: stri
   // Amount after discount
   const afterDiscount = subtotal - discountAmount;
 
-  // Calculate tax (18% GST)
-  const taxPercent = 18;
-  const taxAmount = afterDiscount * (taxPercent / 100);
+  // Calculate tax (0% - GST removed)
+  const taxPercent = 0;
+  const taxAmount = 0;
 
   // Calculate final total
   const total = afterDiscount + taxAmount;

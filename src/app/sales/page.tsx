@@ -16,25 +16,15 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
 } from "@/components/ui/dialog";
-import {
-  Search,
-  Trash2,
-  RotateCcw,
-  Eye,
-  Edit,
-  Calendar,
-  User,
-  CreditCard,
-  Package,
-} from "lucide-react";
+import { Search, Trash2, RotateCcw, User, Package } from "lucide-react";
 import { XCircle } from "lucide-react";
-import { getQueryFn, apiRequest, queryClient } from "@/lib/queryClient";
+import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { formatDistanceToNow } from "date-fns";
-import { invoicePrinter, type InvoiceData } from "@/lib/printer";
+import { type InvoiceData } from "@/lib/printer";
 import { normalizeItems } from "@/lib/json";
+import { useAuth } from "@/hooks/use-auth";
 
 export default function SalesPage() {
   const [thankYouOpen, setThankYouOpen] = useState(false);
@@ -42,6 +32,11 @@ export default function SalesPage() {
     null
   );
   const [customerPhone, setCustomerPhone] = useState("");
+  const { user } = useAuth();
+
+  // Only show button if the logged-in user is the System Administrator
+  const isSystemAdmin =
+    user?.username === "@admin" || user?.fullName === "System Administrator";
 
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
@@ -148,10 +143,17 @@ export default function SalesPage() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/sales"] });
-      toast({ title: "Sale Deleted", description: "Sale has been permanently deleted" });
+      toast({
+        title: "Sale Deleted",
+        description: "Sale has been permanently deleted",
+      });
     },
     onError: (err: any) => {
-      toast({ title: "Error", description: err?.message || "Failed to delete sale", variant: "destructive" });
+      toast({
+        title: "Error",
+        description: err?.message || "Failed to delete sale",
+        variant: "destructive",
+      });
     },
   });
 
@@ -461,15 +463,19 @@ export default function SalesPage() {
                                   <RotateCcw className="mr-2 h-4 w-4" />
                                   Restore
                                 </Button>
-                                <Button
-                                  variant="destructive"
-                                  size="sm"
-                                  className="w-full sm:w-auto flex items-center justify-center"
-                                  onClick={() => handlePermanentDelete(sale.id)}
-                                >
-                                  <XCircle className="mr-2 h-4 w-4" />
-                                  Delete Permanently
-                                </Button>
+                                {isSystemAdmin && (
+                                  <Button
+                                    variant="destructive"
+                                    size="sm"
+                                    className="w-full sm:w-auto flex items-center justify-center"
+                                    onClick={() =>
+                                      handlePermanentDelete(sale.id)
+                                    }
+                                  >
+                                    <XCircle className="mr-2 h-4 w-4" />
+                                    Delete Permanently
+                                  </Button>
+                                )}
                               </>
                             )}
                           </div>

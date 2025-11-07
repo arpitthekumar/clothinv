@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { storage } from "@server/storage";
 import { requireAuth } from "../_lib/session";
 import { insertProductSchema } from "@shared/schema";
+import { mapProductToDb, mapProductFromDb } from "@/lib/db-column-mapper";
 
 export async function GET(request: NextRequest) {
   const auth = await requireAuth();
@@ -11,7 +12,8 @@ export async function GET(request: NextRequest) {
   const includeDeleted = url.searchParams.get("includeDeleted") === "true";
 
   const products = await storage.getProducts(includeDeleted);
-  return NextResponse.json(products);
+  const mappedProducts = (products || []).map(mapProductFromDb);
+  return NextResponse.json(mappedProducts);
 }
 
 export async function POST(req: NextRequest) {
@@ -20,11 +22,29 @@ export async function POST(req: NextRequest) {
   if (auth.user.role !== "admin") return NextResponse.json({}, { status: 403 });
 
   try {
-    const data = insertProductSchema.parse(await req.json());
+    const body = await req.json();
+    
+    // Clean up buyingPrice: remove it if empty
+    if (body.buyingPrice !== undefined) {
+      if (body.buyingPrice === "" || body.buyingPrice === null) {
+        delete body.buyingPrice;
+      }
+    }
+    
+    // Clean up other optional fields
+    if (body.description === "") body.description = null;
+    if (body.size === "") body.size = null;
+    if (body.barcode === "") body.barcode = null;
+    if (body.categoryId === "") body.categoryId = null;
+    
+    const data = insertProductSchema.parse(body);
+
+    // Map all fields to database column names
+    const dbData = mapProductToDb(data);
 
     // Check if barcode is unique if provided
-    if (data.barcode) {
-      const existingProduct = await storage.getProductByBarcode(data.barcode);
+    if (dbData.barcode) {
+      const existingProduct = await storage.getProductByBarcode(dbData.barcode);
       if (existingProduct && !existingProduct.deleted) {
         return NextResponse.json(
           { error: "Barcode already exists" },
@@ -33,17 +53,36 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    const product = await storage.createProduct(data);
-    return NextResponse.json(product, { status: 201 });
+    // Log what we're sending for debugging
+    console.log("Creating product with data:", JSON.stringify(dbData, null, 2));
+    
+    const product = await storage.createProduct(dbData);
+    const mappedProduct = mapProductFromDb(product);
+    return NextResponse.json(mappedProduct, { status: 201 });
   } catch (error: any) {
+    console.error("POST /api/products error:", error);
+    const errorMessage = error.message || "Invalid product data";
+    
     if (error.message?.includes("unique")) {
       return NextResponse.json(
         { error: "SKU or barcode already exists" },
         { status: 400 }
       );
     }
+    
+    // Provide helpful error message for schema issues
+    if (error.code === 'PGRST204') {
+      return NextResponse.json(
+        { 
+          error: "Database schema mismatch. Please run the migration script 'fix-product-columns.sql' in your Supabase SQL editor to fix column names.",
+          details: errorMessage
+        },
+        { status: 400 }
+      );
+    }
+    
     return NextResponse.json(
-      { error: "Invalid product data" },
+      { error: errorMessage },
       { status: 400 }
     );
   }
