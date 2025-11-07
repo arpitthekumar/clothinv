@@ -2,16 +2,17 @@
 
 import React, { useMemo } from "react";
 import { SaleData } from "@/lib/type";
+import BarcodeGenerator from "@/components/shared/barcode-generator";
 
 // ✅ Barcode generator function
-function getBarcodeUrl(payload: string): string {
-  const value = (payload || "").trim();
-  const isEanCandidate = /^\d{12,13}$/.test(value);
-  const symbology = isEanCandidate ? "ean13" : "code128";
-  return `https://bwipjs-api.metafloor.com/?bcid=${symbology}&text=${encodeURIComponent(
-    value
-  )}&scale=3&includetext=true&backgroundcolor=ffffff&fmt=svg`;
-}
+// function getBarcodeUrl(payload: string): string {
+//   const value = (payload || "").trim();
+//   const isEanCandidate = /^\d{12,13}$/.test(value);
+//   const symbology = isEanCandidate ? "ean13" : "code128";
+//   return `https://bwipjs-api.metafloor.com/?bcid=${symbology}&text=${encodeURIComponent(
+//     value
+//   )}&scale=3&includetext=true&backgroundcolor=ffffff&fmt=svg`;
+// }
 
 interface LabelBillProps {
   data: SaleData;
@@ -20,9 +21,9 @@ interface LabelBillProps {
 
 const LabelBill = React.forwardRef<HTMLDivElement, LabelBillProps>(
   ({ data, taxPercent = 0 }, ref) => {
-const createdAt = data.createdAt
-  ? new Date(`${data.createdAt}Z`) // ensures UTC interpretation
-  : new Date();
+    const createdAt = data.createdAt
+      ? new Date(`${data.createdAt}Z`) // ensures UTC interpretation
+      : new Date();
 
     // ✅ Calculate item-level totals properly (no tax)
     const itemsWithTotals = data.items.map((item) => {
@@ -33,15 +34,21 @@ const createdAt = data.createdAt
     });
 
     // ✅ Grand totals (no tax)
-    const subtotal = itemsWithTotals.reduce((sum, i) => sum + i.itemSubtotal, 0);
-    const totalDiscount = itemsWithTotals.reduce((sum, i) => sum + i.itemDiscount, 0);
+    const subtotal = itemsWithTotals.reduce(
+      (sum, i) => sum + i.itemSubtotal,
+      0
+    );
+    const totalDiscount = itemsWithTotals.reduce(
+      (sum, i) => sum + i.itemDiscount,
+      0
+    );
     const taxAmount = 0;
     const total = itemsWithTotals.reduce((sum, i) => sum + i.itemTotal, 0);
 
-    const barcodeUrl = useMemo(
-      () => getBarcodeUrl(data.invoiceNumber || "000000"),
-      [data.invoiceNumber]
-    );
+    // const barcodeUrl = useMemo(
+    //   () => getBarcodeUrl(data.invoiceNumber || "000000"),
+    //   [data.invoiceNumber]
+    // );
 
     return (
       <div
@@ -61,12 +68,14 @@ const createdAt = data.createdAt
         {/* HEADER */}
         <div style={{ textAlign: "center" }}>
           <h1 style={{ fontSize: "22px", margin: 0, fontWeight: "bold" }}>
-          Bhootiya  Fabric Collection
+            Bhootiya Fabric Collection
           </h1>
           <p style={{ margin: "2px 0", fontSize: "12px" }}>
             Gandhi Nagar, Moti Ganj, Bharthana, U.P
           </p>
-          <p style={{ margin: "2px 0", fontSize: "12px" }}>Ph: +91 82736 89065</p>
+          <p style={{ margin: "2px 0", fontSize: "12px" }}>
+            Ph: +91 82736 89065
+          </p>
         </div>
 
         <hr style={{ borderColor: "#000", margin: "4px 0" }} />
@@ -148,14 +157,14 @@ const createdAt = data.createdAt
         </div>
 
         {/* BARCODE */}
-        <div style={{ textAlign: "center", marginTop: "8px" }}>
-          <img
-            src={barcodeUrl}
-            alt="barcode"
-            width={240}
-            height={60}
-            className="w-[280px] h-[70px] object-cover object-bottom overflow-hidden"
-            crossOrigin="anonymous"
+        {/* BARCODE */}
+        <div className="flex justify-center ">
+          <BarcodeGenerator
+            value={data.invoiceNumber || "000000"}
+            width={2} // line width
+            height={60} // taller barcode
+            displayValue={true}
+            className="max-w-full"
           />
         </div>
 

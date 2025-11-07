@@ -34,9 +34,8 @@ export default function SalesPage() {
   const [customerPhone, setCustomerPhone] = useState("");
   const { user } = useAuth();
 
-  // Only show button if the logged-in user is the System Administrator
   const isSystemAdmin =
-    user?.username === "@admin" || user?.fullName === "System Administrator";
+    user?.role === "admin" && user?.username?.toLowerCase() === "admin";
 
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
