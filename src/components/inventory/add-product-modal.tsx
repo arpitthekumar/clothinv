@@ -250,8 +250,9 @@ export function AddProductModal({
   };
 
   return (
-    <Dialog open={isOpen} onOpenChange={handleClose}>
-      <DialogContent
+<Dialog open={isOpen} onOpenChange={(open) => {
+  if (!open) return; // ignore outside clicks
+}}>      <DialogContent
         className="sm:max-w-2xl max-h-[90vh] overflow-y-auto"
         data-testid="modal-add-product"
       >
