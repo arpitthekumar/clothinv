@@ -75,10 +75,18 @@ export async function GET(request: NextRequest) {
     } catch (e) {
       continue;
     }
+    // Recompute sale subtotal and discount distribution
+    const recomputedSubtotal = (Array.isArray(items) ? items : []).reduce(
+      (sum: number, it: any) => sum + Number(it.quantity || 0) * Number(it.price || 0),
+      0
+    );
+    // Always prefer recorded discount amount from DB; if missing, treat as 0
+    const discountAmount = Math.max(0, Number((s as any).discount_amount ?? 0) || 0);
+    const discountRate = recomputedSubtotal > 0 ? Math.min(Math.max(discountAmount / recomputedSubtotal, 0), 1) : 0;
     for (const it of items) {
       const qty = Number(it.quantity || 0);
       const price = Number(it.price || 0);
-      const revenue = qty * price;
+      const revenue = qty * price * (1 - discountRate);
       const prod = productMap[it.productId];
       const catId = prod?.categoryId;
       const catName = catId ? categoryNameMap[catId] || "Uncategorized" : "Uncategorized";
@@ -101,10 +109,17 @@ export async function GET(request: NextRequest) {
     } catch (e) {
       continue;
     }
+    const recomputedSubtotal = (Array.isArray(items) ? items : []).reduce(
+      (sum: number, it: any) => sum + Number(it.quantity || 0) * Number(it.price || 0),
+      0
+    );
+    // Always prefer recorded discount amount from DB; if missing, treat as 0
+    const discountAmount = Math.max(0, Number((s as any).discount_amount ?? 0) || 0);
+    const discountRate = recomputedSubtotal > 0 ? Math.min(Math.max(discountAmount / recomputedSubtotal, 0), 1) : 0;
     for (const it of items) {
       const qty = Number(it.quantity || 0);
       const price = Number(it.price || 0);
-      const revenue = qty * price;
+      const revenue = qty * price * (1 - discountRate);
       const prod = productMap[it.productId];
       const name = prod?.name || it.name || "Unknown";
       if (!productRevenue[it.productId]) productRevenue[it.productId] = { name, revenue: 0 };
@@ -148,8 +163,15 @@ export async function GET(request: NextRequest) {
       costSum += qty * costPerUnit;
     }
 
-    const saleRevenue = Number((s as any).total_amount || 0);
-    const saleProfit = saleRevenue - costSum;
+    // Compute revenue net of discounts (ignore tax)
+    const recomputedSubtotal = (Array.isArray(items) ? items : []).reduce(
+      (sum: number, it: any) => sum + Number(it.quantity || 0) * Number(it.price || 0),
+      0
+    );
+    // Always prefer recorded discount amount from DB; if missing, treat as 0
+    const discountAmount = Math.max(0, Number((s as any).discount_amount ?? 0) || 0);
+    const saleRevenueNet = Math.max(0, recomputedSubtotal - discountAmount);
+    const saleProfit = saleRevenueNet - costSum;
 
     monthBuckets[key].profit += saleProfit;
     monthBuckets[key].expense += costSum;
@@ -168,9 +190,14 @@ export async function GET(request: NextRequest) {
     };
   });
 
-  const totalProfitFromRpc = (profitMargins && (profitMargins as any).totalProfit) || 0;
-  const calculatedProfit = totalProfitCalc;
-  const totalProfit = calculatedProfit || totalProfitFromRpc;
+  const totalProfitFromRpc =
+    (profitMargins && (profitMargins as any).totalProfit !== undefined
+      ? Number((profitMargins as any).totalProfit)
+      : 0) || 0;
+  const calculatedProfit = Number.isFinite(totalProfitCalc)
+    ? totalProfitCalc
+    : undefined;
+  const totalProfit = calculatedProfit ?? totalProfitFromRpc;
   const totalValuation = (stockValuation && (stockValuation as any).totalValuation) || 0;
   const notSellingCount = Array.isArray(notSelling) ? notSelling.length : 0;
 

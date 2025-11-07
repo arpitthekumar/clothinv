@@ -184,8 +184,68 @@ export class SupabaseStorage implements IStorage {
     return (data ?? undefined) as Product | undefined;
   }
   async deleteProduct(id: string): Promise<boolean> {
-    const { error } = await this.client.from("products").delete().eq("id", id);
-    if (error) throw error;
+    const sb = this.client;
+
+    // 1) Remove dependent rows that reference this product
+    // 1a) Sales return items -> may reference sale_items and product
+    const { error: sriErr } = await sb
+      .from("sales_return_items")
+      .delete()
+      .eq("product_id", id);
+    if (sriErr) throw sriErr;
+
+    // 1b) Sale items for this product
+    const { error: siErr } = await sb
+      .from("sale_items")
+      .delete()
+      .eq("product_id", id);
+    if (siErr) throw siErr;
+
+    // 1c) Stock movements for this product
+    const { error: smErr } = await sb
+      .from("stock_movements")
+      .delete()
+      .eq("product_id", id);
+    if (smErr) throw smErr;
+
+    // 1d) Supplier product mappings
+    const { error: spErr } = await sb
+      .from("supplier_products")
+      .delete()
+      .eq("product_id", id);
+    if (spErr) throw spErr;
+
+    // 1e) Purchase order items for this product
+    const { error: poiErr } = await sb
+      .from("purchase_order_items")
+      .delete()
+      .eq("product_id", id);
+    if (poiErr) throw poiErr;
+
+    // 1f) Cost/price histories
+    const { error: pchErr } = await sb
+      .from("product_cost_history")
+      .delete()
+      .eq("product_id", id);
+    if (pchErr) throw pchErr;
+
+    const { error: pphErr } = await sb
+      .from("product_price_history")
+      .delete()
+      .eq("product_id", id);
+    if (pphErr) throw pphErr;
+
+    // 1g) Promotion targets pointing to this product (by convention)
+    const { error: promoErr } = await sb
+      .from("promotion_targets")
+      .delete()
+      .eq("target_type", "product")
+      .eq("target_id", id);
+    if (promoErr) throw promoErr;
+
+    // 2) Finally delete the product
+    const { error: prodErr } = await sb.from("products").delete().eq("id", id);
+    if (prodErr) throw prodErr;
     return true;
   }
   async softDeleteProduct(id: string): Promise<boolean> {
@@ -299,11 +359,68 @@ export class SupabaseStorage implements IStorage {
     return true;
   }
   async deleteSale(saleId: string): Promise<boolean> {
-    const { error } = await this.client
+    const sb = this.client;
+
+    // Clean up dependent records before deleting the sale row to avoid FK constraints
+    // 1) Load any sales returns linked to this sale so we can cascade delete their items
+    const { data: salesReturns, error: salesReturnFetchError } = await sb
+      .from("sales_returns")
+      .select("id")
+      .eq("sale_id", saleId);
+    if (salesReturnFetchError) throw salesReturnFetchError;
+
+    const salesReturnIds = (salesReturns || []).map((sr: any) => sr.id);
+
+    if (salesReturnIds.length > 0) {
+      const { error: stockFromReturnsError } = await sb
+        .from("stock_movements")
+        .delete()
+        .eq("ref_table", "sales_return_items")
+        .in("ref_id", salesReturnIds as any);
+      if (stockFromReturnsError) throw stockFromReturnsError;
+
+      const { error: salesReturnItemsDeleteError } = await sb
+        .from("sales_return_items")
+        .delete()
+        .in("sales_return_id", salesReturnIds as any);
+      if (salesReturnItemsDeleteError) throw salesReturnItemsDeleteError;
+
+      const { error: salesReturnsDeleteError } = await sb
+        .from("sales_returns")
+        .delete()
+        .in("id", salesReturnIds as any);
+      if (salesReturnsDeleteError) throw salesReturnsDeleteError;
+    }
+
+    // 2) Remove stock movements created for the sale itself
+    const { error: stockMovementsError } = await sb
+      .from("stock_movements")
+      .delete()
+      .eq("ref_table", "sale_items")
+      .eq("ref_id", saleId);
+    if (stockMovementsError) throw stockMovementsError;
+
+    // 3) Delete sale items (returns already removed above)
+    const { error: saleItemsError } = await sb
+      .from("sale_items")
+      .delete()
+      .eq("sale_id", saleId);
+    if (saleItemsError) throw saleItemsError;
+
+    // 4) Delete any payments tied to this sale
+    const { error: paymentsError } = await sb
+      .from("payments")
+      .delete()
+      .eq("sale_id", saleId);
+    if (paymentsError) throw paymentsError;
+
+    // 5) Finally delete the sale row
+    const { error: saleDeleteError } = await sb
       .from("sales")
       .delete()
       .eq("id", saleId);
-    if (error) throw error;
+    if (saleDeleteError) throw saleDeleteError;
+
     return true;
   }
 
