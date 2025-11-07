@@ -4,11 +4,13 @@ import { storage } from "@server/storage";
 
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  context: { params: Promise<{ id: string }> }
 ) {
-  // Check authentication
+  const { id: productId } = await context.params;
+
   const auth = await requireAuth();
   if (!auth.ok) return NextResponse.json({}, { status: 401 });
+
   if (auth.user.role !== "admin") {
     return NextResponse.json(
       { error: "Only admins can permanently delete products" },
@@ -16,7 +18,6 @@ export async function DELETE(
     );
   }
 
-  const productId = params.id;
   if (!productId) {
     return NextResponse.json(
       { error: "Product ID is required" },
@@ -25,7 +26,6 @@ export async function DELETE(
   }
 
   try {
-    // First verify the product exists and is already in trash
     const product = await storage.getProduct(productId);
     if (!product) {
       return NextResponse.json(
@@ -41,7 +41,6 @@ export async function DELETE(
       );
     }
 
-    // Permanently delete the product
     await storage.deleteProduct(productId);
 
     return NextResponse.json({ success: true });

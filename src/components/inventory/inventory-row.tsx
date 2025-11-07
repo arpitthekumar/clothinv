@@ -26,6 +26,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useState } from "react";
+import { useAuth } from "@/hooks/use-auth";
 
 interface InventoryRowProps {
   product: Product;
@@ -44,6 +45,9 @@ export function InventoryRow({
   const [showLabel, setShowLabel] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [confirmPermanentDelete, setConfirmPermanentDelete] = useState(false);
+  const { user } = useAuth(); // ✅ get logged-in user
+  const isSystemAdmin =
+    user?.username === "@admin" || user?.fullName === "System Administrator"; // ✅ check
 
   // Move to trash
   const deleteMutation = useMutation({
@@ -181,13 +185,15 @@ export function InventoryRow({
                   <RotateCcw className="h-4 w-4 text-blue-600" />
                 </Button>
 
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => setConfirmPermanentDelete(true)}
-                >
-                  <XCircle className="h-4 w-4 text-red-600" />
-                </Button>
+                {isSystemAdmin && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setConfirmPermanentDelete(true)}
+                  >
+                    <XCircle className="h-4 w-4 text-red-600" />
+                  </Button>
+                )}
               </>
             ) : (
               <>
@@ -257,29 +263,31 @@ export function InventoryRow({
       </AlertDialog>
 
       {/* Permanent Delete confirmation */}
-      <AlertDialog
-        open={confirmPermanentDelete}
-        onOpenChange={setConfirmPermanentDelete}
-      >
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Delete Permanently?</AlertDialogTitle>
-            <AlertDialogDescription>
-              This will permanently remove the product from your inventory. This
-              action cannot be undone.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction
-              onClick={() => permanentDeleteMutation.mutate(product.id)}
-              className="bg-red-700 hover:bg-red-800 text-white"
-            >
-              Delete Permanently
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+      {isSystemAdmin && (
+        <AlertDialog
+          open={confirmPermanentDelete}
+          onOpenChange={setConfirmPermanentDelete}
+        >
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Delete Permanently?</AlertDialogTitle>
+              <AlertDialogDescription>
+                This will permanently remove the product from your inventory.
+                This action cannot be undone.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Cancel</AlertDialogCancel>
+              <AlertDialogAction
+                onClick={() => permanentDeleteMutation.mutate(product.id)}
+                className="bg-red-700 hover:bg-red-800 text-white"
+              >
+                Delete Permanently
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+      )}
     </>
   );
 }
