@@ -51,13 +51,7 @@ export function InventoryRow({
   const isSystemAdmin = user?.role === "admin" && user?.username?.toLowerCase() === "admin";
   const isAdmin = user?.role === "admin";
   const isEmployee = user?.role === "employee";
-  console.log("USER DEBUG =>", {
-    username: user?.username,
-    fullName: user?.fullName,
-    isSystemAdmin,
-    isAdmin,
-    isEmployee,
-  });
+  
 
   // 🗑️ Move to trash
   const deleteMutation = useMutation({

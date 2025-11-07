@@ -54,6 +54,7 @@
     "next": "15.5.4",
     "next-pwa": "^5.6.0",
     "react": "19.1.0",
+    "react-barcode": "^1.6.1",
     "react-day-picker": "^9.11.0",
     "react-dom": "19.1.0",
     "react-hook-form": "^7.63.0",
