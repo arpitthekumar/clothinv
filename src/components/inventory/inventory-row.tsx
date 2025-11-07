@@ -174,7 +174,7 @@ export function InventoryRow({
 
         {/* ✅ Only show for Admins and System Admins */}
         {!isEmployee ? (
-          <td className="p-2 sm:p-4 hidden lg:table-cell text-sm">
+          <td className="p-2 sm:p-4  text-sm">
             {stats ? (
               <div className="space-y-1">
                 <div>

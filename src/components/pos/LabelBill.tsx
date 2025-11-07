@@ -71,7 +71,7 @@ const LabelBill = React.forwardRef<HTMLDivElement, LabelBillProps>(
             Bhootiya Fabric Collection
           </h1>
           <p style={{ margin: "2px 0", fontSize: "12px" }}>
-            Gandhi Nagar, Moti Ganj, Bharthana, U.P
+             Moti Ganj, bakevar road, Bharthana
           </p>
           <p style={{ margin: "2px 0", fontSize: "12px" }}>
             Ph: +91 82736 89065
