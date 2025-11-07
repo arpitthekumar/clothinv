@@ -52,56 +52,93 @@ export function LabelPreviewDialog({ open, onOpenChange, product }: LabelPreview
     });
   };
 
+  const canvasToBlob = (canvas: HTMLCanvasElement) =>
+    new Promise<Blob>((resolve, reject) => {
+      canvas.toBlob((blob) => {
+        if (blob) resolve(blob);
+        else reject(new Error("Failed to create image blob"));
+      }, "image/png", 1);
+    });
+
+  const triggerDownload = (url: string) => {
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `label-${product.sku}.png`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
+  const blobToBase64 = (blob: Blob) =>
+    new Promise<string>((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        const result = reader.result;
+        if (typeof result === "string") {
+          resolve(result.replace(/^data:image\/png;base64,/, ""));
+        } else {
+          reject(new Error("Failed to convert blob to base64"));
+        }
+      };
+      reader.onerror = () => reject(reader.error || new Error("Failed to read blob"));
+      reader.readAsDataURL(blob);
+    });
+
   const handleGenerateFile = async (type: "print" | "download" | "bluetooth") => {
     if (!labelRef.current) return;
     setLoading(true);
 
-    const canvas = await generateCanvas();
-    if (!canvas) {
-      setLoading(false);
-      return;
-    }
-
-    const dataUrl = canvas.toDataURL("image/png");
-    const res = await fetch(dataUrl);
-    const blob = await res.blob();
-    const file = new File([blob], `label-${product.sku}.png`, {
-      type: "image/png",
-    });
-
+    let objectUrl: string | undefined;
     try {
+      const canvas = await generateCanvas();
+      if (!canvas) {
+        throw new Error("Unable to render product label");
+      }
+
+      const blob = await canvasToBlob(canvas);
+      const file = new File([blob], `label-${product.sku}.png`, {
+        type: "image/png",
+      });
+
+      objectUrl = URL.createObjectURL(blob);
+
       if (type === "print") {
-        // 🔹 Share to system printer or nearby share
-        if (navigator.canShare && navigator.canShare({ files: [file] })) {
-          await navigator.share({
-            files: [file],
-            title: "Product Label",
-            text: `Label for ${product.name}`,
-          });
+        const shareData = {
+          files: [file],
+          title: "Product Label",
+          text: `Label for ${product.name}`,
+        };
+
+        if (navigator.share && navigator.canShare?.(shareData)) {
+          try {
+            await navigator.share(shareData);
+          } catch (shareError) {
+            console.warn("Share failed, falling back to download", shareError);
+            triggerDownload(objectUrl);
+          }
         } else {
-          alert("Sharing not supported on this device");
+          triggerDownload(objectUrl);
         }
       } else if (type === "download") {
-        // 🔹 Download PNG
-        const link = document.createElement("a");
-        link.href = dataUrl;
-        link.download = `label-${product.sku}.png`;
-        link.click();
+        triggerDownload(objectUrl);
       } else if (type === "bluetooth") {
-        // 🔹 Print directly via Mate Bluetooth Print app
-        const base64 = dataUrl.replace("data:image/png;base64,", "");
+        const base64 = await blobToBase64(blob);
         const printData = `<IMAGE>1#${base64}`; // align center
         const intentUrl = `intent:${encodeURIComponent(
           printData
         )}#Intent;scheme=my.bluetoothprint.scheme;package=mate.bluetoothprint;end;`;
 
         // Open Bluetooth Print app
-        window.location.href = intentUrl;
+        window.location.assign(intentUrl);
       }
+
     } catch (err) {
       console.error(err);
       alert("Action failed. Try again.");
     } finally {
+      if (objectUrl) {
+        URL.revokeObjectURL(objectUrl);
+      }
       setLoading(false);
     }
   };
