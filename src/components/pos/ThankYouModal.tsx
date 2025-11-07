@@ -150,7 +150,10 @@ export function ThankYouModal({
 
   // ✅ Send WhatsApp Message Only (no PDF)
   const handleSendToCustomer = async () => {
-    if (!customerPhone) return alert("Customer number not available");
+    // Skip WhatsApp if using default/placeholder phone number
+    if (!customerPhone || customerPhone === "0000000000" || customerPhone === "N/A") {
+      return alert("Customer phone number not available for WhatsApp sharing");
+    }
 
     setLoading(true);
 

@@ -30,6 +30,7 @@ CREATE TABLE IF NOT EXISTS products (
     category_id VARCHAR REFERENCES categories(id),
     description TEXT,
     price DECIMAL(10, 2) NOT NULL,
+    buying_price DECIMAL(10, 2),
     size TEXT,
     stock INTEGER NOT NULL DEFAULT 0,
     min_stock INTEGER DEFAULT 5,
@@ -240,6 +241,9 @@ CREATE TABLE IF NOT EXISTS payments (
 
 -- Add customer_id to sales if not exists
 ALTER TABLE sales ADD COLUMN IF NOT EXISTS customer_id VARCHAR REFERENCES customers(id);
+
+-- Add buying_price to products if not exists (for existing databases)
+ALTER TABLE products ADD COLUMN IF NOT EXISTS buying_price DECIMAL(10, 2);
 
 -- Helpful indexes
 CREATE INDEX IF NOT EXISTS idx_po_supplier ON purchase_orders(supplier_id);

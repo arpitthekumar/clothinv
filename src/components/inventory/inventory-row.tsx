@@ -33,6 +33,12 @@ interface InventoryRowProps {
   categories: any[];
   showTrash: boolean;
   onEdit?: (product: Product) => void;
+  stats?: {
+    revenue: number;
+    cost: number;
+    profit: number;
+    quantity: number;
+  };
 }
 
 export function InventoryRow({
@@ -40,6 +46,7 @@ export function InventoryRow({
   categories,
   showTrash,
   onEdit,
+  stats,
 }: InventoryRowProps) {
   const { toast } = useToast();
   const [showLabel, setShowLabel] = useState(false);
@@ -48,7 +55,8 @@ export function InventoryRow({
   const { user } = useAuth(); // ✅ get logged-in user
   const isSystemAdmin =
     user?.username === "@admin" || user?.fullName === "System Administrator"; // ✅ check
-
+  const isAdmin = user?.username === "@admin";
+  const isEmployee = user?.username === "@employee";
   // Move to trash
   const deleteMutation = useMutation({
     mutationFn: async (productId: string) => {
@@ -159,7 +167,36 @@ export function InventoryRow({
 
         <td className="p-2 sm:p-4 text-sm">{product.stock} units</td>
         <td className="p-2 sm:p-4 font-medium text-sm sm:text-base">
-          ₹{product.price}
+          <div>₹{product.price}</div>
+          {product.buyingPrice && (
+            <div className="text-xs text-muted-foreground font-normal">
+              Cost: ₹{product.buyingPrice}
+            </div>
+          )}
+        </td>
+        <td className="p-2 sm:p-4 hidden lg:table-cell text-sm">
+          {stats ? (
+            <div className="space-y-1">
+              <div>
+                Profit:
+                <span
+                  className={`ml-1 font-semibold ${
+                    stats.profit >= 0 ? "text-green-600" : "text-red-600"
+                  }`}
+                >
+                  ₹{stats.profit.toFixed(2)}
+                </span>
+              </div>
+              <div className="text-xs text-muted-foreground">
+                Revenue: ₹{stats.revenue.toFixed(2)}
+              </div>
+              <div className="text-xs text-muted-foreground">
+                {/* Cost: ₹{stats.cost.toFixed(2)} */}• Sold: {stats.quantity}
+              </div>
+            </div>
+          ) : (
+            <span className="text-xs text-muted-foreground">No sales</span>
+          )}
         </td>
         <td className="p-2 sm:p-4 hidden sm:table-cell">
           <Badge

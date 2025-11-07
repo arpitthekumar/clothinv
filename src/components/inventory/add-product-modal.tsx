@@ -20,6 +20,7 @@ import { z } from "zod";
 
 const formSchema = insertProductSchema.extend({
   price: z.string().min(1, "Price is required"),
+  buyingPrice: z.string().optional(),
   stock: z.string().min(1, "Stock is required"),
   minStock: z.string().optional(),
   description: z.string().optional(),
@@ -78,6 +79,7 @@ export function AddProductModal({ isOpen, onClose, initialProduct }: AddProductM
       categoryId: (initialProduct?.categoryId as string) || "",
       description: (initialProduct?.description as string) || "",
       price: initialProduct?.price ? String(initialProduct.price) : "",
+      buyingPrice: initialProduct?.buyingPrice ? String(initialProduct.buyingPrice) : "",
       size: (initialProduct?.size as string) || "",
       stock: initialProduct?.stock != null ? String(initialProduct.stock) : "",
       minStock: initialProduct?.minStock != null ? String(initialProduct.minStock) : "5",
@@ -94,6 +96,7 @@ export function AddProductModal({ isOpen, onClose, initialProduct }: AddProductM
       categoryId: (initialProduct?.categoryId as string) || "",
       description: (initialProduct?.description as string) || "",
       price: initialProduct?.price ? String(initialProduct.price) : "",
+      buyingPrice: initialProduct?.buyingPrice ? String(initialProduct.buyingPrice) : "",
       size: (initialProduct?.size as string) || "",
       stock: initialProduct?.stock != null ? String(initialProduct.stock) : "",
       minStock: initialProduct?.minStock != null ? String(initialProduct.minStock) : "5",
@@ -138,13 +141,23 @@ export function AddProductModal({ isOpen, onClose, initialProduct }: AddProductM
 
   const createMutation = useMutation({
     mutationFn: async (data: FormValues) => {
-      const productData = {
-        ...data,
+      const productData: any = {
+        name: data.name,
+        sku: data.sku,
         price: data.price,
         stock: parseInt(data.stock),
         minStock: data.minStock ? parseInt(data.minStock) : 5,
         categoryId: data.categoryId || null,
+        description: data.description || null,
+        size: data.size || null,
+        barcode: data.barcode || null,
       };
+      
+      // Only include buyingPrice if it has a value (omit if empty to avoid validation issues)
+      if (data.buyingPrice && data.buyingPrice.trim() !== "") {
+        productData.buyingPrice = data.buyingPrice;
+      }
+      // Don't include buyingPrice at all if it's empty - let the database use its default/null
 
       // Try online first
       try {
@@ -305,6 +318,26 @@ export function AddProductModal({ isOpen, onClose, initialProduct }: AddProductM
                         placeholder="0.00"
                         {...field}
                         data-testid="input-product-price"
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name="buyingPrice"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Buying Price</FormLabel>
+                    <FormControl>
+                      <Input
+                        type="number"
+                        step="0.01"
+                        placeholder="0.00"
+                        {...field}
+                        data-testid="input-product-buying-price"
                       />
                     </FormControl>
                     <FormMessage />

@@ -3,8 +3,9 @@ import { Sidebar } from "@/components/shared/sidebar";
 import { Header } from "@/components/shared/header";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useAuth } from "@/hooks/use-auth";
-import { Settings as SettingsIcon, Shield, Percent } from "lucide-react";
+import { Settings as SettingsIcon, Shield, Percent, Folder } from "lucide-react";
 import { CouponsManagement } from "@/components/settings/coupons-management";
+import { CategoriesManagement } from "@/components/settings/categories-management";
 
 export default function Settings() {
   const [sidebarOpen, setSidebarOpen] = useState(true);
@@ -93,6 +94,19 @@ export default function Settings() {
                     </p>
                   </div>
                 </div>
+              </CardContent>
+            </Card>
+
+            {/* Categories Management */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center">
+                  <Folder className="mr-2 text-primary" />
+                  Categories
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <CategoriesManagement />
               </CardContent>
             </Card>
 

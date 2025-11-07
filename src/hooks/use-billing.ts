@@ -128,9 +128,9 @@ const updateQuantity = (productId: string, newQuantity: number) => {
 			subtotal: calculation.subtotal,
 			couponDiscount: calculation.discountAmount,
 			afterCoupon: calculation.subtotal - calculation.discountAmount,
-			tax: calculation.taxAmount,
+			tax: 0, // GST removed
 			total: calculation.total,
-			taxPercent: 18
+			taxPercent: 0 // GST removed
 		};
 	};
 
@@ -162,7 +162,9 @@ const updateQuantity = (productId: string, newQuantity: number) => {
 
 	const handleCheckout = async () => {
 		if (cart.length === 0) { toast({ title: "Empty Cart", description: "Please add items to cart before checkout", variant: "destructive" }); return; }
-		if (!customerName.trim() || !customerPhone.trim()) { toast({ title: "Customer details required", description: "Enter customer name and phone number", variant: "destructive" }); return; }
+		// Use defaults if not provided
+		const finalCustomerName = customerName.trim() || "Walk-in Customer";
+		const finalCustomerPhone = customerPhone.trim() || "0000000000";
 		setIsProcessing(true);
 		try {
 			const calculation = calculateSaleTotals(
@@ -176,8 +178,8 @@ const updateQuantity = (productId: string, newQuantity: number) => {
 
 			const saleData = {
 				user_id: user!.id,
-				customer_name: customerName.trim(),
-				customer_phone: customerPhone.trim(),
+				customer_name: finalCustomerName,
+				customer_phone: finalCustomerPhone,
 				items: cart.map(item => ({ 
 					productId: item.productId, 
 					quantity: item.quantity, 
@@ -199,8 +201,8 @@ const updateQuantity = (productId: string, newQuantity: number) => {
 			const invoiceData: InvoiceData = { 
 				invoiceNumber: sale.invoiceNumber || `INV-${Date.now()}`, 
 				date: new Date(),
-				customerName,
-				customerPhone, 
+				customerName: finalCustomerName, 
+				customerPhone: finalCustomerPhone,
 				items: cart.map(item => ({ 
 					name: item.name, 
 					quantity: item.quantity, 
