@@ -36,6 +36,20 @@ import { AddCategoryModal } from "@/components/shared/add-category-modal";
 import { Plus, RefreshCw } from "lucide-react";
 import { LabelPreviewDialog } from "@/components/shared/label-preview-dialog";
 import { z } from "zod";
+import {
+  Command,
+  CommandInput,
+  CommandList,
+  CommandGroup,
+  CommandItem,
+  CommandEmpty,
+} from "@/components/ui/command";
+import {
+  Popover,
+  PopoverTrigger,
+  PopoverContent,
+} from "@/components/ui/popover";
+
 
 const formSchema = insertProductSchema.extend({
   price: z.string().min(1, "Price is required"),
@@ -250,12 +264,19 @@ export function AddProductModal({
   };
 
   return (
-<Dialog open={isOpen} onOpenChange={(open) => {
-  if (!open) return; // ignore outside clicks
-}}>      <DialogContent
-        className="sm:max-w-2xl max-h-[90vh] overflow-y-auto"
-        data-testid="modal-add-product"
-      >
+    <Dialog
+    open={isOpen}
+    onOpenChange={(open) => {
+      if (!open) handleClose(); // close only via X or Cancel
+    }}
+  >
+    <DialogContent
+      className="sm:max-w-2xl max-h-[90vh] overflow-y-auto"
+      onInteractOutside={(e) => e.preventDefault()} // 🚫 block outside click
+      onEscapeKeyDown={(e) => e.preventDefault()}   // 🚫 block ESC close
+      data-testid="modal-add-product"
+    >
+  
         <DialogHeader>
           <DialogTitle>
             {initialProduct?.id ? "Edit Product" : "Add New Product"}
@@ -317,45 +338,62 @@ export function AddProductModal({
                 )}
               />
 
-              <FormField
-                control={form.control}
-                name="categoryId"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Category</FormLabel>
-                    <div className="flex gap-2">
-                      <Select
-                        onValueChange={field.onChange}
-                        defaultValue={field.value}
-                      >
-                        <FormControl>
-                          <SelectTrigger data-testid="select-product-category">
-                            <SelectValue placeholder="Select category" />
-                          </SelectTrigger>
-                        </FormControl>
-                        <SelectContent>
-                          {(categories || []).map((category: any) => (
-                            <SelectItem key={category.id} value={category.id}>
-                              {category.name}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="icon"
-                        onClick={() => setShowAddCategory(true)}
-                        data-testid="button-add-category"
-                        title="Add new category"
-                      >
-                        <Plus className="h-4 w-4" />
-                      </Button>
-                    </div>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
+<FormField
+  control={form.control}
+  name="categoryId"
+  render={({ field }) => (
+    <FormItem>
+      <FormLabel>Category</FormLabel>
+      <div className="flex gap-2">
+        <Popover>
+          <PopoverTrigger asChild>
+            <Button
+              variant="outline"
+              role="combobox"
+              className="w-full justify-between"
+            >
+              {field.value
+                ? categories?.find((c) => c.id === field.value)?.name
+                : "Select category"}
+            </Button>
+          </PopoverTrigger>
+          <PopoverContent className="p-0 w-[300px]">
+            <Command>
+              <CommandInput placeholder="Search category..." />
+              <CommandList>
+                <CommandEmpty>No category found.</CommandEmpty>
+                <CommandGroup className="max-h-60 overflow-y-auto">
+                  {(categories || []).map((category: any) => (
+                    <CommandItem
+                      key={category.id}
+                      onSelect={() => {
+                        field.onChange(category.id);
+                      }}
+                    >
+                      {category.name}
+                    </CommandItem>
+                  ))}
+                </CommandGroup>
+              </CommandList>
+            </Command>
+          </PopoverContent>
+        </Popover>
+
+        <Button
+          type="button"
+          variant="outline"
+          size="icon"
+          onClick={() => setShowAddCategory(true)}
+          title="Add new category"
+        >
+          <Plus className="h-4 w-4" />
+        </Button>
+      </div>
+      <FormMessage />
+    </FormItem>
+  )}
+/>
+
 
               <FormField
                 control={form.control}
@@ -541,7 +579,6 @@ export function AddProductModal({
           </form>
         </Form>
       </DialogContent>
-
       <AddCategoryModal
         isOpen={showAddCategory}
         onClose={() => setShowAddCategory(false)}

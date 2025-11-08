@@ -49,6 +49,10 @@ export default function Reports() {
   const analyticsQuery = useQuery({
     queryKey: ["/api/reports/analytics", { sinceDays, salesWindowDays }],
   });
+  const stockValuationQuery = useQuery({
+    queryKey: ["/api/reports/stock-valuation"],
+  });
+  const stockValuation = stockValuationQuery.data || ({} as any);
 
   const analytics = analyticsQuery.data || ({} as any);
 
@@ -136,9 +140,11 @@ export default function Reports() {
 
           <KPIWidgets
             profit={Number(analytics.totalProfit || 0)}
-            valuation={Number(analytics.totalValuation || 0)}
+            valuation={Number(stockValuation.totalValuation || 0)}
+            totalCost={Number(stockValuation.totalCost || 0)}
             notSellingCount={Number(analytics.notSellingCount || 0)}
           />
+
           <AnalyticsCharts
             salesData={analytics.salesData}
             categoryData={analytics.categoryData}
@@ -148,7 +154,11 @@ export default function Reports() {
 
           <NotSellingTable products={analytics.notSelling || []} />
 
-          <SalesTable sales={filteredSales} loading={isLoading} products={products} />
+          <SalesTable
+            sales={filteredSales}
+            loading={isLoading}
+            products={products}
+          />
         </main>
       </div>
     </div>

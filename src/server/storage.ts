@@ -127,15 +127,19 @@ export interface IStorage {
     }>
   >;
   getStockValuation(): Promise<{
+    totalCost: number;
     totalValuation: number;
     byProduct: Array<{
       productId: string;
       name: string;
       stock: number;
-      cost: number;
+      costPrice: number;
+      sellingPrice: number;
+      totalCost: number;
       valuation: number;
     }>;
   }>;
+  
   getProfitMargins(params: {
     sinceDays: number;
   }): Promise<{

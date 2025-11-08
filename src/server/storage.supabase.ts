@@ -931,36 +931,50 @@ export class SupabaseStorage implements IStorage {
   }
 
   async getStockValuation() {
-    // ✅ Fetch all products
     const { data: products, error } = await this.client
       .from("products")
-      .select("id, name, price, stock, deleted, buying_price");
-
+      .select("id, name, stock, price, buying_price, deleted");
+  
     if (error) throw error;
-
-    // ✅ Filter out deleted or invalid products
+  
     const validProducts = (products || []).filter((p: any) => !p.deleted);
-
-    // ✅ Calculate per-product valuation
+  
+    let totalValuation = 0;
+    let totalCost = 0;
+  
     const byProduct = validProducts.map((p: any) => {
-      const cost = Number(p.buying_price ?? p.price ?? 0);
+      const stock = Number(p.stock ?? 0);
+      const costPrice = Number(p.buying_price ?? 0);
+      const sellingPrice = Number(p.price ?? 0);
+  
+      const valuation = stock * sellingPrice;
+      const totalProductCost = stock * costPrice;
+  
+      totalValuation += valuation;
+      totalCost += totalProductCost;
+  
       return {
         productId: p.id,
         name: p.name,
-        stock: p.stock || 0,
-        cost,
-        valuation: (p.stock || 0) * cost,
+        stock,
+        costPrice,
+        sellingPrice,
+        totalCost: totalProductCost,
+        valuation,
       };
     });
-
-    // ✅ Calculate total valuation
-    const totalValuation = byProduct.reduce((sum, p) => sum + p.valuation, 0);
-
+  
+    // console.log("🧾 Products:", validProducts);
+    // console.log("✅ totalCost:", totalCost, "totalValuation:", totalValuation);
+  
     return {
+      totalCost,
       totalValuation,
       byProduct,
     };
   }
+  
+  
 
   async getProfitMargins(params: { sinceDays: number }) {
     const since = new Date();

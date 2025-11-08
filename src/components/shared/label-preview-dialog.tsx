@@ -9,6 +9,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { ProductLabel } from "./product-label";
 
 type LabelPreviewDialogProps = {
@@ -34,6 +35,9 @@ export function LabelPreviewDialog({
   const [loading, setLoading] = useState(false);
   const [barcodeLoaded, setBarcodeLoaded] = useState(false);
   const [shareError, setShareError] = useState(false);
+  const [copiesDialogOpen, setCopiesDialogOpen] = useState(false);
+  const [printConfirmOpen, setPrintConfirmOpen] = useState(false);
+  const [copies, setCopies] = useState(1);
 
   const code = (product.barcode || product.sku).trim();
 
@@ -74,15 +78,6 @@ export function LabelPreviewDialog({
       );
     });
 
-  const triggerDownload = (url: string) => {
-    const link = document.createElement("a");
-    link.href = url;
-    link.download = `label-${product.sku}.png`;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-  };
-
   const blobToBase64 = (blob: Blob) =>
     new Promise<string>((resolve, reject) => {
       const reader = new FileReader();
@@ -99,24 +94,28 @@ export function LabelPreviewDialog({
       reader.readAsDataURL(blob);
     });
 
-  const handleGenerateFile = async (
-    type: "print" | "download" | "bluetooth"
-  ) => {
+  const triggerDownload = (url: string) => {
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `label-${product.sku}.png`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
+  const handleGenerateFile = async (type: "print" | "download" | "bluetooth") => {
     if (!labelRef.current) return;
     setLoading(true);
-
     let objectUrl: string | undefined;
+
     try {
       const canvas = await generateCanvas();
-      if (!canvas) {
-        throw new Error("Unable to render product label");
-      }
+      if (!canvas) throw new Error("Unable to render product label");
 
       const blob = await canvasToBlob(canvas);
       const file = new File([blob], `label-${product.sku}.png`, {
         type: "image/png",
       });
-
       objectUrl = URL.createObjectURL(blob);
 
       if (type === "print") {
@@ -129,81 +128,112 @@ export function LabelPreviewDialog({
         if (navigator.share && navigator.canShare?.(shareData)) {
           try {
             await navigator.share(shareData);
-          } catch (shareError) {
-            console.warn("Share failed", shareError);
-            // show popup for retry/cancel instead of auto-download
+          } catch {
             setShareError(true);
           }
         } else {
-          // device doesn’t support share
           setShareError(true);
         }
       } else if (type === "download") {
         triggerDownload(objectUrl);
       } else if (type === "bluetooth") {
-        const base64 = await blobToBase64(blob);
-        const printData = `<IMAGE>1#${base64}`; // align center
-        const intentUrl = `intent:${encodeURIComponent(
-          printData
-        )}#Intent;scheme=my.bluetoothprint.scheme;package=mate.bluetoothprint;end;`;
-
-        // Open Bluetooth Print app
-        window.location.assign(intentUrl);
+        // open copies dialog
+        setCopiesDialogOpen(true);
       }
     } catch (err) {
       console.error(err);
       alert("Action failed. Try again.");
     } finally {
-      if (objectUrl) {
-        URL.revokeObjectURL(objectUrl);
+      if (objectUrl) URL.revokeObjectURL(objectUrl);
+      setLoading(false);
+    }
+  };
+
+  const handleBluetoothPrint = async () => {
+    setCopiesDialogOpen(false);
+    setLoading(true);
+
+    try {
+      const canvas = await generateCanvas();
+      if (!canvas) throw new Error("Unable to render label");
+
+      const blob = await canvasToBlob(canvas);
+      const base64 = await blobToBase64(blob);
+      const printData = `<IMAGE>1#${base64}`;
+      const intentUrl = `intent:${encodeURIComponent(
+        printData
+      )}#Intent;scheme=my.bluetoothprint.scheme;package=mate.bluetoothprint;end;`;
+
+      for (let i = 0; i < copies; i++) {
+        window.location.assign(intentUrl);
+        await new Promise((res) => setTimeout(res, 1500));
       }
+
+      // open confirmation dialog
+      setTimeout(() => setPrintConfirmOpen(true), 1000);
+    } catch (err) {
+      console.error(err);
+      alert("Bluetooth print failed.");
+    } finally {
       setLoading(false);
     }
   };
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[420px]">
-        <DialogHeader>
-          <DialogTitle>Product Label</DialogTitle>
-        </DialogHeader>
+    <>
+      <Dialog open={open} onOpenChange={onOpenChange}>
+        <DialogContent className="sm:max-w-[420px]">
+          <DialogHeader>
+            <DialogTitle>Product Label</DialogTitle>
+          </DialogHeader>
 
-        <div className="space-y-4 items-center">
-          <ProductLabel
-            ref={labelRef}
-            name={product.name ?? ""}
-            sku={product.sku ?? ""}
-            price={product.price ?? ""}
-            size={product.size ?? ""}
-            categoryName={product.categoryName ?? ""}
-            code={code}
-            onBarcodeLoad={() => setBarcodeLoaded(true)}
-          />
+          <div className="space-y-4 items-center">
+            <ProductLabel
+              ref={labelRef}
+              name={product.name ?? ""}
+              sku={product.sku ?? ""}
+              price={product.price ?? ""}
+              size={product.size ?? ""}
+              categoryName={product.categoryName ?? ""}
+              code={code}
+              onBarcodeLoad={() => setBarcodeLoaded(true)}
+            />
 
-          <div className="flex items-center justify-center gap-3 flex-wrap">
-            <Button
-              variant="secondary"
-              onClick={() => handleGenerateFile("print")}
-              disabled={!barcodeLoaded || loading}
-            >
-              {loading
-                ? "Generating..."
-                : !barcodeLoaded
-                ? "Loading..."
-                : "Print"}
-            </Button>
+            <div className="flex items-center justify-center gap-3 flex-wrap">
+              <Button
+                variant="secondary"
+                onClick={() => handleGenerateFile("print")}
+                disabled={!barcodeLoaded || loading}
+              >
+                {loading
+                  ? "Generating..."
+                  : !barcodeLoaded
+                  ? "Loading..."
+                  : "Print"}
+              </Button>
 
-            <Button
-              variant="secondary"
-              onClick={() => handleGenerateFile("download")}
-              disabled={!barcodeLoaded || loading}
-            >
-              {loading
-                ? "Generating..."
-                : !barcodeLoaded
-                ? "Loading..."
-                : "Download"}
-            </Button>
+              <Button
+                variant="secondary"
+                onClick={() => handleGenerateFile("download")}
+                disabled={!barcodeLoaded || loading}
+              >
+                {loading
+                  ? "Generating..."
+                  : !barcodeLoaded
+                  ? "Loading..."
+                  : "Download"}
+              </Button>
+
+              <Button
+                className="bg-green-600 hover:bg-green-700 text-white"
+                onClick={() => handleGenerateFile("bluetooth")}
+                disabled={!barcodeLoaded || loading}
+              >
+                {loading ? "Connecting..." : "Bluetooth Print"}
+              </Button>
+            </div>
+
+            {/* Share failed popup */}
             {shareError && (
               <div className="bg-red-100 text-red-700 border border-red-300 rounded-lg p-3 text-center mt-3">
                 <p className="mb-2 font-medium">Share failed. Try again?</p>
@@ -213,7 +243,7 @@ export function LabelPreviewDialog({
                     size="sm"
                     onClick={() => {
                       setShareError(false);
-                      handleGenerateFile("print"); // retry sharing
+                      handleGenerateFile("print");
                     }}
                   >
                     Try Again
@@ -228,17 +258,67 @@ export function LabelPreviewDialog({
                 </div>
               </div>
             )}
+          </div>
+        </DialogContent>
+      </Dialog>
 
+      {/* 🧾 Copies Input Popup */}
+      <Dialog open={copiesDialogOpen} onOpenChange={setCopiesDialogOpen}>
+        <DialogContent className="sm:max-w-[350px] text-center">
+          <DialogHeader>
+            <DialogTitle>How many copies to print?</DialogTitle>
+          </DialogHeader>
+          <div className="flex flex-col gap-4 items-center">
+            <Input
+              type="number"
+              min={1}
+              value={copies}
+              onChange={(e) => setCopies(Number(e.target.value))}
+              className="w-24 text-center"
+            />
+            <div className="flex gap-3">
+              <Button
+                className="bg-green-600 hover:bg-green-700 text-white"
+                onClick={handleBluetoothPrint}
+              >
+                Print {copies} {copies > 1 ? "copies" : "copy"}
+              </Button>
+              <Button variant="ghost" onClick={() => setCopiesDialogOpen(false)}>
+                Cancel
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* ✅ Print Confirmation Popup */}
+      <Dialog open={printConfirmOpen} onOpenChange={setPrintConfirmOpen}>
+        <DialogContent className="sm:max-w-[350px] text-center">
+          <DialogHeader>
+            <DialogTitle>Print Confirmation</DialogTitle>
+          </DialogHeader>
+          <p className="text-gray-700 mb-4">
+            Did all {copies} {copies > 1 ? "copies" : "copy"} print successfully?
+          </p>
+          <div className="flex justify-center gap-3">
             <Button
               className="bg-green-600 hover:bg-green-700 text-white"
-              onClick={() => handleGenerateFile("bluetooth")}
-              disabled={!barcodeLoaded || loading}
+              onClick={() => setPrintConfirmOpen(false)}
             >
-              {loading ? "Connecting..." : "Bluetooth Print"}
+              ✅ Yes
+            </Button>
+            <Button
+              variant="secondary"
+              onClick={() => {
+                setPrintConfirmOpen(false);
+                setCopiesDialogOpen(true);
+              }}
+            >
+              🔁 Try Again
             </Button>
           </div>
-        </div>
-      </DialogContent>
-    </Dialog>
+        </DialogContent>
+      </Dialog>
+    </>
   );
 }
