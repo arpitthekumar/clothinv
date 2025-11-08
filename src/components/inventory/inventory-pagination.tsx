@@ -18,13 +18,32 @@ export function InventoryPagination({
   itemsPerPage,
 }: InventoryPaginationProps) {
   const startIndex = (currentPage - 1) * itemsPerPage;
+
+  // 👇 Compute dynamic visible page range
+  const visiblePages = 5;
+  let startPage = Math.max(1, currentPage - Math.floor(visiblePages / 2));
+  let endPage = startPage + visiblePages - 1;
+
+  if (endPage > totalPages) {
+    endPage = totalPages;
+    startPage = Math.max(1, endPage - visiblePages + 1);
+  }
+
+  const pages = Array.from(
+    { length: endPage - startPage + 1 },
+    (_, i) => startPage + i
+  );
+
   return (
-    <div className="p-6 border-t border-border flex items-center justify-between">
+    <div className="p-6 border-t border-border flex flex-col sm:flex-row gap-3 sm:gap-0 items-center justify-between">
+      {/* Info text */}
       <p className="text-sm text-muted-foreground">
-        Showing {startIndex + 1}-
+        Showing {startIndex + 1}–
         {Math.min(startIndex + itemsPerPage, totalItems)} of {totalItems} products
       </p>
-      <div className="flex space-x-2">
+
+      {/* Pagination Controls */}
+      <div className="flex items-center space-x-2">
         <Button
           variant="outline"
           size="sm"
@@ -34,20 +53,18 @@ export function InventoryPagination({
           Previous
         </Button>
 
-        {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
-          const page = i + 1;
-          return (
-            <Button
-              key={page}
-              variant={currentPage === page ? "default" : "outline"}
-              size="sm"
-              onClick={() => setCurrentPage(page)}
-            >
-              {page}
-            </Button>
-          );
-        })}
+        {pages.map((page) => (
+          <Button
+            key={page}
+            variant={currentPage === page ? "default" : "outline"}
+            size="sm"
+            onClick={() => setCurrentPage(page)}
+          >
+            {page}
+          </Button>
+        ))}
 
+        {/* ✅ fixed parentheses here */}
         <Button
           variant="outline"
           size="sm"
