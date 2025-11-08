@@ -2,7 +2,12 @@
 
 import { useRef, useState } from "react";
 import html2canvas from "html2canvas";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { ProductLabel } from "./product-label";
 
@@ -20,10 +25,15 @@ type LabelPreviewDialogProps = {
   };
 };
 
-export function LabelPreviewDialog({ open, onOpenChange, product }: LabelPreviewDialogProps) {
+export function LabelPreviewDialog({
+  open,
+  onOpenChange,
+  product,
+}: LabelPreviewDialogProps) {
   const labelRef = useRef<HTMLDivElement>(null);
   const [loading, setLoading] = useState(false);
   const [barcodeLoaded, setBarcodeLoaded] = useState(false);
+  const [shareError, setShareError] = useState(false);
 
   const code = (product.barcode || product.sku).trim();
 
@@ -54,10 +64,14 @@ export function LabelPreviewDialog({ open, onOpenChange, product }: LabelPreview
 
   const canvasToBlob = (canvas: HTMLCanvasElement) =>
     new Promise<Blob>((resolve, reject) => {
-      canvas.toBlob((blob) => {
-        if (blob) resolve(blob);
-        else reject(new Error("Failed to create image blob"));
-      }, "image/png", 1);
+      canvas.toBlob(
+        (blob) => {
+          if (blob) resolve(blob);
+          else reject(new Error("Failed to create image blob"));
+        },
+        "image/png",
+        1
+      );
     });
 
   const triggerDownload = (url: string) => {
@@ -80,11 +94,14 @@ export function LabelPreviewDialog({ open, onOpenChange, product }: LabelPreview
           reject(new Error("Failed to convert blob to base64"));
         }
       };
-      reader.onerror = () => reject(reader.error || new Error("Failed to read blob"));
+      reader.onerror = () =>
+        reject(reader.error || new Error("Failed to read blob"));
       reader.readAsDataURL(blob);
     });
 
-  const handleGenerateFile = async (type: "print" | "download" | "bluetooth") => {
+  const handleGenerateFile = async (
+    type: "print" | "download" | "bluetooth"
+  ) => {
     if (!labelRef.current) return;
     setLoading(true);
 
@@ -113,11 +130,13 @@ export function LabelPreviewDialog({ open, onOpenChange, product }: LabelPreview
           try {
             await navigator.share(shareData);
           } catch (shareError) {
-            console.warn("Share failed, falling back to download", shareError);
-            triggerDownload(objectUrl);
+            console.warn("Share failed", shareError);
+            // show popup for retry/cancel instead of auto-download
+            setShareError(true);
           }
         } else {
-          triggerDownload(objectUrl);
+          // device doesn’t support share
+          setShareError(true);
         }
       } else if (type === "download") {
         triggerDownload(objectUrl);
@@ -131,7 +150,6 @@ export function LabelPreviewDialog({ open, onOpenChange, product }: LabelPreview
         // Open Bluetooth Print app
         window.location.assign(intentUrl);
       }
-
     } catch (err) {
       console.error(err);
       alert("Action failed. Try again.");
@@ -168,7 +186,11 @@ export function LabelPreviewDialog({ open, onOpenChange, product }: LabelPreview
               onClick={() => handleGenerateFile("print")}
               disabled={!barcodeLoaded || loading}
             >
-              {loading ? "Generating..." : !barcodeLoaded ? "Loading..." : "Print"}
+              {loading
+                ? "Generating..."
+                : !barcodeLoaded
+                ? "Loading..."
+                : "Print"}
             </Button>
 
             <Button
@@ -176,8 +198,36 @@ export function LabelPreviewDialog({ open, onOpenChange, product }: LabelPreview
               onClick={() => handleGenerateFile("download")}
               disabled={!barcodeLoaded || loading}
             >
-              {loading ? "Generating..." : !barcodeLoaded ? "Loading..." : "Download"}
+              {loading
+                ? "Generating..."
+                : !barcodeLoaded
+                ? "Loading..."
+                : "Download"}
             </Button>
+            {shareError && (
+              <div className="bg-red-100 text-red-700 border border-red-300 rounded-lg p-3 text-center mt-3">
+                <p className="mb-2 font-medium">Share failed. Try again?</p>
+                <div className="flex justify-center gap-3">
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    onClick={() => {
+                      setShareError(false);
+                      handleGenerateFile("print"); // retry sharing
+                    }}
+                  >
+                    Try Again
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setShareError(false)}
+                  >
+                    Cancel
+                  </Button>
+                </div>
+              </div>
+            )}
 
             <Button
               className="bg-green-600 hover:bg-green-700 text-white"
