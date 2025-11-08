@@ -37,18 +37,12 @@ import { Plus, RefreshCw } from "lucide-react";
 import { LabelPreviewDialog } from "@/components/shared/label-preview-dialog";
 import { z } from "zod";
 import {
-  Command,
-  CommandInput,
-  CommandList,
-  CommandGroup,
-  CommandItem,
-  CommandEmpty,
-} from "@/components/ui/command";
-import {
-  Popover,
-  PopoverTrigger,
-  PopoverContent,
-} from "@/components/ui/popover";
+  Dialog as CategoryDialog,
+  DialogContent as CategoryDialogContent,
+  DialogHeader as CategoryDialogHeader,
+  DialogTitle as CategoryDialogTitle,
+} from "@/components/ui/dialog";
+import { Search } from "lucide-react";
 
 
 const formSchema = insertProductSchema.extend({
@@ -341,58 +335,89 @@ export function AddProductModal({
 <FormField
   control={form.control}
   name="categoryId"
-  render={({ field }) => (
-    <FormItem>
-      <FormLabel>Category</FormLabel>
-      <div className="flex gap-2">
-        <Popover>
-          <PopoverTrigger asChild>
-            <Button
-              variant="outline"
-              role="combobox"
-              className="w-full justify-between"
-            >
-              {field.value
-                ? categories?.find((c) => c.id === field.value)?.name
-                : "Select category"}
-            </Button>
-          </PopoverTrigger>
-          <PopoverContent className="p-0 w-[300px]">
-            <Command>
-              <CommandInput placeholder="Search category..." />
-              <CommandList>
-                <CommandEmpty>No category found.</CommandEmpty>
-                <CommandGroup className="max-h-60 overflow-y-auto">
-                  {(categories || []).map((category: any) => (
-                    <CommandItem
-                      key={category.id}
-                      onSelect={() => {
-                        field.onChange(category.id);
-                      }}
-                    >
-                      {category.name}
-                    </CommandItem>
-                  ))}
-                </CommandGroup>
-              </CommandList>
-            </Command>
-          </PopoverContent>
-        </Popover>
+  render={({ field }) => {
+    const [openCategorySearch, setOpenCategorySearch] = useState(false);
+    const [searchQuery, setSearchQuery] = useState("");
 
-        <Button
-          type="button"
-          variant="outline"
-          size="icon"
-          onClick={() => setShowAddCategory(true)}
-          title="Add new category"
-        >
-          <Plus className="h-4 w-4" />
-        </Button>
-      </div>
-      <FormMessage />
-    </FormItem>
-  )}
+    const filteredCategories =
+      categories?.filter((c) =>
+        c.name.toLowerCase().includes(searchQuery.toLowerCase())
+      ) || [];
+
+    return (
+      <FormItem>
+        <FormLabel>Category</FormLabel>
+        <div className="flex gap-2">
+          <Button
+            type="button"
+            variant="outline"
+            className="w-full justify-between"
+            onClick={() => setOpenCategorySearch(true)}
+          >
+            {field.value
+              ? categories?.find((c) => c.id === field.value)?.name
+              : "Select category"}
+            <Search className="h-4 w-4 opacity-70" />
+          </Button>
+
+          <Button
+            type="button"
+            variant="outline"
+            size="icon"
+            onClick={() => setShowAddCategory(true)}
+            title="Add new category"
+          >
+            <Plus className="h-4 w-4" />
+          </Button>
+        </div>
+
+        <CategoryDialog open={openCategorySearch} onOpenChange={setOpenCategorySearch}>
+          <CategoryDialogContent className="sm:max-w-md max-h-[80vh] overflow-hidden p-0">
+            <CategoryDialogHeader className="p-4 border-b">
+              <CategoryDialogTitle>Select Category</CategoryDialogTitle>
+              <div className="relative mt-2">
+                <Search className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
+                <Input
+                  placeholder="Search category..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="pl-9"
+                />
+              </div>
+            </CategoryDialogHeader>
+
+            <div className="p-2 max-h-[60vh] overflow-y-auto space-y-1">
+              {filteredCategories.length ? (
+                filteredCategories.map((category: any) => (
+                  <Button
+                    key={category.id}
+                    variant={
+                      field.value === category.id ? "default" : "ghost"
+                    }
+                    className="w-full justify-start"
+                    onClick={() => {
+                      field.onChange(category.id);
+                      setOpenCategorySearch(false);
+                    }}
+                  >
+                    {category.name}
+                  </Button>
+                ))
+              ) : (
+                <p className="text-sm text-muted-foreground text-center py-4">
+                  No category found.
+                </p>
+              )}
+            </div>
+          </CategoryDialogContent>
+        </CategoryDialog>
+
+        <FormMessage />
+      </FormItem>
+    );
+  }}
 />
+
 
 
               <FormField
