@@ -49,6 +49,9 @@ export function ThankYouModal({
         customerPhone: customerPhone || "N/A",
       }
     : null;
+  
+  // Get sale-level discount from invoiceData
+  const saleDiscountAmount = invoiceData?.discountAmount || 0;
 
   // ✅ Generate PDF blob for sharing/downloading
   const generatePDF = async (): Promise<Blob | null> => {
@@ -198,7 +201,7 @@ Thank you for shopping with *Bhootia Fabric Collection* 🛍️
 • Invoice No: ${saleData.invoiceNumber}
 • Date: ${new Date(saleData.createdAt ?? new Date()).toLocaleDateString()}
 • Payment Method: ${saleData.paymentMethod}
-• Total Amount: ₹${saleData.totalAmount.toFixed(2)}
+• Total Amount: ₹${Math.round(saleData.totalAmount)}
 
 We appreciate your purchase ❤️`;
 
@@ -228,7 +231,7 @@ We appreciate your purchase ❤️`;
         {/* Bill Preview */}
         <div className="flex justify-center">
           <div ref={invoiceRef} className="scale-[0.95] origin-top">
-            {saleData && <LabelBill data={saleData} />}
+            {saleData && <LabelBill data={saleData} discountAmount={saleDiscountAmount} />}
           </div>
         </div>
 
