@@ -57,29 +57,28 @@ export default function SalesPage() {
   const handlePrintSale = async (sale: any) => {
     try {
       const items = normalizeItems(sale.items);
+      // Round all values
+      const subtotal = Math.round(parseFloat(sale.subtotal || "0") * 100) / 100;
+      const discountAmount = Math.round(parseFloat(sale.discount_amount || "0") * 100) / 100;
+      const total = Math.round(parseFloat(sale.total_amount || "0") * 100) / 100;
+      
       const invoice: InvoiceData = {
         invoiceNumber: sale.invoice_number || `INV-${sale.id?.slice(0, 6)}`,
         date: new Date(sale.created_at || Date.now()),
         items: items.map((it: any) => ({
           name: it.name,
           quantity: it.quantity,
-          price: parseFloat(it.price),
-          total: parseFloat(it.price) * it.quantity,
-          discount_value: parseFloat(
-            it.discount_value || sale.discount_value || 0
-          ),
-          discount_amount: parseFloat(
-            it.discount_amount || sale.discount_amount || 0
-          ),
+          price: Math.round(parseFloat(it.price) * 100) / 100,
+          total: Math.round(parseFloat(it.price) * it.quantity * 100) / 100,
         })),
-        subtotal: parseFloat(sale.subtotal || "0"),
-        tax: parseFloat(sale.tax_amount || "0"),
-        total: parseFloat(sale.total_amount || "0"),
+        subtotal: subtotal,
+        tax: Math.round(parseFloat(sale.tax_amount || "0") * 100) / 100,
+        total: total,
         paymentMethod: sale.payment_method,
         customerName: sale.customer_name || "Walk-in Customer",
         discountType: sale.discount_type || "percentage",
-        discountValue: parseFloat(sale.discount_value || 0),
-        discountAmount: parseFloat(sale.discount_amount || 0),
+        discountValue: Math.round(parseFloat(sale.discount_value || 0) * 100) / 100,
+        discountAmount: discountAmount,
       };
 
       // Set invoice and open ThankYou modal

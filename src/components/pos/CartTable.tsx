@@ -48,7 +48,7 @@ export function CartTable({ items, onDecrease, onIncrease, onRemove }: CartTable
 					</div>
 
 					<div className="text-right ml-2 md:ml-4 min-w-[84px]">
-						<p className="font-medium">₹{(parseFloat(item.price) * item.quantity).toFixed(2)}</p>
+						<p className="font-medium">₹{Math.round(parseFloat(item.price) * item.quantity)}</p>
 					</div>
 				</div>
 			))}

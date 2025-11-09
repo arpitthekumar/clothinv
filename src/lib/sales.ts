@@ -11,28 +11,28 @@ interface SaleCalculation {
 }
 
 export function calculateSaleTotals(items: Array<{ quantity: number; price: string | number }>, discountType?: string | null, discountValue: number = 0): SaleCalculation {
-  // Calculate subtotal
-  const subtotal = items.reduce((sum, item) => {
+  // Calculate subtotal (rounded)
+  const subtotal = Math.round(items.reduce((sum, item) => {
     const price = typeof item.price === 'string' ? parseFloat(item.price) : item.price;
     return sum + (price * item.quantity);
-  }, 0);
+  }, 0) * 100) / 100;
 
-  // Calculate discount
+  // Calculate discount (rounded)
   const discountAmount = discountType === 'percentage'
-    ? subtotal * (discountValue / 100)
+    ? Math.round(subtotal * (discountValue / 100) * 100) / 100
     : discountType === 'fixed'
-    ? discountValue
+    ? Math.round(discountValue * 100) / 100
     : 0;
 
   // Amount after discount
-  const afterDiscount = subtotal - discountAmount;
+  const afterDiscount = Math.round((subtotal - discountAmount) * 100) / 100;
 
   // Calculate tax (0% - GST removed)
   const taxPercent = 0;
   const taxAmount = 0;
 
-  // Calculate final total
-  const total = afterDiscount + taxAmount;
+  // Calculate final total (rounded)
+  const total = Math.round((afterDiscount + taxAmount) * 100) / 100;
 
   return {
     subtotal,

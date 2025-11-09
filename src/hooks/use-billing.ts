@@ -198,24 +198,28 @@ const updateQuantity = (productId: string, newQuantity: number) => {
 				invoice_number: `INV-${Date.now()}`,
 			} as any;
 			const sale = await createSaleMutation.mutateAsync(saleData);
+			// Round all values
 			const invoiceData: InvoiceData = { 
-				invoiceNumber: sale.invoiceNumber || `INV-${Date.now()}`, 
+				invoiceNumber: sale.invoiceNumber || sale.invoice_number || `INV-${Date.now()}`, 
 				date: new Date(),
 				customerName: finalCustomerName, 
 				customerPhone: finalCustomerPhone,
-				items: cart.map(item => ({ 
-					name: item.name, 
-					quantity: item.quantity, 
-					price: getDiscountedUnitPrice(item.productId, parseFloat(item.price)), 
-					total: getDiscountedUnitPrice(item.productId, parseFloat(item.price)) * item.quantity 
-				})), 
-				subtotal: calculation.subtotal, 
-				tax: calculation.taxAmount, 
+				items: cart.map(item => {
+					const price = Math.round(getDiscountedUnitPrice(item.productId, parseFloat(item.price)) * 100) / 100;
+					return {
+						name: item.name, 
+						quantity: item.quantity, 
+						price: price, 
+						total: Math.round(price * item.quantity * 100) / 100
+					};
+				}), 
+				subtotal: Math.round(calculation.subtotal * 100) / 100, 
+				tax: Math.round(calculation.taxAmount * 100) / 100, 
 				taxPercent: calculation.taxPercent,
 				discountType: calculation.discountType || undefined,
-				discountValue: calculation.discountValue,
-				discountAmount: calculation.discountAmount,
-				total: calculation.total, 
+				discountValue: Math.round(calculation.discountValue * 100) / 100,
+				discountAmount: Math.round(calculation.discountAmount * 100) / 100,
+				total: Math.round(calculation.total * 100) / 100, 
 				paymentMethod 
 			};
 			setLastInvoiceData(invoiceData); setLastCustomerPhone(customerPhone); setShowConfirmPayment(true);

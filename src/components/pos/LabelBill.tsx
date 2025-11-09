@@ -17,10 +17,11 @@ import BarcodeGenerator from "@/components/shared/barcode-generator";
 interface LabelBillProps {
   data: SaleData;
   taxPercent?: number;
+  discountAmount?: number; // Sale-level discount (coupon discount)
 }
 
 const LabelBill = React.forwardRef<HTMLDivElement, LabelBillProps>(
-  ({ data, taxPercent = 0 }, ref) => {
+  ({ data, taxPercent = 0, discountAmount = 0 }, ref) => {
     const createdAt = data.createdAt
       ? new Date(`${data.createdAt}Z`) // ensures UTC interpretation
       : new Date();
@@ -28,22 +29,24 @@ const LabelBill = React.forwardRef<HTMLDivElement, LabelBillProps>(
     // ✅ Calculate item-level totals properly (no tax)
     const itemsWithTotals = data.items.map((item) => {
       const itemSubtotal = item.price * item.quantity;
-      const itemDiscount = item.discount_amount || 0;
-      const itemTotal = itemSubtotal - itemDiscount;
-      return { ...item, itemSubtotal, itemDiscount, itemTotal };
+      const itemTotal = itemSubtotal;
+      return { ...item, itemSubtotal, itemTotal };
     });
 
     // ✅ Grand totals (no tax)
-    const subtotal = itemsWithTotals.reduce(
+    const subtotal = Math.round(itemsWithTotals.reduce(
       (sum, i) => sum + i.itemSubtotal,
       0
-    );
-    const totalDiscount = itemsWithTotals.reduce(
-      (sum, i) => sum + i.itemDiscount,
-      0
-    );
+    ) * 100) / 100;
+    // Use sale-level discount if provided, otherwise calculate from items
+    const totalDiscount = discountAmount > 0 
+      ? Math.round(discountAmount * 100) / 100
+      : Math.round(itemsWithTotals.reduce(
+          (sum, i) => sum + (i.discount_amount || 0),
+          0
+        ) * 100) / 100;
     const taxAmount = 0;
-    const total = itemsWithTotals.reduce((sum, i) => sum + i.itemTotal, 0);
+    const total = Math.round((subtotal - totalDiscount + taxAmount) * 100) / 100;
 
     // const barcodeUrl = useMemo(
     //   () => getBarcodeUrl(data.invoiceNumber || "000000"),
@@ -124,8 +127,8 @@ const LabelBill = React.forwardRef<HTMLDivElement, LabelBillProps>(
               <tr key={i}>
                 <td>{item.name}</td>
                 <td align="center">{item.quantity}</td>
-                <td align="right">₹{item.price.toFixed(2)}</td>
-                <td align="right">₹{item.itemSubtotal.toFixed(2)}</td>
+                <td align="right">₹{Math.round(item.price * 100) / 100}</td>
+                <td align="right">₹{Math.round(item.itemSubtotal * 100) / 100}</td>
               </tr>
             ))}
           </tbody>
@@ -136,11 +139,11 @@ const LabelBill = React.forwardRef<HTMLDivElement, LabelBillProps>(
         {/* TOTALS */}
         <div style={{ fontSize: "13px" }}>
           <p>
-            <strong>Subtotal:</strong> ₹{subtotal.toFixed(2)}
+            <strong>Subtotal:</strong> ₹{Math.round(subtotal)}
           </p>
           {totalDiscount > 0 && (
             <p style={{ color: "green" }}>
-              <strong>Discount: </strong> -₹{totalDiscount.toFixed(2)}
+              <strong>Discount: </strong> -₹{Math.round(totalDiscount)}
             </p>
           )}
           <p
@@ -149,7 +152,7 @@ const LabelBill = React.forwardRef<HTMLDivElement, LabelBillProps>(
               fontWeight: "bold",
             }}
           >
-            Total: ₹{total.toFixed(2)}
+            Total: ₹{Math.round(total)}
           </p>
           <p>
             <strong>Payment:</strong> {data.paymentMethod || "Cash"}

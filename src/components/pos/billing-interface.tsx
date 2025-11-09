@@ -246,7 +246,7 @@ export function BillingInterface() {
               data-testid="button-checkout"
             >
               <CreditCard className="mr-2 h-4 w-4" />
-              {isProcessing ? "Processing..." : `Pay ₹${total.toFixed(2)}`}
+              {isProcessing ? "Processing..." : `Pay ₹${Math.round(total)}`}
             </Button>
           </CardContent>
         </Card>

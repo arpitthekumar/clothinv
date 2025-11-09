@@ -19,7 +19,7 @@ export function CheckoutDialog({ open, onOpenChange, total, paymentMethod, onCon
 					<DialogTitle>Confirm Payment</DialogTitle>
 				</DialogHeader>
 				<p>
-					Please confirm the payment of ₹{total.toFixed(2)} via {paymentMethod.toUpperCase()} is completed.
+					Please confirm the payment of ₹{Math.round(total)} via {paymentMethod.toUpperCase()} is completed.
 				</p>
 				<DialogFooter>
 					<Button variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
