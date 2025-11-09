@@ -121,6 +121,7 @@ export function ThankYouModal({
   const handleSharePDF = async () => {
     setLoading(true);
     const pdfBlob = await generatePDF();
+
     if (pdfBlob && saleData) {
       const pdfFile = new File(
         [pdfBlob],
@@ -128,30 +129,61 @@ export function ThankYouModal({
         { type: "application/pdf" }
       );
 
-      if (navigator.canShare && navigator.canShare({ files: [pdfFile] })) {
-        try {
-          await navigator.share({
-            title: "Invoice",
-            text: `Here is your invoice from Bhootia Fabric Collection`,
-            files: [pdfFile],
-          });
-        } catch (err) {
-          console.error("Sharing failed:", err);
+      try {
+        const shareData = {
+          files: [pdfFile],
+          title: "Invoice",
+          text: `Here is your invoice from Bhootia Fabric Collection`,
+        };
+
+        // ✅ 1️⃣ Normal PWA/Phone Share
+        if (navigator.share && navigator.canShare?.(shareData)) {
+          await navigator.share(shareData);
+          setLoading(false);
+          return;
         }
-      } else {
+
+        // ✅ 2️⃣ Android native intent fallback (same as your image version)
+        if (/Android/i.test(navigator.userAgent)) {
+          const blobUrl = URL.createObjectURL(pdfBlob);
+
+          // Create Android intent for PDF
+          const intentUrl = `intent:${encodeURIComponent(
+            blobUrl
+          )}#Intent;action=android.intent.action.SEND;type=application/pdf;end;`;
+
+          window.location.assign(intentUrl);
+          setLoading(false);
+          return;
+        }
+
+        // ✅ 3️⃣ Fallback: trigger download
         alert(
-          "Sharing not supported on this device. PDF will download instead."
+          "Sharing not supported on this device. The invoice will be downloaded instead."
         );
-        handleDownloadPDF();
+        const url = URL.createObjectURL(pdfFile);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = pdfFile.name;
+        a.click();
+        URL.revokeObjectURL(url);
+      } catch (err) {
+        console.error("Share failed:", err);
+        alert("Sharing failed. Please try downloading manually.");
       }
     }
+
     setLoading(false);
   };
 
   // ✅ Send WhatsApp Message Only (no PDF)
   const handleSendToCustomer = async () => {
     // Skip WhatsApp if using default/placeholder phone number
-    if (!customerPhone || customerPhone === "0000000000" || customerPhone === "N/A") {
+    if (
+      !customerPhone ||
+      customerPhone === "0000000000" ||
+      customerPhone === "N/A"
+    ) {
       return alert("Customer phone number not available for WhatsApp sharing");
     }
 
