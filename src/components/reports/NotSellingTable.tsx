@@ -7,6 +7,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { format } from "date-fns";
 
 interface NotSellingProduct {
   productId: string;
@@ -16,15 +17,46 @@ interface NotSellingProduct {
   lastSoldAt: string | null;
 }
 
+interface NotSellingTableProps {
+  products: NotSellingProduct[];
+  dateRange: string;
+  customDateRange?: { from?: Date; to?: Date } | null;
+}
+
 export default function NotSellingTable({
   products,
-}: {
-  products: NotSellingProduct[];
-}) {
+  dateRange,
+  customDateRange,
+}: NotSellingTableProps) {
+  const getDateRangeLabel = () => {
+    if (dateRange === "custom" && customDateRange?.from && customDateRange?.to) {
+      const fromStr = format(customDateRange.from, "MMM dd");
+      const toStr = format(customDateRange.to, "MMM dd, yyyy");
+      if (fromStr === toStr) {
+        return format(customDateRange.from, "MMM dd, yyyy");
+      }
+      return `${fromStr} - ${toStr}`;
+    }
+    switch (dateRange) {
+      case "today":
+        return "Today";
+      case "week":
+        return "Last 7 days";
+      case "month":
+        return "Last 30 days";
+      case "all":
+        return "All time";
+      default:
+        return "Selected period";
+    }
+  };
+
+  const dateRangeLabel = getDateRangeLabel();
+
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Products Not Selling (Top 10)</CardTitle>
+        <CardTitle>Products Not Selling - {dateRangeLabel} (Top 10)</CardTitle>
       </CardHeader>
       <CardContent>
         <div className="overflow-x-auto">
