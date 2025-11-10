@@ -21,7 +21,7 @@ export default function POS() {
           onSidebarToggle={toggleSidebar}
         />
 
-        <main className="flex-1 overflow-auto p-4 md:p-6">
+        <main className="flex-1 overflow-auto p-4 md:p-6 pb-5">
           <BillingInterface />
         </main>
       </div>
