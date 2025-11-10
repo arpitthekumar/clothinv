@@ -1,5 +1,12 @@
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 
 interface NotSellingProduct {
   productId: string;
@@ -9,7 +16,11 @@ interface NotSellingProduct {
   lastSoldAt: string | null;
 }
 
-export default function NotSellingTable({ products }: { products: NotSellingProduct[] }) {
+export default function NotSellingTable({
+  products,
+}: {
+  products: NotSellingProduct[];
+}) {
   return (
     <Card>
       <CardHeader>
@@ -32,12 +43,29 @@ export default function NotSellingTable({ products }: { products: NotSellingProd
                   <TableCell>{p.name}</TableCell>
                   <TableCell>{p.sku}</TableCell>
                   <TableCell>{p.stock}</TableCell>
-                  <TableCell>{p.lastSoldAt || "Never"}</TableCell>
+                  <TableCell>
+                    {p.lastSoldAt
+                      ? new Date(p.lastSoldAt.replace(" ", "T")).toLocaleString(
+                          "en-IN",
+                          {
+                            day: "2-digit",
+                            month: "2-digit",
+                            year: "numeric",
+                            hour: "2-digit",
+                            minute: "2-digit",
+                            hour12: true,
+                          }
+                        )
+                      : "Never"}
+                  </TableCell>
                 </TableRow>
               ))}
               {products.length === 0 && (
                 <TableRow>
-                  <TableCell colSpan={4} className="text-center py-6 text-muted-foreground">
+                  <TableCell
+                    colSpan={4}
+                    className="text-center py-6 text-muted-foreground"
+                  >
                     No items to show
                   </TableCell>
                 </TableRow>

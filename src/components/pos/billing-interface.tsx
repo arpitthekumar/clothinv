@@ -21,7 +21,6 @@ import { PaymentDetails } from "@/components/pos/PaymentDetails";
 import { RecentSales } from "@/components/pos/RecentSales";
 import { MostSold } from "@/components/pos/MostSold";
 
-
 export function BillingInterface() {
   const {
     cart,
@@ -66,7 +65,6 @@ export function BillingInterface() {
     isFavorite,
   } = useBilling();
 
-
   const addFavoriteIdToCart = (favoriteId: string) => {
     const product = products.find((p) => p.id === favoriteId);
     if (product) addToCart(product);
@@ -83,9 +81,9 @@ export function BillingInterface() {
   const { subtotal, couponDiscount, tax, total } = totals;
 
   return (
-    <div className="grid grid-cols-1 xl:grid-cols-3 gap-4 md:gap-6">
+    <div className="grid grid-cols-1 xl:grid-cols-3 gap-4 md:gap-6 pb-6">
       {/* Product Search & Cart */}
-      <div className="xl:col-span-2 space-y-4 md:space-y-6">
+      <div className="xl:col-span-2 space-y-4 md:space-y-6 ">
         {/* Product Search */}
         <Card>
           <CardHeader>
@@ -110,7 +108,6 @@ export function BillingInterface() {
             />
           </CardContent>
         </Card>
-        <ManualScanner onScan={handleScan} />
 
         {/* Quick Access Sections */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
@@ -131,7 +128,7 @@ export function BillingInterface() {
           </Card>
 
           {/* Recent Sales */}
-          <Card>
+          <Card className=" hidden lg:block">
             <CardHeader>
               <CardTitle className="flex items-center text-sm">
                 <Clock className="mr-2 h-4 w-4" />
@@ -147,9 +144,9 @@ export function BillingInterface() {
           </Card>
 
           {/* Most Sold */}
-          <Card>
+          <Card className=" hidden lg:block">
             <CardHeader>
-              <CardTitle className="flex items-center text-sm">
+              <CardTitle className="flex items-center  text-sm">
                 <TrendingUp className="mr-2 h-4 w-4" />
                 Most Sold
               </CardTitle>
@@ -249,6 +246,9 @@ export function BillingInterface() {
               {isProcessing ? "Processing..." : `Pay ₹${Math.round(total)}`}
             </Button>
           </CardContent>
+          <div className="p-6 pt-0" >
+          <ManualScanner onScan={handleScan} />
+            </div>
         </Card>
       </div>
 
