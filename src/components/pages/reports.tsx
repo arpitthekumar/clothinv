@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Sidebar } from "@/components/shared/sidebar";
 import { Header } from "@/components/shared/header";
@@ -10,7 +10,7 @@ import KPIWidgets from "@/components/reports/KPIWidgets";
 import NotSellingTable from "@/components/reports/NotSellingTable";
 import SalesTable from "@/components/reports/SalesTable";
 import { normalizeItems } from "@/lib/json";
-import { startOfDay, endOfDay } from "date-fns";
+import { startOfDay, endOfDay, subDays, subMonths } from "date-fns";
 import { Sale } from "@shared/schema";
 import AnalyticsCharts from "../reports/AnalyticsCharts";
 
@@ -18,6 +18,7 @@ export default function Reports() {
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [reportType, setReportType] = useState("daily");
   const [dateRange, setDateRange] = useState("today");
+  const [customDateRange, setCustomDateRange] = useState<{ from?: Date; to?: Date } | null>(null);
 
   const { data: sales = [], isLoading } = useQuery<Sale[]>({
     queryKey: ["/api/sales"],
@@ -27,27 +28,62 @@ export default function Reports() {
     queryKey: ["/api/products"],
   });
 
-  // Map dateRange to numeric sinceDays for report APIs
-  const mapDateRangeToDays = (range: string) => {
-    switch (range) {
-      case "today":
-        return 1;
-      case "week":
-        return 7;
-      case "month":
-        return 30;
-      case "all":
-        return 36500; // effectively all time
-      default:
-        return 30;
-    }
-  };
+  // Calculate date range based on selection
+  const dateRangeParams = useMemo(() => {
+    const now = new Date();
+    let fromDate: Date;
+    let toDate: Date = endOfDay(now);
 
-  const sinceDays = mapDateRangeToDays(dateRange);
+    if (dateRange === "custom" && customDateRange?.from && customDateRange?.to) {
+      fromDate = startOfDay(customDateRange.from);
+      toDate = endOfDay(customDateRange.to);
+    } else {
+      switch (dateRange) {
+        case "today":
+          fromDate = startOfDay(now);
+          toDate = endOfDay(now);
+          break;
+        case "week":
+          fromDate = startOfDay(subDays(now, 7));
+          toDate = endOfDay(now);
+          break;
+        case "month":
+          fromDate = startOfDay(subDays(now, 30));
+          toDate = endOfDay(now);
+          break;
+        case "all":
+          fromDate = new Date(0); // Beginning of time
+          toDate = endOfDay(now);
+          break;
+        default:
+          fromDate = startOfDay(subDays(now, 30));
+          toDate = endOfDay(now);
+      }
+    }
+
+    // Calculate sinceDays for backward compatibility (days from now)
+    const daysDiff = Math.ceil((now.getTime() - fromDate.getTime()) / (1000 * 60 * 60 * 24));
+    const sinceDays = daysDiff > 36500 ? 36500 : daysDiff;
+
+    return {
+      fromDate: fromDate.toISOString(),
+      toDate: toDate.toISOString(),
+      sinceDays,
+    };
+  }, [dateRange, customDateRange]);
+
   const salesWindowDays = reportType === "monthly" ? 30 : 7;
 
   const analyticsQuery = useQuery({
-    queryKey: ["/api/reports/analytics", { sinceDays, salesWindowDays }],
+    queryKey: [
+      "/api/reports/analytics",
+      {
+        sinceDays: dateRangeParams.sinceDays,
+        salesWindowDays,
+        fromDate: dateRangeParams.fromDate,
+        toDate: dateRangeParams.toDate,
+      },
+    ],
   });
   const stockValuationQuery = useQuery({
     queryKey: ["/api/reports/stock-valuation"],
@@ -60,22 +96,18 @@ export default function Reports() {
   const toggleSidebar = () => setSidebarOpen(!sidebarOpen);
 
   // Filter sales by date range
-  const filteredSales = sales?.filter((sale: any) => {
-    if (!sale.created_at) return false;
-    const saleDate = new Date(sale.created_at);
-    const now = new Date();
+  const filteredSales = useMemo(() => {
+    if (!sales) return [];
+    const { fromDate, toDate } = dateRangeParams;
+    const from = new Date(fromDate);
+    const to = new Date(toDate);
 
-    switch (dateRange) {
-      case "today":
-        return saleDate >= startOfDay(now) && saleDate <= endOfDay(now);
-      case "week":
-        return saleDate >= new Date(now.setDate(now.getDate() - 7));
-      case "month":
-        return saleDate >= new Date(now.setMonth(now.getMonth() - 1));
-      default:
-        return true;
-    }
-  });
+    return sales.filter((sale: any) => {
+      if (!sale.created_at) return false;
+      const saleDate = new Date(sale.created_at);
+      return saleDate >= from && saleDate <= to;
+    });
+  }, [sales, dateRangeParams]);
 
   // Summary Calculations
   const totalSales = filteredSales.reduce(
@@ -130,6 +162,8 @@ export default function Reports() {
             setReportType={setReportType}
             setDateRange={setDateRange}
             onExport={handleExportReport}
+            customDateRange={customDateRange}
+            onCustomDateRangeChange={setCustomDateRange}
           />
 
           <ReportSummary
@@ -143,6 +177,8 @@ export default function Reports() {
             valuation={Number(stockValuation.totalValuation || 0)}
             totalCost={Number(stockValuation.totalCost || 0)}
             notSellingCount={Number(analytics.notSellingCount || 0)}
+            dateRange={dateRange}
+            customDateRange={customDateRange}
           />
 
           <AnalyticsCharts
@@ -152,7 +188,11 @@ export default function Reports() {
             profitData={analytics.profitData}
           />
 
-          <NotSellingTable products={analytics.notSelling || []} />
+          <NotSellingTable
+            products={analytics.notSelling || []}
+            dateRange={dateRange}
+            customDateRange={customDateRange}
+          />
 
           <SalesTable
             sales={filteredSales}

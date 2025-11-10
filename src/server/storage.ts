@@ -115,7 +115,7 @@ export interface IStorage {
   getPromotionTargets(): Promise<import("@shared/schema").PromotionTarget[]>;
 
   // Reports
-  getNotSellingProducts(params: { sinceDays: number }): Promise<
+  getNotSellingProducts(params: { sinceDays: number; fromDate?: Date; toDate?: Date }): Promise<
     Array<{
       productId: string;
       name: string;
@@ -142,6 +142,8 @@ export interface IStorage {
   
   getProfitMargins(params: {
     sinceDays: number;
+    fromDate?: Date;
+    toDate?: Date;
   }): Promise<{
     totalProfit: number;
     byProduct: Array<{

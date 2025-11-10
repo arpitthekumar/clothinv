@@ -859,9 +859,23 @@ export class SupabaseStorage implements IStorage {
   }
 
   // Reports (approximate queries)
-  async getNotSellingProducts({ sinceDays }: { sinceDays: number }) {
-    const cutoffDate = new Date();
-    cutoffDate.setDate(cutoffDate.getDate() - sinceDays);
+  async getNotSellingProducts({
+    sinceDays,
+    fromDate,
+    toDate,
+  }: {
+    sinceDays: number;
+    fromDate?: Date;
+    toDate?: Date;
+  }) {
+    // Determine cutoff date - use fromDate if provided, otherwise calculate from sinceDays
+    let cutoffDate: Date;
+    if (fromDate) {
+      cutoffDate = new Date(fromDate);
+    } else {
+      cutoffDate = new Date();
+      cutoffDate.setDate(cutoffDate.getDate() - sinceDays);
+    }
 
     // 1️⃣ Fetch all products (including delete flags)
     const { data: products, error: productsError } = await this.client
@@ -872,15 +886,32 @@ export class SupabaseStorage implements IStorage {
     if (productsError) throw productsError;
 
     // 2️⃣ Fetch sales with product IDs
-    const { data: sales, error: salesError } = await this.client
+    // For date range queries, we need to check if products were sold IN the range
+    // So we fetch sales within the range to see which products were sold
+    // For sinceDays queries, we just need sales after cutoffDate
+    let salesQuery = this.client
       .from("sales")
       .select("created_at, items, deleted")
       .eq("deleted", false);
 
+    if (fromDate && toDate) {
+      // For date range: get sales within the range to identify products sold in that period
+      salesQuery = salesQuery
+        .gte("created_at", fromDate.toISOString())
+        .lte("created_at", toDate.toISOString());
+    } else {
+      // For sinceDays: get sales after cutoffDate
+      salesQuery = salesQuery.gte("created_at", cutoffDate.toISOString());
+    }
+
+    const { data: sales, error: salesError } = await salesQuery;
+
     if (salesError) throw salesError;
 
-    // 3️⃣ Compute last sold date for each product
-    const lastSoldMap: Record<string, string> = {};
+    // 3️⃣ Compute which products were sold in the period
+    // For date range: products sold in the range
+    // For sinceDays: products sold since cutoffDate
+    const productsSoldInPeriod: Set<string> = new Set();
 
     for (const sale of sales) {
       try {
@@ -890,7 +921,30 @@ export class SupabaseStorage implements IStorage {
 
         for (const item of items) {
           if (!item.productId) continue;
+          productsSoldInPeriod.add(item.productId);
+        }
+      } catch (err) {
+        console.error("Error parsing sale items:", err);
+      }
+    }
 
+    // 4️⃣ Also get last sold date for each product (from all sales) for display
+    const { data: allSales, error: allSalesError } = await this.client
+      .from("sales")
+      .select("created_at, items, deleted")
+      .eq("deleted", false);
+
+    if (allSalesError) throw allSalesError;
+
+    const lastSoldMap: Record<string, string> = {};
+    for (const sale of allSales || []) {
+      try {
+        const items = Array.isArray(sale.items)
+          ? sale.items
+          : JSON.parse(sale.items || "[]");
+
+        for (const item of items) {
+          if (!item.productId) continue;
           const productId = item.productId;
           const saleDate = new Date(sale.created_at);
 
@@ -906,16 +960,14 @@ export class SupabaseStorage implements IStorage {
       }
     }
 
-    // 4️⃣ Filter products not sold recently or never sold
+    // 5️⃣ Filter products not sold in the period
     const notSelling = products
       .filter((p: any) => {
-        const lastSoldAt = lastSoldMap[p.id]
-          ? new Date(lastSoldMap[p.id])
-          : null;
-        const isOldOrNeverSold = !lastSoldAt || lastSoldAt < cutoffDate;
+        // Product is "not selling" if it wasn't sold in the period
+        const wasSoldInPeriod = productsSoldInPeriod.has(p.id);
         const isDeleted = p.deleted || !!p.deleted_at;
 
-        return isOldOrNeverSold && !isDeleted;
+        return !wasSoldInPeriod && !isDeleted;
       })
       .map((p: any) => ({
         productId: p.id,
@@ -976,14 +1028,142 @@ export class SupabaseStorage implements IStorage {
   
   
 
-  async getProfitMargins(params: { sinceDays: number }) {
-    const since = new Date();
-    since.setDate(since.getDate() - params.sinceDays);
+  async getProfitMargins(params: {
+    sinceDays: number;
+    fromDate?: Date;
+    toDate?: Date;
+  }) {
+    // Use fromDate if provided, otherwise calculate from sinceDays
+    let since: Date;
+    if (params.fromDate) {
+      since = new Date(params.fromDate);
+    } else {
+      since = new Date();
+      since.setDate(since.getDate() - params.sinceDays);
+    }
+
     const { data, error } = await this.client.rpc("profit_margins", {
       since_ts: since.toISOString(),
     });
     if (error) throw error;
-    return data as any;
+
+    // If toDate is provided, we need to filter the results
+    // The RPC function returns all sales since the since_ts date
+    // So we filter client-side if toDate is provided
+    let result = data as any;
+    
+    if (params.toDate && result) {
+      const toDate = new Date(params.toDate);
+      toDate.setHours(23, 59, 59, 999);
+      
+      // Filter the sales data by toDate if the RPC returns detailed data
+      // If it's just aggregated data, we might need to recalculate
+      // For now, we'll assume the RPC returns aggregated data and we can't filter it
+      // So we'll fetch sales directly and calculate profit if both dates are provided
+      if (params.fromDate && params.toDate) {
+        // Fetch sales in the date range and calculate profit
+        const { data: sales, error: salesError } = await this.client
+          .from("sales")
+          .select("items, created_at, total_amount, discount_amount")
+          .eq("deleted", false)
+          .gte("created_at", params.fromDate.toISOString())
+          .lte("created_at", toDate.toISOString());
+
+        if (!salesError && sales) {
+          // Calculate profit from sales
+          const { data: products } = await this.client
+            .from("products")
+            .select("id, name, price, buying_price");
+
+          const productMap: Record<string, any> = {};
+          for (const p of products || []) {
+            productMap[p.id] = p;
+          }
+
+          let totalProfit = 0;
+          const byProduct: Record<
+            string,
+            {
+              productId: string;
+              name: string;
+              quantity: number;
+              revenue: number;
+              cost: number;
+              profit: number;
+              marginPercent: number;
+            }
+          > = {};
+
+          for (const sale of sales) {
+            let items: any[] = [];
+            try {
+              items = Array.isArray(sale.items)
+                ? sale.items
+                : JSON.parse(sale.items || "[]");
+            } catch (e) {
+              continue;
+            }
+
+            const discountAmount =
+              Number((sale as any).discount_amount || 0) || 0;
+            const subtotal = items.reduce(
+              (sum: number, it: any) =>
+                sum + Number(it.quantity || 0) * Number(it.price || 0),
+              0
+            );
+            const discountRate =
+              subtotal > 0 ? Math.min(discountAmount / subtotal, 1) : 0;
+
+            for (const item of items) {
+              const productId = item.productId;
+              const product = productMap[productId];
+              if (!product) continue;
+
+              const qty = Number(item.quantity || 0);
+              const sellingPrice = Number(item.price || 0);
+              const costPrice = Number(product.buying_price || product.price || 0);
+
+              const revenue = qty * sellingPrice * (1 - discountRate);
+              const cost = qty * costPrice;
+              const profit = revenue - cost;
+
+              totalProfit += profit;
+
+              if (!byProduct[productId]) {
+                byProduct[productId] = {
+                  productId,
+                  name: product.name || "Unknown",
+                  quantity: 0,
+                  revenue: 0,
+                  cost: 0,
+                  profit: 0,
+                  marginPercent: 0,
+                };
+              }
+
+              byProduct[productId].quantity += qty;
+              byProduct[productId].revenue += revenue;
+              byProduct[productId].cost += cost;
+              byProduct[productId].profit += profit;
+            }
+          }
+
+          // Calculate margin percentages
+          for (const key in byProduct) {
+            const p = byProduct[key];
+            p.marginPercent =
+              p.revenue > 0 ? (p.profit / p.revenue) * 100 : 0;
+          }
+
+          result = {
+            totalProfit,
+            byProduct: Object.values(byProduct),
+          };
+        }
+      }
+    }
+
+    return result;
   }
 
   // Payments
