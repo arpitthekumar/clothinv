@@ -23,19 +23,21 @@ export interface InvoiceData {
 class InvoicePrinter {
   // ✅ Utility for consistent Indian date/time formatting
   private formatIndianDateTime(date: Date) {
-    const formattedDate = date.toLocaleDateString("en-IN", {
+    // Convert to IST timezone
+    const istDate = new Date(date.toLocaleString("en-US", { timeZone: "Asia/Kolkata" }));
+    
+    const formattedDate = istDate.toLocaleDateString("en-IN", {
       day: "2-digit",
       month: "2-digit",
       year: "numeric",
     });
 
-    let formattedTime = date.toLocaleTimeString("en-IN", {
+    const formattedTime = istDate.toLocaleTimeString("en-IN", {
       hour: "2-digit",
       minute: "2-digit",
       hour12: true,
     });
 
-    formattedTime = formattedTime.replace(/ ?(AM|PM)/i, "").trim();
     return { formattedDate, formattedTime };
   }
 

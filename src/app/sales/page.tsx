@@ -21,10 +21,11 @@ import { Search, Trash2, RotateCcw, User, Package } from "lucide-react";
 import { XCircle } from "lucide-react";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
-import { formatDistanceToNow } from "date-fns";
 import { type InvoiceData } from "@/lib/printer";
 import { normalizeItems } from "@/lib/json";
 import { useAuth } from "@/hooks/use-auth";
+import { formatDistanceToNow } from "date-fns";
+import { toZonedTime } from "date-fns-tz"; // 👈 Add this import
 
 export default function SalesPage() {
   const [thankYouOpen, setThankYouOpen] = useState(false);
@@ -345,10 +346,26 @@ export default function SalesPage() {
                                   {sale.invoice_number}
                                 </h3>
                                 <p className="text-sm text-muted-foreground">
-                                  {formatDistanceToNow(
-                                    new Date(sale.created_at || Date.now()),
-                                    { addSuffix: true }
-                                  )}
+                                  {(() => {
+                                    try {
+                                      const raw = sale.created_at || new Date();
+                                      const utcDate = new Date(
+                                        typeof raw === "string"
+                                          ? raw.replace(" ", "T") + "Z"
+                                          : raw
+                                      );
+                                      const istDate = toZonedTime(
+                                        utcDate,
+                                        "Asia/Kolkata"
+                                      );
+
+                                      return formatDistanceToNow(istDate, {
+                                        addSuffix: true,
+                                      });
+                                    } catch {
+                                      return "Invalid date";
+                                    }
+                                  })()}
                                 </p>
                               </div>
                               <Badge
@@ -362,10 +379,15 @@ export default function SalesPage() {
                             <div className="text-right">
                               <p className="font-semibold">
                                 ₹
-                                {Math.round(
-                                  parseFloat(sale.total_amount || "0")
+                                {Number(sale.total_amount || 0).toLocaleString(
+                                  "en-IN",
+                                  {
+                                    minimumFractionDigits: 0,
+                                    maximumFractionDigits: 0,
+                                  }
                                 )}
                               </p>
+
                               {(() => {
                                 const method =
                                   sale.payment_method?.toLowerCase() || "other";

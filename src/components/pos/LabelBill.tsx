@@ -1,8 +1,9 @@
 "use client";
 
-import React, { useMemo } from "react";
+import React from "react";
 import { SaleData } from "@/lib/type";
 import BarcodeGenerator from "@/components/shared/barcode-generator";
+import { toZonedTime, format } from "date-fns-tz"; // ✅ correct import
 
 interface LabelBillProps {
   data: SaleData;
@@ -12,30 +13,38 @@ interface LabelBillProps {
 
 const LabelBill = React.forwardRef<HTMLDivElement, LabelBillProps>(
   ({ data, taxPercent = 0, discountAmount = 0 }, ref) => {
-    // ✅ Convert UTC → IST + shift for correct PM display
-    const createdAt = data.createdAt ? new Date(data.createdAt) : new Date();
+    // ✅ Convert UTC → IST safely using date-fns-tz
+    // ✅ Always treat backend time as UTC, then convert to IST
+    // ✅ Always treat backend time as UTC and convert to IST
+    const createdAtRaw =
+      typeof data.createdAt === "string"
+        ? data.createdAt.replace(" ", "T")
+        : data.createdAt || new Date();
 
-    const formattedDate = createdAt.toLocaleDateString("en-IN", {
-      day: "2-digit",
-      month: "2-digit",
-      year: "numeric",
+    // Parse as UTC explicitly
+    const utcDate = new Date(createdAtRaw + "Z"); // ensure it's UTC
+    const istDate = toZonedTime(utcDate, "Asia/Kolkata");
+
+    // Format for IST without AM/PM (12-hour style, no suffix)
+    const formattedDate = format(istDate, "dd/MM/yyyy", {
+      timeZone: "Asia/Kolkata",
     });
 
-    // ✅ Get 12-hour format but strip AM/PM manually
-    let formattedTime = createdAt.toLocaleTimeString("en-IN", {
-      hour: "2-digit",
-      minute: "2-digit",
-      hour12: true, // 12-hour
-    });
+    // Custom formatting: 12-hour time, no AM/PM
+    let hour = istDate.getHours();
+    const minute = istDate.getMinutes().toString().padStart(2, "0");
 
-    // Remove AM/PM part
-    formattedTime = formattedTime.replace(/ ?(AM|PM)/i, "").trim();
+    // Convert 24-hour → 12-hour manually, drop AM/PM
+    if (hour > 12) hour -= 12;
+    if (hour === 0) hour = 12;
 
-    // ✅ Calculate item-level totals properly (no tax)
-    const itemsWithTotals = data.items.map((item) => {
-      const itemSubtotal = item.price * item.quantity;
-      return { ...item, itemSubtotal };
-    });
+    const formattedTime = `${hour}:${minute}`;
+
+    // 🧮 Item totals
+    const itemsWithTotals = data.items.map((item) => ({
+      ...item,
+      itemSubtotal: item.price * item.quantity,
+    }));
 
     const subtotal = Math.round(
       itemsWithTotals.reduce((sum, i) => sum + i.itemSubtotal, 0)
@@ -53,6 +62,7 @@ const LabelBill = React.forwardRef<HTMLDivElement, LabelBillProps>(
 
     const total = subtotal - totalDiscount;
 
+    // 🧾 UI
     return (
       <div
         ref={ref}
@@ -64,7 +74,6 @@ const LabelBill = React.forwardRef<HTMLDivElement, LabelBillProps>(
           fontFamily: "Arial, sans-serif",
           color: "#000",
           fontSize: "14px",
-          margin: "0",
           boxSizing: "border-box",
         }}
       >
@@ -74,7 +83,7 @@ const LabelBill = React.forwardRef<HTMLDivElement, LabelBillProps>(
             Bhootiya Fabric Collection
           </h1>
           <p style={{ margin: "2px 0", fontSize: "12px" }}>
-            Moti Ganj, bakebar road, Bharthana
+            Moti Ganj, Bakebar Road, Bharthana
           </p>
           <p style={{ margin: "2px 0", fontSize: "12px" }}>
             Ph: +91 82736 89065
@@ -139,7 +148,7 @@ const LabelBill = React.forwardRef<HTMLDivElement, LabelBillProps>(
           </p>
           {totalDiscount > 0 && (
             <p style={{ color: "green" }}>
-              <strong>Discount: </strong> -₹{totalDiscount}
+              <strong>Discount:</strong> -₹{totalDiscount}
             </p>
           )}
           <p style={{ fontSize: "16px", fontWeight: "bold" }}>
