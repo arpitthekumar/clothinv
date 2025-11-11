@@ -1,3 +1,5 @@
+"use client";
+
 import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent } from "@/components/ui/card";
 import { TrendingUp, Package, AlertTriangle, Users } from "lucide-react";
@@ -13,6 +15,13 @@ export function StatsGrid() {
     queryKey: ["/api/dashboard/stats"],
   });
 
+  // ✅ Indian number format helper (whole rupees only)
+  const formatIN = (num: number | string) =>
+    Number(num).toLocaleString("en-IN", {
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 0,
+    });
+
   if (isLoading) {
     return (
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
@@ -27,7 +36,7 @@ export function StatsGrid() {
     );
   }
 
-  // ✅ Default values to prevent "possibly undefined" errors
+  // ✅ Default values to avoid undefined data
   const {
     todaySales = 0,
     totalProducts = 0,
@@ -35,10 +44,11 @@ export function StatsGrid() {
     activeEmployees = 0,
   } = stats || {};
 
+  // ✅ Structured stat cards with consistent formatting
   const statItems = [
     {
       title: "Today's Sales",
-      value: `₹${Math.round(todaySales).toLocaleString()}`,
+      value: `₹${formatIN(todaySales)}`,
       change: "+12% from yesterday",
       icon: TrendingUp,
       bgColor: "bg-green-100",
@@ -47,7 +57,7 @@ export function StatsGrid() {
     },
     {
       title: "Total Products",
-      value: totalProducts.toLocaleString(),
+      value: formatIN(totalProducts),
       change: "+23 new this week",
       icon: Package,
       bgColor: "bg-blue-100",
@@ -56,7 +66,7 @@ export function StatsGrid() {
     },
     {
       title: "Low Stock Items",
-      value: lowStockItems,
+      value: formatIN(lowStockItems),
       change: "Needs attention",
       icon: AlertTriangle,
       bgColor: "bg-amber-100",
@@ -65,13 +75,13 @@ export function StatsGrid() {
     },
     {
       title: "Active Employees",
-      value: activeEmployees,
+      value: formatIN(activeEmployees),
       change:
         activeEmployees === 0
           ? "No employees found"
           : activeEmployees === 1
           ? "1 employee active"
-          : `${activeEmployees} employees active`,
+          : `${formatIN(activeEmployees)} employees active`,
       icon: Users,
       bgColor: activeEmployees > 0 ? "bg-green-100" : "bg-red-100",
       iconColor: activeEmployees > 0 ? "text-green-600" : "text-red-600",

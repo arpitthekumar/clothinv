@@ -110,7 +110,7 @@ export function BillingInterface() {
         </Card>
 
         {/* Quick Access Sections */}
-        <div className=" gap-4 md:hidden xl:block">
+        <div className=" gap-4 ">
           {/* Favorites */}
           <Card className="">
             <CardHeader>
@@ -128,7 +128,7 @@ export function BillingInterface() {
           </Card>
 
           {/* Recent Sales */}
-          <Card className=" hidden ">
+          {/* <Card className=" hidden ">
             <CardHeader>
               <CardTitle className="flex items-center text-sm">
                 <Clock className="mr-2 h-4 w-4" />
@@ -141,10 +141,10 @@ export function BillingInterface() {
                 onAddRecentSaleToCart={addRecentSaleToCart}
               />
             </CardContent>
-          </Card>
+          </Card> */}
 
           {/* Most Sold */}
-          <Card className=" hidden ">
+          {/* <Card className=" hidden ">
             <CardHeader>
               <CardTitle className="flex items-center  text-sm">
                 <TrendingUp className="mr-2 h-4 w-4" />
@@ -158,7 +158,7 @@ export function BillingInterface() {
                 onAddMostSoldToCart={addMostSoldToCart as any}
               />
             </CardContent>
-          </Card>
+          </Card> */}
         </div>
 
         {/* Shopping Cart */}

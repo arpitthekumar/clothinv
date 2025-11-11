@@ -21,24 +21,41 @@ export interface InvoiceData {
 }
 
 class InvoicePrinter {
-  // ✅ Utility for consistent Indian date/time formatting
+  // ✅ Unified IST formatter (no AM/PM, converts UTC → IST)
   private formatIndianDateTime(date: Date) {
-    const formattedDate = date.toLocaleDateString("en-IN", {
+    // Convert UTC → IST
+    const utcDate = new Date(date.toString().replace(" ", "T") + "Z");
+    const istDate = new Date(
+      utcDate.toLocaleString("en-US", { timeZone: "Asia/Kolkata" })
+    );
+
+    // Format date in dd/mm/yyyy
+    const formattedDate = istDate.toLocaleDateString("en-IN", {
       day: "2-digit",
       month: "2-digit",
       year: "numeric",
     });
 
-    let formattedTime = date.toLocaleTimeString("en-IN", {
-      hour: "2-digit",
-      minute: "2-digit",
-      hour12: true,
-    });
+    // Format 12-hour time manually without AM/PM
+    let hours = istDate.getHours();
+    const minutes = istDate.getMinutes().toString().padStart(2, "0");
 
-    formattedTime = formattedTime.replace(/ ?(AM|PM)/i, "").trim();
+    if (hours > 12) hours -= 12;
+    if (hours === 0) hours = 12;
+
+    const formattedTime = `${hours}:${minutes}`;
     return { formattedDate, formattedTime };
   }
 
+  // ✅ Helper: Format numbers as Indian currency
+  private formatCurrency(value: number, withDecimals = true): string {
+    return value.toLocaleString("en-IN", {
+      minimumFractionDigits: 0,
+      maximumFractionDigits:  0,
+    });
+  }
+
+  // 🖨 Print invoice in popup
   async printInvoice(invoice: InvoiceData): Promise<void> {
     try {
       const printContent = this.generatePrintableHTML(invoice);
@@ -60,6 +77,7 @@ class InvoicePrinter {
     }
   }
 
+  // 🧾 Generate printable HTML (for normal printer)
   private generatePrintableHTML(invoice: InvoiceData): string {
     const { formattedDate, formattedTime } = this.formatIndianDateTime(
       invoice.date
@@ -118,9 +136,9 @@ class InvoicePrinter {
                 (item) => `
               <tr>
                 <td>${item.name}</td>
-                <td>${item.quantity}</td>
-                <td>₹${Math.round(item.price)}</td>
-                <td>₹${Math.round(item.total)}</td>
+                <td>${this.formatCurrency(item.quantity, false)}</td>
+                <td>₹${this.formatCurrency(item.price)}</td>
+                <td>₹${this.formatCurrency(item.total)}</td>
               </tr>
             `
               )
@@ -129,17 +147,17 @@ class InvoicePrinter {
         </table>
 
         <div class="totals">
-          <div class="total-line">Subtotal: ₹${Math.round(
+          <div class="total-line">Subtotal: ₹${this.formatCurrency(
             invoice.subtotal
           )}</div>
           ${
             invoice.discountAmount && invoice.discountAmount > 0
-              ? `<div class="total-line" style="color: green;">Discount: -₹${Math.round(
+              ? `<div class="total-line" style="color: green;">Discount: -₹${this.formatCurrency(
                   invoice.discountAmount
                 )}</div>`
               : ""
           }
-          <div class="total-line grand-total">Total: ₹${Math.round(
+          <div class="total-line grand-total">Total: ₹${this.formatCurrency(
             invoice.total
           )}</div>
           <div class="total-line">Payment Method: ${invoice.paymentMethod}</div>
@@ -153,6 +171,7 @@ class InvoicePrinter {
     `;
   }
 
+  // 💬 Share invoice via WhatsApp
   async shareViaWhatsApp(
     invoice: InvoiceData,
     phoneNumber?: string
@@ -165,13 +184,17 @@ class InvoicePrinter {
     window.open(whatsappUrl, "_blank");
   }
 
+  // 🧾 Generate WhatsApp message text
   private generateWhatsAppMessage(invoice: InvoiceData): string {
     const { formattedDate, formattedTime } = this.formatIndianDateTime(
       invoice.date
     );
     const itemsList = invoice.items
       .map(
-        (item) => `• ${item.name} x${item.quantity} - ₹${item.total.toFixed(2)}`
+        (item) =>
+          `• ${item.name} x${this.formatCurrency(item.quantity, false)} - ₹${this.formatCurrency(
+            item.total
+          )}`
       )
       .join("\n");
 
@@ -182,12 +205,12 @@ class InvoicePrinter {
 *Items:*
 ${itemsList}
 
-💰 *Subtotal:* ₹${invoice.subtotal.toFixed(2)}
+💰 *Subtotal:* ₹${this.formatCurrency(invoice.subtotal)}
 ${
   invoice.discountAmount && invoice.discountAmount > 0
-    ? `💰 *Discount:* -₹${invoice.discountAmount.toFixed(2)}\n`
+    ? `💰 *Discount:* -₹${this.formatCurrency(invoice.discountAmount)}\n`
     : ""
-}💰 *Total:* ₹${invoice.total.toFixed(2)}
+}💰 *Total:* ₹${this.formatCurrency(invoice.total)}
 
 💳 Payment: ${invoice.paymentMethod}
 
@@ -195,6 +218,7 @@ Thank you for shopping with us! 🙏
     `.trim();
   }
 
+  // 🖨 Thermal printer output
   async printDirectly(invoice: InvoiceData): Promise<void> {
     try {
       if ("serial" in navigator) {
@@ -215,6 +239,7 @@ Thank you for shopping with us! 🙏
     }
   }
 
+  // 🧾 Thermal printer layout
   private generateThermalPrintData(invoice: InvoiceData): string {
     const { formattedDate, formattedTime } = this.formatIndianDateTime(
       invoice.date
@@ -237,16 +262,17 @@ Thank you for shopping with us! 🙏
     printData += "--------------------------------\n";
     invoice.items.forEach((item) => {
       printData += `${item.name}\n`;
-      printData += `  ${item.quantity} x ₹${Math.round(
+      printData += `  ${this.formatCurrency(item.quantity, false)} x ₹${this.formatCurrency(
         item.price
-      )} = ₹${Math.round(item.total)}\n`;
+      )} = ₹${this.formatCurrency(item.total)}\n`;
     });
     printData += "--------------------------------\n";
-    printData += `Subtotal: ₹${Math.round(invoice.subtotal)}\n`;
+    printData += `Subtotal: ₹${this.formatCurrency(invoice.subtotal)}\n`;
     if (invoice.discountAmount && invoice.discountAmount > 0) {
-      printData += `Discount: -₹${Math.round(invoice.discountAmount)}\n`;
+      printData += `Discount: -₹${this.formatCurrency(invoice.discountAmount)}\n`;
     }
-    printData += BOLD_ON + `TOTAL: ₹${Math.round(invoice.total)}\n` + BOLD_OFF;
+    printData +=
+      BOLD_ON + `TOTAL: ₹${this.formatCurrency(invoice.total)}\n` + BOLD_OFF;
     printData += `Payment: ${invoice.paymentMethod}\n\n`;
     printData += CENTER + "Thank you for your business!\n\n";
     printData += CUT;

@@ -1,8 +1,9 @@
 "use client";
 
-import React, { useMemo } from "react";
+import React from "react";
 import { SaleData } from "@/lib/type";
 import BarcodeGenerator from "@/components/shared/barcode-generator";
+import { toZonedTime, format } from "date-fns-tz"; // ✅ correct import
 
 interface LabelBillProps {
   data: SaleData;
@@ -12,30 +13,33 @@ interface LabelBillProps {
 
 const LabelBill = React.forwardRef<HTMLDivElement, LabelBillProps>(
   ({ data, taxPercent = 0, discountAmount = 0 }, ref) => {
-    // ✅ Convert UTC → IST + shift for correct PM display
-    const createdAt = data.createdAt ? new Date(data.createdAt) : new Date();
+    // ✅ Convert UTC → IST safely using date-fns-tz
+    const createdAtRaw =
+      typeof data.createdAt === "string"
+        ? data.createdAt.replace(" ", "T")
+        : data.createdAt || new Date();
 
-    const formattedDate = createdAt.toLocaleDateString("en-IN", {
-      day: "2-digit",
-      month: "2-digit",
-      year: "numeric",
+    // Parse as UTC explicitly
+    const utcDate = new Date(createdAtRaw + "Z"); // ensure it's UTC
+    const istDate = toZonedTime(utcDate, "Asia/Kolkata");
+
+    // Format for IST (no AM/PM)
+    const formattedDate = format(istDate, "dd/MM/yyyy", {
+      timeZone: "Asia/Kolkata",
     });
 
-    // ✅ Get 12-hour format but strip AM/PM manually
-    let formattedTime = createdAt.toLocaleTimeString("en-IN", {
-      hour: "2-digit",
-      minute: "2-digit",
-      hour12: true, // 12-hour
-    });
+    // 12-hour format without AM/PM
+    let hour = istDate.getHours();
+    const minute = istDate.getMinutes().toString().padStart(2, "0");
+    if (hour > 12) hour -= 12;
+    if (hour === 0) hour = 12;
+    const formattedTime = `${hour}:${minute}`;
 
-    // Remove AM/PM part
-    formattedTime = formattedTime.replace(/ ?(AM|PM)/i, "").trim();
-
-    // ✅ Calculate item-level totals properly (no tax)
-    const itemsWithTotals = data.items.map((item) => {
-      const itemSubtotal = item.price * item.quantity;
-      return { ...item, itemSubtotal };
-    });
+    // 🧮 Calculate totals
+    const itemsWithTotals = data.items.map((item) => ({
+      ...item,
+      itemSubtotal: item.price * item.quantity,
+    }));
 
     const subtotal = Math.round(
       itemsWithTotals.reduce((sum, i) => sum + i.itemSubtotal, 0)
@@ -53,6 +57,14 @@ const LabelBill = React.forwardRef<HTMLDivElement, LabelBillProps>(
 
     const total = subtotal - totalDiscount;
 
+    // ✅ Format as Indian-style currency (₹1,23,456)
+    const formatIN = (num: number) =>
+      num.toLocaleString("en-IN", {
+        minimumFractionDigits: 0,
+        maximumFractionDigits: 0,
+      });
+
+    // 🧾 UI
     return (
       <div
         ref={ref}
@@ -64,7 +76,6 @@ const LabelBill = React.forwardRef<HTMLDivElement, LabelBillProps>(
           fontFamily: "Arial, sans-serif",
           color: "#000",
           fontSize: "14px",
-          margin: "0",
           boxSizing: "border-box",
         }}
       >
@@ -74,7 +85,7 @@ const LabelBill = React.forwardRef<HTMLDivElement, LabelBillProps>(
             Bhootiya Fabric Collection
           </h1>
           <p style={{ margin: "2px 0", fontSize: "12px" }}>
-            Moti Ganj, bakebar road, Bharthana
+            Moti Ganj, Bakebar Road, Bharthana
           </p>
           <p style={{ margin: "2px 0", fontSize: "12px" }}>
             Ph: +91 82736 89065
@@ -122,9 +133,9 @@ const LabelBill = React.forwardRef<HTMLDivElement, LabelBillProps>(
             {itemsWithTotals.map((item, i) => (
               <tr key={i}>
                 <td>{item.name}</td>
-                <td align="center">{item.quantity}</td>
-                <td align="right">₹{item.price.toFixed(2)}</td>
-                <td align="right">₹{item.itemSubtotal.toFixed(2)}</td>
+                <td align="center">{formatIN(item.quantity)}</td>
+                <td align="right">₹{formatIN(item.price)}</td>
+                <td align="right">₹{formatIN(item.itemSubtotal)}</td>
               </tr>
             ))}
           </tbody>
@@ -135,15 +146,15 @@ const LabelBill = React.forwardRef<HTMLDivElement, LabelBillProps>(
         {/* TOTALS */}
         <div style={{ fontSize: "13px" }}>
           <p>
-            <strong>Subtotal:</strong> ₹{subtotal}
+            <strong>Subtotal:</strong> ₹{formatIN(subtotal)}
           </p>
           {totalDiscount > 0 && (
             <p style={{ color: "green" }}>
-              <strong>Discount: </strong> -₹{totalDiscount}
+              <strong>Discount:</strong> -₹{formatIN(totalDiscount)}
             </p>
           )}
           <p style={{ fontSize: "16px", fontWeight: "bold" }}>
-            Total: ₹{total}
+            Total: ₹{formatIN(total)}
           </p>
           <p>
             <strong>Payment:</strong> {data.paymentMethod || "Cash"}

@@ -1,20 +1,38 @@
+"use client";
+
 import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Clock } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { formatDistanceToNow } from "date-fns";
 import { normalizeItems } from "@/lib/json";
+import { toZonedTime } from "date-fns-tz";
 
 export function RecentActivity() {
-  const { data: sales, isLoading } = useQuery<Array<{
-    id: string;
-    items: string;
-     total_amount: string;
-     invoice_number: string;
-     created_at: string;
-  }>>({
+  const { data: sales, isLoading } = useQuery<
+    Array<{
+      id: string;
+      items: string;
+      total_amount: string;
+      invoice_number: string;
+      created_at: string;
+    }>
+  >({
     queryKey: ["/api/sales/today"],
   });
+
+  // ✅ Format Indian-style currency (whole rupees only)
+  const formatIN = (num: number | string) =>
+    Number(num).toLocaleString("en-IN", {
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 0,
+    });
+
+  // ✅ Convert UTC → IST for date-time consistency
+  const convertToIST = (utcDateString: string) => {
+    const utcDate = new Date(utcDateString?.replace(" ", "T") + "Z");
+    return toZonedTime(utcDate, "Asia/Kolkata");
+  };
 
   if (isLoading) {
     return (
@@ -44,7 +62,13 @@ export function RecentActivity() {
   const recentSales = sales?.slice(0, 5) || [];
 
   const getActivityColor = (index: number) => {
-    const colors = ["bg-green-500", "bg-blue-500", "bg-amber-500", "bg-purple-500", "bg-red-500"];
+    const colors = [
+      "bg-green-500",
+      "bg-blue-500",
+      "bg-amber-500",
+      "bg-purple-500",
+      "bg-red-500",
+    ];
     return colors[index % colors.length];
   };
 
@@ -64,21 +88,43 @@ export function RecentActivity() {
         ) : (
           recentSales.map((sale: any, index: number) => {
             const items = normalizeItems(sale.items);
-            const itemCount = Array.isArray(items) ? items.reduce((sum, item) => sum + (item?.quantity || 0), 0) : 0;
+            const itemCount = Array.isArray(items)
+              ? items.reduce((sum, item) => sum + (item?.quantity || 0), 0)
+              : 0;
+
+            // ✅ Ensure consistent IST timezone
+            const istDate = convertToIST(sale.created_at);
 
             return (
-              <div key={sale.id} className="flex items-center space-x-3" data-testid={`activity-${index}`}>
-                <div className={`w-2 h-2 ${getActivityColor(index)} rounded-full`} />
+              <div
+                key={sale.id}
+                className="flex items-center space-x-3"
+                data-testid={`activity-${index}`}
+              >
+                <div
+                  className={`w-2 h-2 ${getActivityColor(index)} rounded-full`}
+                />
                 <div className="flex-1">
-                  <p className="text-sm font-medium" data-testid={`activity-title-${index}`}>
-                     Sale #{sale.invoice_number?.split('-')[2] || 'Unknown'}
+                  <p
+                    className="text-sm font-medium"
+                    data-testid={`activity-title-${index}`}
+                  >
+                    Sale #{sale.invoice_number?.split("-")[2] || "Unknown"}
                   </p>
-                  <p className="text-xs text-muted-foreground" data-testid={`activity-details-${index}`}>
-                     ₹{sale.total_amount} - {itemCount} items
+                  <p
+                    className="text-xs text-muted-foreground"
+                    data-testid={`activity-details-${index}`}
+                  >
+                    ₹{formatIN(sale.total_amount)} • {formatIN(itemCount)} items
                   </p>
                 </div>
-                <span className="text-xs text-muted-foreground" data-testid={`activity-time-${index}`}>
-                  {sale.created_at ? formatDistanceToNow(new Date(sale.created_at), { addSuffix: true }) : 'Unknown'}
+                <span
+                  className="text-xs text-muted-foreground"
+                  data-testid={`activity-time-${index}`}
+                >
+                  {sale.created_at
+                    ? formatDistanceToNow(istDate, { addSuffix: true })
+                    : "Unknown"}
                 </span>
               </div>
             );

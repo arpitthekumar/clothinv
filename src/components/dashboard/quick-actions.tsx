@@ -16,6 +16,13 @@ export function QuickActions() {
   const [productCode, setProductCode] = useState("");
   const { toast } = useToast();
 
+  // ✅ Format Indian currency (whole rupees only)
+  const formatIN = (num: number | string) =>
+    Number(num).toLocaleString("en-IN", {
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 0,
+    });
+
   const { data: product, refetch: findProduct } = useQuery<{
     id: string;
     name: string;
@@ -29,7 +36,6 @@ export function QuickActions() {
   const handleScan = async (barcode: string) => {
     setScannedCode(barcode);
     setProductCode(barcode);
-    // Online-only: directly fetch via query
     findProduct();
   };
 
@@ -40,7 +46,7 @@ export function QuickActions() {
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-      {/* Quick Scan */}
+      {/* 🧾 Quick Scan */}
       <Card data-testid="card-quick-scan">
         <CardHeader>
           <CardTitle className="flex items-center">
@@ -53,11 +59,13 @@ export function QuickActions() {
             <div className="animate-pulse">
               <QrCode className="h-12 w-12 text-muted-foreground mx-auto mb-2" />
             </div>
-            <p className="text-sm text-muted-foreground">Ready to scan barcode/QR</p>
+            <p className="text-sm text-muted-foreground">
+              Ready to scan barcode/QR
+            </p>
           </div>
-          
-          <Button 
-            onClick={() => setShowScanner(true)} 
+
+          <Button
+            onClick={() => setShowScanner(true)}
             className="w-full"
             data-testid="button-start-scan"
           >
@@ -75,8 +83,8 @@ export function QuickActions() {
                 onKeyDown={(e) => e.key === "Enter" && handleQuickSearch()}
                 data-testid="input-product-code"
               />
-              <Button 
-                variant="outline" 
+              <Button
+                variant="outline"
                 onClick={handleQuickSearch}
                 disabled={!productCode.trim()}
                 data-testid="button-search-product"
@@ -88,15 +96,17 @@ export function QuickActions() {
 
           {/* Product result */}
           {product && (
-            <div className="bg-green-50 dark:bg-green-900/20 p-3 rounded-lg">
+            <div className="bg-green-50 dark:bg-green-900/20 p-3 rounded-lg border border-green-200 dark:border-green-800">
               <p className="font-medium">{product.name}</p>
-              <p className="text-sm text-muted-foreground">₹{product.price} • Stock: {product.stock}</p>
+              <p className="text-sm text-muted-foreground">
+                ₹{formatIN(product.price)} • Stock: {formatIN(product.stock)}
+              </p>
             </div>
           )}
         </CardContent>
       </Card>
 
-      {/* Fast Billing */}
+      {/* 💵 Fast Billing */}
       <Card data-testid="card-fast-billing">
         <CardHeader>
           <CardTitle className="flex items-center">
@@ -111,14 +121,27 @@ export function QuickActions() {
             onChange={(e) => setProductCode(e.target.value)}
             data-testid="input-billing-product"
           />
-          
+
           <div className="bg-muted p-3 rounded-lg">
-            <p className="text-sm font-medium" data-testid="text-cart-items">Cart: 0 items</p>
-            <p className="text-lg font-bold" data-testid="text-cart-total">₹0.00</p>
+            <p
+              className="text-sm font-medium"
+              data-testid="text-cart-items"
+            >
+              Cart: 0 items
+            </p>
+            <p
+              className="text-lg font-bold"
+              data-testid="text-cart-total"
+            >
+              ₹{formatIN(0)}
+            </p>
           </div>
-          
+
           <Link href="/pos">
-            <Button className="w-full bg-green-600 hover:bg-green-700" data-testid="button-generate-bill">
+            <Button
+              className="w-full bg-green-600 hover:bg-green-700"
+              data-testid="button-generate-bill"
+            >
               <ScanBarcode className="mr-2 h-4 w-4" />
               Generate Bill
             </Button>
@@ -126,33 +149,45 @@ export function QuickActions() {
         </CardContent>
       </Card>
 
-      {/* Quick Actions */}
+      {/* ⚙️ Quick Actions */}
       <Card data-testid="card-quick-actions">
         <CardHeader>
           <CardTitle>Quick Actions</CardTitle>
         </CardHeader>
         <CardContent className="space-y-3">
           <Link href="/inventory?action=add">
-            <Button variant="outline" className="w-full justify-start" data-testid="button-add-product">
+            <Button
+              variant="outline"
+              className="w-full justify-start"
+              data-testid="button-add-product"
+            >
               Add Product
             </Button>
           </Link>
-          
+
           <Link href="/inventory?action=update">
-            <Button variant="outline" className="w-full justify-start" data-testid="button-update-stock">
+            <Button
+              variant="outline"
+              className="w-full justify-start"
+              data-testid="button-update-stock"
+            >
               Update Stock
             </Button>
           </Link>
-          
+
           <Link href="/reports">
-            <Button variant="outline" className="w-full justify-start" data-testid="button-generate-report">
+            <Button
+              variant="outline"
+              className="w-full justify-start"
+              data-testid="button-generate-report"
+            >
               Generate Report
             </Button>
           </Link>
         </CardContent>
       </Card>
 
-      {/* Scanner Modal */}
+      {/* 📸 Scanner Modal */}
       <ScannerModal
         isOpen={showScanner}
         onClose={() => setShowScanner(false)}

@@ -1,3 +1,5 @@
+"use client";
+
 import {
   LineChart,
   Line,
@@ -27,11 +29,21 @@ export default function AnalyticsCharts({
   topProducts = [],
   profitData = [],
 }: AnalyticsChartsProps) {
+  // ✅ Indian numbering formatter (no decimals)
+  const formatIN = (num: number) =>
+    num.toLocaleString("en-IN", {
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 0,
+    });
+
+  // ✅ Currency tooltip formatter
+  const currencyFormatter = (value: number) => `₹${formatIN(value)}`;
+
   const COLORS = ["#0088FE", "#00C49F", "#FFBB28", "#FF8042"];
 
   return (
     <div className="grid gap-6 grid-cols-1 md:grid-cols-2 xl:grid-cols-3">
-      {/* Sales Trend */}
+      {/* 📈 Sales Trend */}
       <div className="bg-card p-4 rounded-lg shadow">
         <h3 className="font-semibold mb-2 text-center">Sales Trend</h3>
         {salesData.length === 0 ? (
@@ -43,15 +55,29 @@ export default function AnalyticsCharts({
             <LineChart data={salesData}>
               <CartesianGrid strokeDasharray="3 3" />
               <XAxis dataKey="date" />
-              <YAxis />
-              <Tooltip />
-              <Line type="monotone" dataKey="sales" stroke="#8884d8" />
+              <YAxis
+                tickFormatter={(value: unknown) =>
+                  formatIN(Number(value))
+                }
+                width={80}
+              />
+              <Tooltip
+                formatter={(value: unknown) =>
+                  currencyFormatter(Number(value))
+                }
+              />
+              <Line
+                type="monotone"
+                dataKey="sales"
+                stroke="#8884d8"
+                strokeWidth={2}
+              />
             </LineChart>
           </ResponsiveContainer>
         )}
       </div>
 
-      {/* Category Sales */}
+      {/* 🥧 Category Sales */}
       <div className="bg-card p-4 rounded-lg shadow">
         <h3 className="font-semibold mb-2 text-center">Category Sales</h3>
         {categoryData.length === 0 ? (
@@ -67,19 +93,25 @@ export default function AnalyticsCharts({
                 nameKey="name"
                 outerRadius={80}
                 fill="#8884d8"
-                label
+                label={(entry: any) =>
+                  `${entry.name} (${formatIN(Number(entry.value))})`
+                }
               >
                 {categoryData.map((_, index) => (
                   <Cell key={index} fill={COLORS[index % COLORS.length]} />
                 ))}
               </Pie>
-              <Tooltip />
+              <Tooltip
+                formatter={(value: unknown) =>
+                  currencyFormatter(Number(value))
+                }
+              />
             </PieChart>
           </ResponsiveContainer>
         )}
       </div>
 
-      {/* Top Products (Full Width on Tablet, Equal Width on Desktop) */}
+      {/* 🏆 Top Products */}
       <div className="bg-card p-4 rounded-lg shadow md:col-span-2 xl:col-span-1">
         <h3 className="font-semibold mb-2 text-center">Top Products</h3>
         {topProducts.length === 0 ? (
@@ -91,10 +123,19 @@ export default function AnalyticsCharts({
             <BarChart data={topProducts}>
               <CartesianGrid strokeDasharray="3 3" />
               <XAxis dataKey="name" />
-              <YAxis />
-              <Tooltip />
+              <YAxis
+                tickFormatter={(value: unknown) =>
+                  formatIN(Number(value))
+                }
+                width={80}
+              />
+              <Tooltip
+                formatter={(value: unknown) =>
+                  currencyFormatter(Number(value))
+                }
+              />
               <Legend />
-              <Bar dataKey="sales" fill="#82ca9d" />
+              <Bar dataKey="sales" fill="#82ca9d" radius={[6, 6, 0, 0]} />
             </BarChart>
           </ResponsiveContainer>
         )}

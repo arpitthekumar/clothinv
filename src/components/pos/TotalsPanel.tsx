@@ -1,31 +1,38 @@
 "use client";
 
 interface TotalsPanelProps {
-	subtotal: number;
-	couponDiscount: number;
-	tax: number;
-	total: number;
+  subtotal: number;
+  couponDiscount: number;
+  tax: number;
+  total: number;
 }
 
 export function TotalsPanel({ subtotal, couponDiscount, tax, total }: TotalsPanelProps) {
-	return (
-		<div className="space-y-2">
-			<div className="flex justify-between">
-				<span>Subtotal:</span>
-				<span data-testid="text-subtotal">₹{Math.round(subtotal)}</span>
-			</div>
-			{couponDiscount > 0 && (
-				<div className="flex justify-between text-green-600">
-					<span>Coupon Discount:</span>
-					<span>-₹{Math.round(couponDiscount)}</span>
-				</div>
-			)}
-			<div className="flex justify-between text-lg font-bold">
-				<span>Total:</span>
-				<span data-testid="text-total">₹{Math.round(total)}</span>
-			</div>
-		</div>
-	);
+  // ✅ Format function (Indian commas, no decimals)
+  const formatIN = (num: number) =>
+    num.toLocaleString("en-IN", {
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 0,
+    });
+
+  return (
+    <div className="space-y-2">
+      <div className="flex justify-between">
+        <span>Subtotal:</span>
+        <span data-testid="text-subtotal">₹{formatIN(subtotal)}</span>
+      </div>
+
+      {couponDiscount > 0 && (
+        <div className="flex justify-between text-green-600">
+          <span>Coupon Discount:</span>
+          <span>-₹{formatIN(couponDiscount)}</span>
+        </div>
+      )}
+
+      <div className="flex justify-between text-lg font-bold">
+        <span>Total:</span>
+        <span data-testid="text-total">₹{formatIN(total)}</span>
+      </div>
+    </div>
+  );
 }
-
-

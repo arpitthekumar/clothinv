@@ -48,10 +48,17 @@ export function InventoryRow({
   const { user } = useAuth();
 
   // ✅ Role checks
-  const isSystemAdmin = user?.role === "admin" && user?.username?.toLowerCase() === "admin";
+  const isSystemAdmin =
+    user?.role === "admin" && user?.username?.toLowerCase() === "admin";
   const isAdmin = user?.role === "admin";
   const isEmployee = user?.role === "employee";
-  
+
+  // ✅ Format currency (Indian style, no decimals)
+  const formatIN = (value: number | string): string =>
+    Number(value).toLocaleString("en-IN", {
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 0,
+    });
 
   // 🗑️ Move to trash
   const deleteMutation = useMutation({
@@ -161,20 +168,20 @@ export function InventoryRow({
           {product.size || "-"}
         </td>
 
-        <td className="p-2 sm:p-4 text-sm">{product.stock} units</td>
+        <td className="p-2 sm:p-4 text-sm">{formatIN(product.stock)} units</td>
 
         <td className="p-2 sm:p-4 font-medium text-sm sm:text-base">
-          <div>₹{product.price}</div>
+          <div>₹{formatIN(Number(product.price))}</div>
           {!isEmployee && product.buyingPrice && (
             <div className="text-xs text-muted-foreground font-normal">
-              Cost: ₹{product.buyingPrice}
+              Cost: ₹{formatIN(Number(product.buyingPrice))}
             </div>
           )}
         </td>
 
-        {/* ✅ Only show for Admins and System Admins */}
+        {/* ✅ Show stats for Admins/System Admins */}
         {!isEmployee ? (
-          <td className="p-2 sm:p-4  text-sm">
+          <td className="p-2 sm:p-4 text-sm">
             {stats ? (
               <div className="space-y-1">
                 <div>
@@ -184,14 +191,15 @@ export function InventoryRow({
                       stats.profit >= 0 ? "text-green-600" : "text-red-600"
                     }`}
                   >
-                    ₹{stats.profit.toFixed(2)}
+                    ₹{formatIN(stats.profit)}
                   </span>
                 </div>
                 <div className="text-xs text-muted-foreground">
-                  Revenue: ₹{stats.revenue.toFixed(2)}
+                  Revenue: ₹{formatIN(stats.revenue)}
                 </div>
                 <div className="text-xs text-muted-foreground">
-                  Cost: ₹{stats.cost.toFixed(2)} • Sold: {stats.quantity}
+                  Cost: ₹{formatIN(stats.cost)} • Sold:{" "}
+                  {formatIN(stats.quantity)}
                 </div>
               </div>
             ) : (
