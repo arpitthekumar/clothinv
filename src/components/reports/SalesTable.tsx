@@ -1,4 +1,5 @@
 "use client";
+
 import { useMemo } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
@@ -13,6 +14,7 @@ import {
 import { Skeleton } from "@/components/ui/skeleton";
 import { formatDistanceToNow } from "date-fns";
 import { normalizeItems } from "@/lib/json";
+import { toZonedTime, format } from "date-fns-tz";
 
 interface SalesTableProps {
   sales: any[];
@@ -25,6 +27,7 @@ export default function SalesTable({
   loading,
   products,
 }: SalesTableProps) {
+  // ✅ Map for quick product lookup
   const productMap = useMemo(() => {
     const map: Record<string, any> = {};
     for (const p of products || []) {
@@ -32,6 +35,39 @@ export default function SalesTable({
     }
     return map;
   }, [products]);
+
+  // ✅ Format numbers with Indian commas (no decimals)
+  const formatIN = (num: number) =>
+    num.toLocaleString("en-IN", {
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 0,
+    });
+
+  // ✅ Convert UTC → IST and format time properly
+  const formatISTDateTime = (createdAt: string | Date) => {
+    const createdAtRaw =
+      typeof createdAt === "string"
+        ? createdAt.replace(" ", "T")
+        : createdAt || new Date();
+
+    // Parse as UTC explicitly
+    const utcDate = new Date(createdAtRaw + "Z");
+    const istDate = toZonedTime(utcDate, "Asia/Kolkata");
+
+    // Format for IST (dd/MM/yyyy)
+    const formattedDate = format(istDate, "dd/MM/yyyy", {
+      timeZone: "Asia/Kolkata",
+    });
+
+    // 12-hour format manually (no AM/PM)
+    let hour = istDate.getHours();
+    const minute = istDate.getMinutes().toString().padStart(2, "0");
+    if (hour > 12) hour -= 12;
+    if (hour === 0) hour = 12;
+    const formattedTime = `${hour}:${minute}`;
+
+    return { formattedDate, formattedTime };
+  };
 
   return (
     <Card>
@@ -64,7 +100,7 @@ export default function SalesTable({
                 {sales.length === 0 ? (
                   <TableRow>
                     <TableCell
-                      colSpan={7}
+                      colSpan={8}
                       className="text-center py-8 text-muted-foreground"
                     >
                       No sales data available
@@ -78,8 +114,10 @@ export default function SalesTable({
                         sum + (Number(item?.quantity) || 0),
                       0
                     );
+
                     const revenue = Number(sale.total_amount || 0);
                     let cost = 0;
+
                     const itemSummary = items
                       .map((item: any) => {
                         const qty = Number(item?.quantity || 0);
@@ -95,47 +133,47 @@ export default function SalesTable({
                       .join(", ");
 
                     const profit = revenue - cost;
+
+                    // ✅ Use correct IST date & time formatting
+                    const { formattedDate, formattedTime } = formatISTDateTime(
+                      sale.created_at
+                    );
+
                     return (
                       <TableRow key={sale.id}>
+                        {/* Invoice Number */}
                         <TableCell>{sale.invoice_number}</TableCell>
+
+                        {/* Date & Time */}
                         <TableCell>
-                          {sale.created_at ? (
-                            <>
-                              <p className="text-sm font-medium">
-                                {(() => {
-                                  const date = new Date(sale.created_at);
+                          <p className="text-sm font-medium">
+                            {formattedDate}, {formattedTime}
+                          </p>
+                          <p className="text-sm text-muted-foreground">
+                            {(() => {
+                              try {
+                                const raw = sale.created_at || new Date();
+                                const utcDate = new Date(
+                                  typeof raw === "string"
+                                    ? raw.replace(" ", "T") + "Z"
+                                    : raw
+                                );
+                                const istDate = toZonedTime(
+                                  utcDate,
+                                  "Asia/Kolkata"
+                                );
 
-                                  // 12-hour format but strip AM/PM manually
-                                  let formatted = date.toLocaleString("en-IN", {
-                                    hour12: true,
-                                    hour: "2-digit",
-                                    minute: "2-digit",
-                                    day: "2-digit",
-                                    month: "2-digit",
-                                    year: "numeric",
-                                  });
-
-                                  // Remove AM/PM text
-                                  formatted = formatted
-                                    .replace(/ ?(AM|PM)/i, "")
-                                    .trim();
-
-                                  return formatted;
-                                })()}
-                              </p>
-
-                              <p className="text-xs text-muted-foreground">
-                                {formatDistanceToNow(
-                                  new Date(sale.created_at),
-                                  { addSuffix: true }
-                                )}
-                              </p>
-                            </>
-                          ) : (
-                            "—"
-                          )}
+                                return formatDistanceToNow(istDate, {
+                                  addSuffix: true,
+                                });
+                              } catch {
+                                return "Invalid date";
+                              }
+                            })()}
+                          </p>
                         </TableCell>
 
+                        {/* Items */}
                         <TableCell>
                           <div className="text-sm font-medium">
                             {itemCount} items
@@ -149,8 +187,14 @@ export default function SalesTable({
                             </p>
                           )}
                         </TableCell>
-                        <TableCell>₹{cost.toFixed(2)}</TableCell>
-                        <TableCell>₹{revenue.toFixed(2)}</TableCell>
+
+                        {/* Buy Cost */}
+                        <TableCell>₹{formatIN(cost)}</TableCell>
+
+                        {/* Revenue */}
+                        <TableCell>₹{formatIN(revenue)}</TableCell>
+
+                        {/* Profit */}
                         <TableCell>
                           <span
                             className={
@@ -159,14 +203,18 @@ export default function SalesTable({
                                 : "text-red-600 font-semibold"
                             }
                           >
-                            ₹{profit.toFixed(2)}
+                            ₹{formatIN(profit)}
                           </span>
                         </TableCell>
+
+                        {/* Payment */}
                         <TableCell>
                           <Badge variant="outline">
                             {sale.payment_method || "Other"}
                           </Badge>
                         </TableCell>
+
+                        {/* Status */}
                         <TableCell>
                           <Badge
                             variant="default"
