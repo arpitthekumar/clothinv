@@ -15,28 +15,41 @@ export interface InvoiceData {
   total: number;
   paymentMethod: string;
   taxPercent?: number;
-  discountType?: 'percentage' | 'fixed';
+  discountType?: "percentage" | "fixed";
   discountValue?: number;
   discountAmount?: number;
 }
 
 class InvoicePrinter {
+  // ✅ Utility for consistent Indian date/time formatting
+  private formatIndianDateTime(date: Date) {
+    const formattedDate = date.toLocaleDateString("en-IN", {
+      day: "2-digit",
+      month: "2-digit",
+      year: "numeric",
+    });
+
+    let formattedTime = date.toLocaleTimeString("en-IN", {
+      hour: "2-digit",
+      minute: "2-digit",
+      hour12: true,
+    });
+
+    formattedTime = formattedTime.replace(/ ?(AM|PM)/i, "").trim();
+    return { formattedDate, formattedTime };
+  }
+
   async printInvoice(invoice: InvoiceData): Promise<void> {
     try {
-      // Use Print.js for printing
       const printContent = this.generatePrintableHTML(invoice);
-      
-      // Create a new window for printing
       const printWindow = window.open("", "_blank");
-      if (!printWindow) {
+      if (!printWindow)
         throw new Error("Popup blocked - please allow popups for printing");
-      }
-      
+
       printWindow.document.write(printContent);
       printWindow.document.close();
       printWindow.focus();
-      
-      // Wait for content to load then print
+
       setTimeout(() => {
         printWindow.print();
         printWindow.close();
@@ -48,6 +61,10 @@ class InvoicePrinter {
   }
 
   private generatePrintableHTML(invoice: InvoiceData): string {
+    const { formattedDate, formattedTime } = this.formatIndianDateTime(
+      invoice.date
+    );
+
     return `
       <!DOCTYPE html>
       <html>
@@ -74,14 +91,18 @@ class InvoicePrinter {
           <h1>ShopFlow</h1>
           <h2>Invoice</h2>
         </div>
-        
+
         <div class="invoice-details">
           <p><strong>Invoice Number:</strong> ${invoice.invoiceNumber}</p>
-          <p><strong>Date:</strong> ${invoice.date.toLocaleDateString()}</p>
-          <p><strong>Time:</strong> ${invoice.date.toLocaleTimeString()}</p>
-          ${invoice.customerName ? `<p><strong>Customer:</strong> ${invoice.customerName}</p>` : ''}
+          <p><strong>Date:</strong> ${formattedDate}</p>
+          <p><strong>Time:</strong> ${formattedTime}</p>
+          ${
+            invoice.customerName
+              ? `<p><strong>Customer:</strong> ${invoice.customerName}</p>`
+              : ""
+          }
         </div>
-        
+
         <table class="items-table">
           <thead>
             <tr>
@@ -92,24 +113,38 @@ class InvoicePrinter {
             </tr>
           </thead>
           <tbody>
-            ${invoice.items.map(item => `
+            ${invoice.items
+              .map(
+                (item) => `
               <tr>
                 <td>${item.name}</td>
                 <td>${item.quantity}</td>
                 <td>₹${Math.round(item.price)}</td>
                 <td>₹${Math.round(item.total)}</td>
               </tr>
-            `).join('')}
+            `
+              )
+              .join("")}
           </tbody>
         </table>
-        
+
         <div class="totals">
-          <div class="total-line">Subtotal: ₹${Math.round(invoice.subtotal)}</div>
-          ${invoice.discountAmount && invoice.discountAmount > 0 ? `<div class="total-line" style="color: green;">Discount: -₹${Math.round(invoice.discountAmount)}</div>` : ''}
-          <div class="total-line grand-total">Total: ₹${Math.round(invoice.total)}</div>
+          <div class="total-line">Subtotal: ₹${Math.round(
+            invoice.subtotal
+          )}</div>
+          ${
+            invoice.discountAmount && invoice.discountAmount > 0
+              ? `<div class="total-line" style="color: green;">Discount: -₹${Math.round(
+                  invoice.discountAmount
+                )}</div>`
+              : ""
+          }
+          <div class="total-line grand-total">Total: ₹${Math.round(
+            invoice.total
+          )}</div>
           <div class="total-line">Payment Method: ${invoice.paymentMethod}</div>
         </div>
-        
+
         <div style="text-align: center; margin-top: 30px; font-size: 0.9em; color: #666;">
           Thank you for your business!
         </div>
@@ -118,37 +153,41 @@ class InvoicePrinter {
     `;
   }
 
-  async shareViaWhatsApp(invoice: InvoiceData, phoneNumber?: string): Promise<void> {
+  async shareViaWhatsApp(
+    invoice: InvoiceData,
+    phoneNumber?: string
+  ): Promise<void> {
     const message = this.generateWhatsAppMessage(invoice);
     const encodedMessage = encodeURIComponent(message);
-    
-    let whatsappUrl;
-    if (phoneNumber) {
-      // Send to specific number
-      whatsappUrl = `https://wa.me/${phoneNumber}?text=${encodedMessage}`;
-    } else {
-      // Open WhatsApp to choose contact
-      whatsappUrl = `https://api.whatsapp.com/send?text=${encodedMessage}`;
-    }
-    
-    // Open WhatsApp in new window/tab
+    const whatsappUrl = phoneNumber
+      ? `https://wa.me/${phoneNumber}?text=${encodedMessage}`
+      : `https://api.whatsapp.com/send?text=${encodedMessage}`;
     window.open(whatsappUrl, "_blank");
   }
 
   private generateWhatsAppMessage(invoice: InvoiceData): string {
+    const { formattedDate, formattedTime } = this.formatIndianDateTime(
+      invoice.date
+    );
     const itemsList = invoice.items
-      .map(item => `• ${item.name} x${item.quantity} - ₹${item.total.toFixed(2)}`)
-      .join('\n');
-    
+      .map(
+        (item) => `• ${item.name} x${item.quantity} - ₹${item.total.toFixed(2)}`
+      )
+      .join("\n");
+
     return `
 🧾 *Invoice: ${invoice.invoiceNumber}*
-📅 Date: ${invoice.date.toLocaleDateString()}
+📅 Date: ${formattedDate} | ${formattedTime}
 
 *Items:*
 ${itemsList}
 
 💰 *Subtotal:* ₹${invoice.subtotal.toFixed(2)}
-${invoice.discountAmount && invoice.discountAmount > 0 ? `💰 *Discount:* -₹${invoice.discountAmount.toFixed(2)}\n` : ''}💰 *Total:* ₹${invoice.total.toFixed(2)}
+${
+  invoice.discountAmount && invoice.discountAmount > 0
+    ? `💰 *Discount:* -₹${invoice.discountAmount.toFixed(2)}\n`
+    : ""
+}💰 *Total:* ₹${invoice.total.toFixed(2)}
 
 💳 Payment: ${invoice.paymentMethod}
 
@@ -157,20 +196,14 @@ Thank you for shopping with us! 🙏
   }
 
   async printDirectly(invoice: InvoiceData): Promise<void> {
-    // For direct printer integration (thermal printers, etc.)
     try {
-      if ('serial' in navigator) {
-        // Use Web Serial API for direct printer communication
+      if ("serial" in navigator) {
         const port = await (navigator as any).serial.requestPort();
         await port.open({ baudRate: 9600 });
-        
         const writer = port.writable.getWriter();
         const encoder = new TextEncoder();
-        
-        // Generate thermal printer commands (ESC/POS)
         const printData = this.generateThermalPrintData(invoice);
         await writer.write(encoder.encode(printData));
-        
         writer.releaseLock();
         await port.close();
       } else {
@@ -178,46 +211,46 @@ Thank you for shopping with us! 🙏
       }
     } catch (error) {
       console.error("Direct print failed:", error);
-      // Fallback to regular printing
       await this.printInvoice(invoice);
     }
   }
 
   private generateThermalPrintData(invoice: InvoiceData): string {
-    // ESC/POS commands for thermal printers
-    const ESC = '\x1B';
-    const INIT = ESC + '@';
-    const CENTER = ESC + 'a1';
-    const LEFT = ESC + 'a0';
-    const BOLD_ON = ESC + 'E1';
-    const BOLD_OFF = ESC + 'E0';
-    const CUT = ESC + 'i';
-    
+    const { formattedDate, formattedTime } = this.formatIndianDateTime(
+      invoice.date
+    );
+    const ESC = "\x1B";
+    const INIT = ESC + "@";
+    const CENTER = ESC + "a1";
+    const LEFT = ESC + "a0";
+    const BOLD_ON = ESC + "E1";
+    const BOLD_OFF = ESC + "E0";
+    const CUT = ESC + "i";
+
     let printData = INIT;
-    printData += CENTER + BOLD_ON + 'ShopFlow\n' + BOLD_OFF;
-    printData += 'Invoice\n\n';
+    printData += CENTER + BOLD_ON + "ShopFlow\n" + BOLD_OFF;
+    printData += "Invoice\n\n";
     printData += LEFT;
     printData += `Invoice: ${invoice.invoiceNumber}\n`;
-    printData += `Date: ${invoice.date.toLocaleDateString()}\n`;
-    printData += `Time: ${invoice.date.toLocaleTimeString()}\n\n`;
-    
-    printData += '--------------------------------\n';
-    invoice.items.forEach(item => {
+    printData += `Date: ${formattedDate}\n`;
+    printData += `Time: ${formattedTime}\n\n`;
+    printData += "--------------------------------\n";
+    invoice.items.forEach((item) => {
       printData += `${item.name}\n`;
-      printData += `  ${item.quantity} x ₹${Math.round(item.price)} = ₹${Math.round(item.total)}\n`;
+      printData += `  ${item.quantity} x ₹${Math.round(
+        item.price
+      )} = ₹${Math.round(item.total)}\n`;
     });
-    printData += '--------------------------------\n';
-    
+    printData += "--------------------------------\n";
     printData += `Subtotal: ₹${Math.round(invoice.subtotal)}\n`;
     if (invoice.discountAmount && invoice.discountAmount > 0) {
       printData += `Discount: -₹${Math.round(invoice.discountAmount)}\n`;
     }
     printData += BOLD_ON + `TOTAL: ₹${Math.round(invoice.total)}\n` + BOLD_OFF;
     printData += `Payment: ${invoice.paymentMethod}\n\n`;
-    
-    printData += CENTER + 'Thank you for your business!\n\n';
+    printData += CENTER + "Thank you for your business!\n\n";
     printData += CUT;
-    
+
     return printData;
   }
 }

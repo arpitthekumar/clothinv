@@ -4,54 +4,54 @@ import React, { useMemo } from "react";
 import { SaleData } from "@/lib/type";
 import BarcodeGenerator from "@/components/shared/barcode-generator";
 
-// ✅ Barcode generator function
-// function getBarcodeUrl(payload: string): string {
-//   const value = (payload || "").trim();
-//   const isEanCandidate = /^\d{12,13}$/.test(value);
-//   const symbology = isEanCandidate ? "ean13" : "code128";
-//   return `https://bwipjs-api.metafloor.com/?bcid=${symbology}&text=${encodeURIComponent(
-//     value
-//   )}&scale=3&includetext=true&backgroundcolor=ffffff&fmt=svg`;
-// }
-
 interface LabelBillProps {
   data: SaleData;
   taxPercent?: number;
-  discountAmount?: number; // Sale-level discount (coupon discount)
+  discountAmount?: number;
 }
 
 const LabelBill = React.forwardRef<HTMLDivElement, LabelBillProps>(
   ({ data, taxPercent = 0, discountAmount = 0 }, ref) => {
-    const createdAt = data.createdAt
-      ? new Date(`${data.createdAt}Z`) // ensures UTC interpretation
-      : new Date();
+    // ✅ Convert UTC → IST + shift for correct PM display
+    const createdAt = data.createdAt ? new Date(data.createdAt) : new Date();
+
+    const formattedDate = createdAt.toLocaleDateString("en-IN", {
+      day: "2-digit",
+      month: "2-digit",
+      year: "numeric",
+    });
+
+    // ✅ Get 12-hour format but strip AM/PM manually
+    let formattedTime = createdAt.toLocaleTimeString("en-IN", {
+      hour: "2-digit",
+      minute: "2-digit",
+      hour12: true, // 12-hour
+    });
+
+    // Remove AM/PM part
+    formattedTime = formattedTime.replace(/ ?(AM|PM)/i, "").trim();
 
     // ✅ Calculate item-level totals properly (no tax)
     const itemsWithTotals = data.items.map((item) => {
       const itemSubtotal = item.price * item.quantity;
-      const itemTotal = itemSubtotal;
-      return { ...item, itemSubtotal, itemTotal };
+      return { ...item, itemSubtotal };
     });
 
-    // ✅ Grand totals (no tax)
-    const subtotal = Math.round(itemsWithTotals.reduce(
-      (sum, i) => sum + i.itemSubtotal,
-      0
-    ) * 100) / 100;
-    // Use sale-level discount if provided, otherwise calculate from items
-    const totalDiscount = discountAmount > 0 
-      ? Math.round(discountAmount * 100) / 100
-      : Math.round(itemsWithTotals.reduce(
-          (sum, i) => sum + (i.discount_amount || 0),
-          0
-        ) * 100) / 100;
-    const taxAmount = 0;
-    const total = Math.round((subtotal - totalDiscount + taxAmount) * 100) / 100;
+    const subtotal = Math.round(
+      itemsWithTotals.reduce((sum, i) => sum + i.itemSubtotal, 0)
+    );
 
-    // const barcodeUrl = useMemo(
-    //   () => getBarcodeUrl(data.invoiceNumber || "000000"),
-    //   [data.invoiceNumber]
-    // );
+    const totalDiscount =
+      discountAmount > 0
+        ? Math.round(discountAmount)
+        : Math.round(
+            itemsWithTotals.reduce(
+              (sum, i) => sum + (i.discount_amount || 0),
+              0
+            )
+          );
+
+    const total = subtotal - totalDiscount;
 
     return (
       <div
@@ -74,7 +74,7 @@ const LabelBill = React.forwardRef<HTMLDivElement, LabelBillProps>(
             Bhootiya Fabric Collection
           </h1>
           <p style={{ margin: "2px 0", fontSize: "12px" }}>
-             Moti Ganj, bakebar road, Bharthana
+            Moti Ganj, bakebar road, Bharthana
           </p>
           <p style={{ margin: "2px 0", fontSize: "12px" }}>
             Ph: +91 82736 89065
@@ -95,12 +95,8 @@ const LabelBill = React.forwardRef<HTMLDivElement, LabelBillProps>(
             <strong>Phone:</strong> {data.customerPhone || "—"}
           </p>
           <p>
-            <strong>Date:</strong> {createdAt.toLocaleDateString()}{" "}
-            <strong>Time:</strong>{" "}
-            {createdAt.toLocaleTimeString([], {
-              hour: "2-digit",
-              minute: "2-digit",
-            })}
+            <strong>Date:</strong> {formattedDate} <strong>Time:</strong>{" "}
+            {formattedTime}
           </p>
         </div>
 
@@ -127,8 +123,8 @@ const LabelBill = React.forwardRef<HTMLDivElement, LabelBillProps>(
               <tr key={i}>
                 <td>{item.name}</td>
                 <td align="center">{item.quantity}</td>
-                <td align="right">₹{Math.round(item.price * 100) / 100}</td>
-                <td align="right">₹{Math.round(item.itemSubtotal * 100) / 100}</td>
+                <td align="right">₹{item.price.toFixed(2)}</td>
+                <td align="right">₹{item.itemSubtotal.toFixed(2)}</td>
               </tr>
             ))}
           </tbody>
@@ -139,20 +135,15 @@ const LabelBill = React.forwardRef<HTMLDivElement, LabelBillProps>(
         {/* TOTALS */}
         <div style={{ fontSize: "13px" }}>
           <p>
-            <strong>Subtotal:</strong> ₹{Math.round(subtotal)}
+            <strong>Subtotal:</strong> ₹{subtotal}
           </p>
           {totalDiscount > 0 && (
             <p style={{ color: "green" }}>
-              <strong>Discount: </strong> -₹{Math.round(totalDiscount)}
+              <strong>Discount: </strong> -₹{totalDiscount}
             </p>
           )}
-          <p
-            style={{
-              fontSize: "16px",
-              fontWeight: "bold",
-            }}
-          >
-            Total: ₹{Math.round(total)}
+          <p style={{ fontSize: "16px", fontWeight: "bold" }}>
+            Total: ₹{total}
           </p>
           <p>
             <strong>Payment:</strong> {data.paymentMethod || "Cash"}
@@ -160,12 +151,11 @@ const LabelBill = React.forwardRef<HTMLDivElement, LabelBillProps>(
         </div>
 
         {/* BARCODE */}
-        {/* BARCODE */}
-        <div className="flex justify-center ">
+        <div className="flex justify-center">
           <BarcodeGenerator
             value={data.invoiceNumber || "000000"}
-            width={2} // line width
-            height={60} // taller barcode
+            width={2}
+            height={60}
             displayValue={true}
             className="max-w-full"
           />

@@ -258,7 +258,7 @@ export default function RootLayout({
         suppressHydrationWarning
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
-        <SpeedInsights/>
+        {/* <SpeedInsights/> */}
         <Providers>{children}</Providers>
       </body>
     </html>

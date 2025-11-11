@@ -110,9 +110,9 @@ export function BillingInterface() {
         </Card>
 
         {/* Quick Access Sections */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+        <div className=" gap-4 md:hidden xl:block">
           {/* Favorites */}
-          <Card>
+          <Card className="">
             <CardHeader>
               <CardTitle className="flex items-center text-sm">
                 <Heart className="mr-2 h-4 w-4" />
@@ -128,7 +128,7 @@ export function BillingInterface() {
           </Card>
 
           {/* Recent Sales */}
-          <Card className=" hidden lg:block">
+          <Card className=" hidden ">
             <CardHeader>
               <CardTitle className="flex items-center text-sm">
                 <Clock className="mr-2 h-4 w-4" />
@@ -144,7 +144,7 @@ export function BillingInterface() {
           </Card>
 
           {/* Most Sold */}
-          <Card className=" hidden lg:block">
+          <Card className=" hidden ">
             <CardHeader>
               <CardTitle className="flex items-center  text-sm">
                 <TrendingUp className="mr-2 h-4 w-4" />

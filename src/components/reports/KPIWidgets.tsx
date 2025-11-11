@@ -18,7 +18,7 @@ export default function KPIWidgets({
   dateRange,
   customDateRange,
 }: KPIWidgetsProps) {
-  console.log("🧾 Stock Valuation Data:", valuation, totalCost);
+  // console.log("🧾 Stock Valuation Data:", valuation, totalCost);
 
   const getDateRangeLabel = () => {
     if (dateRange === "custom" && customDateRange?.from && customDateRange?.to) {

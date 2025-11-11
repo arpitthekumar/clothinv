@@ -59,9 +59,11 @@ export default function SalesPage() {
       const items = normalizeItems(sale.items);
       // Round all values
       const subtotal = Math.round(parseFloat(sale.subtotal || "0") * 100) / 100;
-      const discountAmount = Math.round(parseFloat(sale.discount_amount || "0") * 100) / 100;
-      const total = Math.round(parseFloat(sale.total_amount || "0") * 100) / 100;
-      
+      const discountAmount =
+        Math.round(parseFloat(sale.discount_amount || "0") * 100) / 100;
+      const total =
+        Math.round(parseFloat(sale.total_amount || "0") * 100) / 100;
+
       const invoice: InvoiceData = {
         invoiceNumber: sale.invoice_number || `INV-${sale.id?.slice(0, 6)}`,
         date: new Date(sale.created_at || Date.now()),
@@ -77,7 +79,8 @@ export default function SalesPage() {
         paymentMethod: sale.payment_method,
         customerName: sale.customer_name || "Walk-in Customer",
         discountType: sale.discount_type || "percentage",
-        discountValue: Math.round(parseFloat(sale.discount_value || 0) * 100) / 100,
+        discountValue:
+          Math.round(parseFloat(sale.discount_value || 0) * 100) / 100,
         discountAmount: discountAmount,
       };
 
@@ -343,9 +346,7 @@ export default function SalesPage() {
                                 </h3>
                                 <p className="text-sm text-muted-foreground">
                                   {formatDistanceToNow(
-                                    new Date(
-                                      (sale.created_at || Date.now()) + "Z"
-                                    ),
+                                    new Date(sale.created_at || Date.now()),
                                     { addSuffix: true }
                                   )}
                                 </p>

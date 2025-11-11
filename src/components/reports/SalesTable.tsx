@@ -2,7 +2,14 @@
 import { useMemo } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
-import { Table, TableHeader, TableRow, TableHead, TableBody, TableCell } from "@/components/ui/table";
+import {
+  Table,
+  TableHeader,
+  TableRow,
+  TableHead,
+  TableBody,
+  TableCell,
+} from "@/components/ui/table";
 import { Skeleton } from "@/components/ui/skeleton";
 import { formatDistanceToNow } from "date-fns";
 import { normalizeItems } from "@/lib/json";
@@ -13,7 +20,11 @@ interface SalesTableProps {
   products: any[];
 }
 
-export default function SalesTable({ sales, loading, products }: SalesTableProps) {
+export default function SalesTable({
+  sales,
+  loading,
+  products,
+}: SalesTableProps) {
   const productMap = useMemo(() => {
     const map: Record<string, any> = {};
     for (const p of products || []) {
@@ -52,23 +63,33 @@ export default function SalesTable({ sales, loading, products }: SalesTableProps
               <TableBody>
                 {sales.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
+                    <TableCell
+                      colSpan={7}
+                      className="text-center py-8 text-muted-foreground"
+                    >
                       No sales data available
                     </TableCell>
                   </TableRow>
                 ) : (
                   sales.map((sale) => {
                     const items = normalizeItems(sale.items);
-                    const itemCount = items.reduce((sum: number, item: any) => sum + (Number(item?.quantity) || 0), 0);
+                    const itemCount = items.reduce(
+                      (sum: number, item: any) =>
+                        sum + (Number(item?.quantity) || 0),
+                      0
+                    );
                     const revenue = Number(sale.total_amount || 0);
                     let cost = 0;
                     const itemSummary = items
                       .map((item: any) => {
                         const qty = Number(item?.quantity || 0);
                         const prod = productMap[item?.productId];
-                        const costPerUnit = prod ? Number(prod.buyingPrice ?? prod.price ?? 0) : Number(item?.cost || 0);
+                        const costPerUnit = prod
+                          ? Number(prod.buyingPrice ?? prod.price ?? 0)
+                          : Number(item?.cost || 0);
                         cost += qty * costPerUnit;
-                        const displayName = item?.name || prod?.name || "Product";
+                        const displayName =
+                          item?.name || prod?.name || "Product";
                         return `${displayName} ×${qty}`;
                       })
                       .join(", ");
@@ -81,27 +102,49 @@ export default function SalesTable({ sales, loading, products }: SalesTableProps
                           {sale.created_at ? (
                             <>
                               <p className="text-sm font-medium">
-                                {new Date(sale.created_at).toLocaleString("en-IN", {
-                                  hour12: true,
-                                  hour: "2-digit",
-                                  minute: "2-digit",
-                                  day: "2-digit",
-                                  month: "2-digit",
-                                  year: "numeric",
-                                })}
+                                {(() => {
+                                  const date = new Date(sale.created_at);
+
+                                  // 12-hour format but strip AM/PM manually
+                                  let formatted = date.toLocaleString("en-IN", {
+                                    hour12: true,
+                                    hour: "2-digit",
+                                    minute: "2-digit",
+                                    day: "2-digit",
+                                    month: "2-digit",
+                                    year: "numeric",
+                                  });
+
+                                  // Remove AM/PM text
+                                  formatted = formatted
+                                    .replace(/ ?(AM|PM)/i, "")
+                                    .trim();
+
+                                  return formatted;
+                                })()}
                               </p>
+
                               <p className="text-xs text-muted-foreground">
-                                {formatDistanceToNow(new Date(sale.created_at), { addSuffix: true })}
+                                {formatDistanceToNow(
+                                  new Date(sale.created_at),
+                                  { addSuffix: true }
+                                )}
                               </p>
                             </>
                           ) : (
                             "—"
                           )}
                         </TableCell>
+
                         <TableCell>
-                          <div className="text-sm font-medium">{itemCount} items</div>
+                          <div className="text-sm font-medium">
+                            {itemCount} items
+                          </div>
                           {itemSummary && (
-                            <p className="text-xs text-muted-foreground max-w-xs truncate" title={itemSummary}>
+                            <p
+                              className="text-xs text-muted-foreground max-w-xs truncate"
+                              title={itemSummary}
+                            >
                               {itemSummary}
                             </p>
                           )}
@@ -109,15 +152,26 @@ export default function SalesTable({ sales, loading, products }: SalesTableProps
                         <TableCell>₹{cost.toFixed(2)}</TableCell>
                         <TableCell>₹{revenue.toFixed(2)}</TableCell>
                         <TableCell>
-                          <span className={profit >= 0 ? "text-green-600 font-semibold" : "text-red-600 font-semibold"}>
+                          <span
+                            className={
+                              profit >= 0
+                                ? "text-green-600 font-semibold"
+                                : "text-red-600 font-semibold"
+                            }
+                          >
                             ₹{profit.toFixed(2)}
                           </span>
                         </TableCell>
                         <TableCell>
-                          <Badge variant="outline">{sale.payment_method || "Other"}</Badge>
+                          <Badge variant="outline">
+                            {sale.payment_method || "Other"}
+                          </Badge>
                         </TableCell>
                         <TableCell>
-                          <Badge variant="default" className="bg-green-100 text-green-800">
+                          <Badge
+                            variant="default"
+                            className="bg-green-100 text-green-800"
+                          >
                             Completed
                           </Badge>
                         </TableCell>
