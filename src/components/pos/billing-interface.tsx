@@ -11,7 +11,7 @@ import {
   TrendingUp,
 } from "lucide-react";
 import { useBilling } from "@/hooks/use-billing";
-import { ProductSearch } from "@/components/pos/ProductSearch";
+import ProductSearch from "@/components/pos/ProductSearch";
 import { FavoriteProducts } from "@/components/pos/FavoriteProducts";
 import { CartTable } from "@/components/pos/CartTable";
 import { TotalsPanel } from "@/components/pos/TotalsPanel";
@@ -96,11 +96,10 @@ export function BillingInterface() {
             <ProductSearch
               productCode={productCode}
               onChangeProductCode={setProductCode}
-              onSearch={handleProductSearch}
+              searchFn={handleProductSearch} // ✅ correct
               onOpenScanner={() => setShowScanner(true)}
-              searchResults={searchResults as any}
               onAddToCart={addProductIdToCart}
-              onToggleFavorite={(id) => {
+              onToggleFavorite={(id: string) => {
                 const p = products.find((x) => x.id === id);
                 if (p) toggleFavorite(p);
               }}
@@ -246,9 +245,9 @@ export function BillingInterface() {
               {isProcessing ? "Processing..." : `Pay ₹${Math.round(total)}`}
             </Button>
           </CardContent>
-          <div className="p-6 pt-0" >
-          <ManualScanner onScan={handleScan} />
-            </div>
+          <div className="p-6 pt-0">
+            <ManualScanner onScan={handleScan} />
+          </div>
         </Card>
       </div>
 
