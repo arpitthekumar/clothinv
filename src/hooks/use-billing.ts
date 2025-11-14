@@ -158,19 +158,34 @@ export function useBilling() {
     setCustomerPhone("");
   };
 
-  const handleProductSearch = () => {
-    if (!productCode.trim()) {
-      setSearchResults([]);
-      return;
+  const handleProductSearch = async ({
+    query,
+    page,
+  }: {
+    query: string;
+    page: number;
+  }) => {
+    if (!query.trim()) {
+      return { results: [], hasMore: false };
     }
-    const query = productCode.toLowerCase();
-    const results = products.filter(
-      (p: Product) =>
-        p.sku.toLowerCase() === query ||
-        p.barcode === productCode ||
-        p.name.toLowerCase().includes(query)
+
+    // Filter from your products (local DB cache)
+    const pageSize = 20;
+
+    const filtered = products.filter(
+      (p) =>
+        p.name.toLowerCase().includes(query.toLowerCase()) ||
+        p.sku?.toLowerCase().includes(query.toLowerCase())
     );
-    setSearchResults(results);
+
+    // Pagination
+    const start = (page - 1) * pageSize;
+    const end = start + pageSize;
+
+    return {
+      results: filtered.slice(start, end),
+      hasMore: end < filtered.length,
+    };
   };
 
   const handleScan = (barcode: string) => {

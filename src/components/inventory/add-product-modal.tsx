@@ -21,13 +21,6 @@ import {
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { insertProductSchema, type Product } from "@shared/schema";
 import { apiRequest, queryClient } from "@/lib/queryClient";
@@ -43,7 +36,6 @@ import {
   DialogTitle as CategoryDialogTitle,
 } from "@/components/ui/dialog";
 import { Search } from "lucide-react";
-
 
 const formSchema = insertProductSchema.extend({
   price: z.string().min(1, "Price is required"),
@@ -122,7 +114,7 @@ export function AddProductModal({
       minStock:
         initialProduct?.minStock != null
           ? String(initialProduct.minStock)
-          : "5",
+          : "0",
       barcode: (initialProduct?.barcode as string) || "",
     },
   });
@@ -144,7 +136,7 @@ export function AddProductModal({
       minStock:
         initialProduct?.minStock != null
           ? String(initialProduct.minStock)
-          : "5",
+          : "0",
       barcode: (initialProduct?.barcode as string) || "",
     };
     form.reset(values);
@@ -195,7 +187,7 @@ export function AddProductModal({
         sku: data.sku,
         price: data.price,
         stock: parseInt(data.stock),
-        minStock: data.minStock ? parseInt(data.minStock) : 5,
+        minStock: data.minStock ? parseInt(data.minStock) : 0,
         categoryId: data.categoryId || null,
         description: data.description || "No description provided",
         size: data.size || null,
@@ -259,18 +251,17 @@ export function AddProductModal({
 
   return (
     <Dialog
-    open={isOpen}
-    onOpenChange={(open) => {
-      if (!open) handleClose(); // close only via X or Cancel
-    }}
-  >
-    <DialogContent
-      className="sm:max-w-2xl max-h-[90vh] overflow-y-auto"
-      onInteractOutside={(e) => e.preventDefault()} // 🚫 block outside click
-      onEscapeKeyDown={(e) => e.preventDefault()}   // 🚫 block ESC close
-      data-testid="modal-add-product"
+      open={isOpen}
+      onOpenChange={(open) => {
+        if (!open) handleClose(); // close only via X or Cancel
+      }}
     >
-  
+      <DialogContent
+        className="sm:max-w-2xl max-h-[90vh] overflow-y-auto"
+        onInteractOutside={(e) => e.preventDefault()} // 🚫 block outside click
+        onEscapeKeyDown={(e) => e.preventDefault()} // 🚫 block ESC close
+        data-testid="modal-add-product"
+      >
         <DialogHeader>
           <DialogTitle>
             {initialProduct?.id ? "Edit Product" : "Add New Product"}
@@ -332,93 +323,100 @@ export function AddProductModal({
                 )}
               />
 
-<FormField
-  control={form.control}
-  name="categoryId"
-  render={({ field }) => {
-    const [openCategorySearch, setOpenCategorySearch] = useState(false);
-    const [searchQuery, setSearchQuery] = useState("");
+              <FormField
+                control={form.control}
+                name="categoryId"
+                render={({ field }) => {
+                  const [openCategorySearch, setOpenCategorySearch] =
+                    useState(false);
+                  const [searchQuery, setSearchQuery] = useState("");
 
-    const filteredCategories =
-      categories?.filter((c) =>
-        c.name.toLowerCase().includes(searchQuery.toLowerCase())
-      ) || [];
+                  const filteredCategories =
+                    categories?.filter((c) =>
+                      c.name.toLowerCase().includes(searchQuery.toLowerCase())
+                    ) || [];
 
-    return (
-      <FormItem>
-        <FormLabel>Category</FormLabel>
-        <div className="flex gap-2">
-          <Button
-            type="button"
-            variant="outline"
-            className="w-full justify-between"
-            onClick={() => setOpenCategorySearch(true)}
-          >
-            {field.value
-              ? categories?.find((c) => c.id === field.value)?.name
-              : "Select category"}
-            <Search className="h-4 w-4 opacity-70" />
-          </Button>
+                  return (
+                    <FormItem>
+                      <FormLabel>Category</FormLabel>
+                      <div className="flex gap-2">
+                        <Button
+                          type="button"
+                          variant="outline"
+                          className="w-full justify-between"
+                          onClick={() => setOpenCategorySearch(true)}
+                        >
+                          {field.value
+                            ? categories?.find((c) => c.id === field.value)
+                                ?.name
+                            : "Select category"}
+                          <Search className="h-4 w-4 opacity-70" />
+                        </Button>
 
-          <Button
-            type="button"
-            variant="outline"
-            size="icon"
-            onClick={() => setShowAddCategory(true)}
-            title="Add new category"
-          >
-            <Plus className="h-4 w-4" />
-          </Button>
-        </div>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="icon"
+                          onClick={() => setShowAddCategory(true)}
+                          title="Add new category"
+                        >
+                          <Plus className="h-4 w-4" />
+                        </Button>
+                      </div>
 
-        <CategoryDialog open={openCategorySearch} onOpenChange={setOpenCategorySearch}>
-          <CategoryDialogContent className="sm:max-w-md max-h-[80vh] overflow-hidden p-0">
-            <CategoryDialogHeader className="p-4 border-b">
-              <CategoryDialogTitle>Select Category</CategoryDialogTitle>
-              <div className="relative mt-2">
-                <Search className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
-                <Input
-                  placeholder="Search category..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="pl-9"
-                />
-              </div>
-            </CategoryDialogHeader>
+                      <CategoryDialog
+                        open={openCategorySearch}
+                        onOpenChange={setOpenCategorySearch}
+                      >
+                        <CategoryDialogContent className="sm:max-w-md max-h-[80vh] overflow-hidden p-0">
+                          <CategoryDialogHeader className="p-4 border-b">
+                            <CategoryDialogTitle>
+                              Select Category
+                            </CategoryDialogTitle>
+                            <div className="relative mt-2">
+                              <Search className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
+                              <Input
+                                placeholder="Search category..."
+                                value={searchQuery}
+                                onChange={(e) => setSearchQuery(e.target.value)}
+                                className="pl-9"
+                              />
+                            </div>
+                          </CategoryDialogHeader>
 
-            <div className="p-2 max-h-[60vh] overflow-y-auto space-y-1">
-              {filteredCategories.length ? (
-                filteredCategories.map((category: any) => (
-                  <Button
-                    key={category.id}
-                    variant={
-                      field.value === category.id ? "default" : "ghost"
-                    }
-                    className="w-full justify-start"
-                    onClick={() => {
-                      field.onChange(category.id);
-                      setOpenCategorySearch(false);
-                    }}
-                  >
-                    {category.name}
-                  </Button>
-                ))
-              ) : (
-                <p className="text-sm text-muted-foreground text-center py-4">
-                  No category found.
-                </p>
-              )}
-            </div>
-          </CategoryDialogContent>
-        </CategoryDialog>
+                          <div className="p-2 max-h-[60vh] overflow-y-auto space-y-1">
+                            {filteredCategories.length ? (
+                              filteredCategories.map((category: any) => (
+                                <Button
+                                  key={category.id}
+                                  variant={
+                                    field.value === category.id
+                                      ? "default"
+                                      : "ghost"
+                                  }
+                                  className="w-full justify-start"
+                                  onClick={() => {
+                                    field.onChange(category.id);
+                                    setOpenCategorySearch(false);
+                                  }}
+                                >
+                                  {category.name}
+                                </Button>
+                              ))
+                            ) : (
+                              <p className="text-sm text-muted-foreground text-center py-4">
+                                No category found.
+                              </p>
+                            )}
+                          </div>
+                        </CategoryDialogContent>
+                      </CategoryDialog>
 
-        <FormMessage />
-      </FormItem>
-    );
-  }}
-/>
-
-
+                      <FormMessage />
+                    </FormItem>
+                  );
+                }}
+              />
 
               <FormField
                 control={form.control}
@@ -506,7 +504,7 @@ export function AddProductModal({
                     <FormControl>
                       <Input
                         type="number"
-                        placeholder="5"
+                        placeholder="0"
                         {...field}
                         data-testid="input-product-min-stock"
                       />
