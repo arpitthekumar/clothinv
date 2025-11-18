@@ -1,120 +1,109 @@
 "use client";
 
-import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { useMutation } from "@tanstack/react-query";
+import { insertCategorySchema } from "@shared/schema";
 import {
   Dialog,
   DialogContent,
-  DialogDescription,
   DialogHeader,
+  DialogDescription,
   DialogTitle,
 } from "@/components/ui/dialog";
 import {
   Form,
-  FormControl,
   FormField,
   FormItem,
   FormLabel,
+  FormControl,
   FormMessage,
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
-import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
-import { insertCategorySchema } from "@shared/schema";
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
+  SelectValue,
 } from "@/components/ui/select";
+import { Button } from "@/components/ui/button";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { z } from "zod";
-import { tailwindColorMap, tailwindColors } from "@/lib/colors";
+import { tailwindColorMap } from "@/lib/colors";
 
-
-
-const formSchema = insertCategorySchema.extend({
-  description: z.string().optional(),
-});
-
-type FormValues = z.infer<typeof formSchema>;
-
-interface AddCategoryModalProps {
-  isOpen: boolean;
+interface EditCategoryModalProps {
+  open: boolean;
   onClose: () => void;
-  onCategoryCreated?: (category: any) => void;
+  category: {
+    id: string;
+    name: string;
+    description?: string | null;
+    color: string;
+  } | null;
 }
 
-export function AddCategoryModal({
-  isOpen,
+const schema = insertCategorySchema;
+
+export function EditCategoryModal({
+  open,
   onClose,
-  onCategoryCreated,
-}: AddCategoryModalProps) {
-  const [isSubmitting, setIsSubmitting] = useState(false);
+  category,
+}: EditCategoryModalProps) {
   const { toast } = useToast();
-
-  const form = useForm<FormValues>({
-    resolver: zodResolver(formSchema),
-    defaultValues: {
-      name: "",
-      description: "",
-      color: "white",
-    },
-  });
-
-  const createMutation = useMutation({
-    mutationFn: async (data: FormValues) => {
-      const response = await apiRequest("POST", "/api/categories", data);
-      return await response.json();
-    },
-    onSuccess: (newCategory) => {
-      queryClient.invalidateQueries({ queryKey: ["/api/categories"] });
-      toast({
-        title: "Success",
-        description: "Category created successfully",
-      });
-      form.reset();
-      onCategoryCreated?.(newCategory);
-      onClose();
-    },
-    onError: (error: Error) => {
-      toast({
-        title: "Error",
-        description: error.message,
-        variant: "destructive",
-      });
-    },
-  });
-
-  const onSubmit = async (data: FormValues) => {
-    setIsSubmitting(true);
-    try {
-      await createMutation.mutateAsync(data);
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
-
   const handleClose = () => {
     form.reset();
     onClose();
   };
 
+  const form = useForm<z.infer<typeof schema>>({
+    resolver: zodResolver(schema),
+    values: {
+      name: category?.name ?? "",
+      description: category?.description ?? "",
+      color: category?.color ?? "white",
+    },
+  });
+
+  const onSubmit = async (values: z.infer<typeof schema>) => {
+    if (!category) return; // TS safe
+
+    const res = await apiRequest("PUT", "/api/categories", {
+      id: category.id,
+      ...values,
+    });
+
+    if (!res.ok) {
+      const error = await res.json();
+      toast({
+        title: "Error",
+        description: error.error,
+        variant: "destructive",
+      });
+      return;
+    }
+
+    toast({
+      title: "Category Updated",
+      description: `"${values.name}" updated successfully.`,
+    });
+
+    queryClient.invalidateQueries({ queryKey: ["/api/categories"] });
+    onClose();
+  };
+
   return (
-    <Dialog open={isOpen} onOpenChange={handleClose}>
-      <DialogContent className="sm:max-w-md" data-testid="modal-add-category">
+    <Dialog open={open} onOpenChange={onClose}>
+      <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>Add New Category</DialogTitle>
-          <DialogDescription>
-            Create a new product category to organize your inventory.
-          </DialogDescription>
+          <DialogTitle>Edit Category</DialogTitle>
+          <DialogDescription>Update your category details.</DialogDescription>
         </DialogHeader>
 
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+            {/* Name */}
             <FormField
               control={form.control}
               name="name"
@@ -122,36 +111,31 @@ export function AddCategoryModal({
                 <FormItem>
                   <FormLabel>Category Name</FormLabel>
                   <FormControl>
-                    <Input
-                      placeholder="Enter category name"
-                      {...field}
-                      data-testid="input-category-name"
-                    />
+                    <Input {...field} placeholder="Category name" />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
               )}
             />
-
+            {/* Description */}
             <FormField
               control={form.control}
               name="description"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Description (Optional)</FormLabel>
+                  <FormLabel>Description</FormLabel>
                   <FormControl>
                     <Textarea
                       rows={3}
-                      placeholder="Enter category description"
                       {...field}
-                      data-testid="textarea-category-description"
+                      placeholder="Optional description"
                     />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
               )}
             />
-
+            {/* Color */}
             <FormField
               control={form.control}
               name="color"
@@ -198,23 +182,16 @@ export function AddCategoryModal({
                 </FormItem>
               )}
             />
-
             <div className="flex justify-end  space-x-3">
               <Button
                 type="button"
                 variant="outline"
                 onClick={handleClose}
-                data-testid="button-cancel-add-category"
+                data-testid="button-cancel-add-product"
               >
                 Cancel
-              </Button>
-              <Button
-                type="submit"
-                disabled={isSubmitting}
-                data-testid="button-submit-add-category"
-              >
-                {isSubmitting ? "Creating..." : "Create Category"}
-              </Button>
+              </Button>{" "}
+              <Button type="submit">Save Changes</Button>
             </div>
           </form>
         </Form>

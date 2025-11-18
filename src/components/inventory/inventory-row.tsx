@@ -20,6 +20,8 @@ import { useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useState } from "react";
 import { useAuth } from "@/hooks/use-auth";
+import { TrendingUp, IndianRupee, Package } from "lucide-react";
+import { tailwindColorMap } from "@/lib/colors";
 
 interface InventoryRowProps {
   product: Product;
@@ -158,7 +160,11 @@ export function InventoryRow({
         <td className="p-2 sm:p-4 hidden sm:table-cell">
           <Badge
             variant="outline"
-            className="capitalize bg-gray-100 text-gray-800 border-gray-300"
+            className={`
+  capitalize 
+  ${tailwindColorMap[category?.color ?? "white"].bg} 
+  ${tailwindColorMap[category?.color ?? "white"].text}
+`}
           >
             {category?.name || "Uncategorized"}
           </Badge>
@@ -181,25 +187,20 @@ export function InventoryRow({
 
         {/* ✅ Show stats for Admins/System Admins */}
         {!isEmployee ? (
-          <td className="p-2 sm:p-4 text-sm">
+          <td className="p-2 sm:p-4">
             {stats ? (
-              <div className="space-y-1">
-                <div>
-                  Profit:
-                  <span
-                    className={`ml-1 font-semibold ${
-                      stats.profit >= 0 ? "text-green-600" : "text-red-600"
-                    }`}
-                  >
-                    ₹{formatIN(stats.profit)}
-                  </span>
+              <div className="  md:inline-flex gap-3 text-xs sm:text-sm">
+                <div className="flex items-center gap-1 text-green-600 font-semibold">
+                  <TrendingUp className="h-4 w-4" /> ₹{formatIN(stats.profit)}
                 </div>
-                <div className="text-xs text-muted-foreground">
-                  Revenue: ₹{formatIN(stats.revenue)}
+                <div className="flex items-center gap-1 text-blue-600">
+                  <IndianRupee className="h-4 w-4" /> {formatIN(stats.revenue)}
                 </div>
-                <div className="text-xs text-muted-foreground">
-                  Cost: ₹{formatIN(stats.cost)} • Sold:{" "}
-                  {formatIN(stats.quantity)}
+                <div className="flex items-center gap-1 text-orange-600">
+                  <IndianRupee className="h-4 w-4" /> {formatIN(stats.cost)}
+                </div>
+                <div className="flex items-center gap-1 text-gray-100">
+                  <Package className="h-4 w-4" /> {formatIN(stats.quantity)}
                 </div>
               </div>
             ) : (
@@ -213,15 +214,22 @@ export function InventoryRow({
         )}
 
         <td className="p-2 sm:p-4 hidden sm:table-cell">
-          <Badge
-            variant={
-              getStockStatus(product.stock, product.minStock ?? undefined)
-                .variant
-            }
-            className="whitespace-nowrap flex items-center justify-center text-sm font-medium px-3 py-1"
+          <span
+            className={`
+      inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold
+      ${
+        getStockStatus(product.stock, product.minStock ?? undefined).label ===
+        "In Stock"
+          ? "bg-green-100 text-green-700"
+          : getStockStatus(product.stock, product.minStock ?? undefined)
+              .label === "Low Stock"
+          ? "bg-yellow-100 text-yellow-700"
+          : "bg-red-100 text-red-700"
+      }
+    `}
           >
             {getStockStatus(product.stock, product.minStock ?? undefined).label}
-          </Badge>
+          </span>
         </td>
 
         <td className="p-2 sm:p-4">

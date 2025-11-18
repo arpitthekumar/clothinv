@@ -29,11 +29,13 @@ export default function AuthPage() {
     },
   });
 
-  // Registration disabled on login page; admin can create users in Admin > Users
 
-  // Redirect if already logged in
   if (user) {
-    redirect("/");
+    if (user.role === "admin") {
+      redirect("/");
+    } else {
+      redirect("/pos");
+    }
   }
 
   const onLoginSubmit = (data: LoginFormValues) => {

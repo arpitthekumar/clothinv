@@ -92,27 +92,44 @@ export class SupabaseStorage implements IStorage {
     return data as Category[];
   }
   async createCategory(category: InsertCategory): Promise<Category> {
+    const payload = {
+      id: crypto.randomUUID(), // 🔥 add this (very important)
+      name: category.name,
+      description: category.description ?? null,
+      color: category.color ?? "white",
+    };
+
     const { data, error } = await this.client
       .from("categories")
-      .insert(category)
+      .insert(payload)
       .select("*")
       .single();
+
     if (error) throw error;
     return data as Category;
   }
+
   async updateCategory(
     id: string,
     category: Partial<InsertCategory>
   ): Promise<Category | undefined> {
+    const payload: any = {
+      ...category,
+    };
+
+    if (category.color === undefined) delete payload.color;
+
     const { data, error } = await this.client
       .from("categories")
-      .update(category)
+      .update(payload)
       .eq("id", id)
       .select("*")
       .maybeSingle();
+
     if (error) throw error;
-    return (data ?? undefined) as Category | undefined;
+    return data ?? undefined;
   }
+
   async deleteCategory(id: string): Promise<boolean> {
     const { error } = await this.client
       .from("categories")
@@ -986,25 +1003,25 @@ export class SupabaseStorage implements IStorage {
     const { data: products, error } = await this.client
       .from("products")
       .select("id, name, stock, price, buying_price, deleted");
-  
+
     if (error) throw error;
-  
+
     const validProducts = (products || []).filter((p: any) => !p.deleted);
-  
+
     let totalValuation = 0;
     let totalCost = 0;
-  
+
     const byProduct = validProducts.map((p: any) => {
       const stock = Number(p.stock ?? 0);
       const costPrice = Number(p.buying_price ?? 0);
       const sellingPrice = Number(p.price ?? 0);
-  
+
       const valuation = stock * sellingPrice;
       const totalProductCost = stock * costPrice;
-  
+
       totalValuation += valuation;
       totalCost += totalProductCost;
-  
+
       return {
         productId: p.id,
         name: p.name,
@@ -1015,18 +1032,16 @@ export class SupabaseStorage implements IStorage {
         valuation,
       };
     });
-  
+
     // console.log("🧾 Products:", validProducts);
     // console.log("✅ totalCost:", totalCost, "totalValuation:", totalValuation);
-  
+
     return {
       totalCost,
       totalValuation,
       byProduct,
     };
   }
-  
-  
 
   async getProfitMargins(params: {
     sinceDays: number;
@@ -1051,11 +1066,11 @@ export class SupabaseStorage implements IStorage {
     // The RPC function returns all sales since the since_ts date
     // So we filter client-side if toDate is provided
     let result = data as any;
-    
+
     if (params.toDate && result) {
       const toDate = new Date(params.toDate);
       toDate.setHours(23, 59, 59, 999);
-      
+
       // Filter the sales data by toDate if the RPC returns detailed data
       // If it's just aggregated data, we might need to recalculate
       // For now, we'll assume the RPC returns aggregated data and we can't filter it
@@ -1121,7 +1136,9 @@ export class SupabaseStorage implements IStorage {
 
               const qty = Number(item.quantity || 0);
               const sellingPrice = Number(item.price || 0);
-              const costPrice = Number(product.buying_price || product.price || 0);
+              const costPrice = Number(
+                product.buying_price || product.price || 0
+              );
 
               const revenue = qty * sellingPrice * (1 - discountRate);
               const cost = qty * costPrice;
@@ -1151,8 +1168,7 @@ export class SupabaseStorage implements IStorage {
           // Calculate margin percentages
           for (const key in byProduct) {
             const p = byProduct[key];
-            p.marginPercent =
-              p.revenue > 0 ? (p.profit / p.revenue) * 100 : 0;
+            p.marginPercent = p.revenue > 0 ? (p.profit / p.revenue) * 100 : 0;
           }
 
           result = {

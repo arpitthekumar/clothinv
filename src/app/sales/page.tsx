@@ -98,7 +98,11 @@ export default function SalesPage() {
     }
   };
 
-  const { data: sales = [], isLoading } = useQuery<any[]>({
+  const {
+    data: sales = [],
+    isLoading,
+    refetch,
+  } = useQuery<any[]>({
     queryKey: ["/api/sales", { includeDeleted: true }],
     queryFn: async () => {
       const response = await fetch("/api/sales?includeDeleted=true", {
@@ -108,6 +112,7 @@ export default function SalesPage() {
       return response.json();
     },
   });
+  // console.log("Fetched sales:", sales);
 
   const deleteSaleMutation = useMutation({
     mutationFn: async (saleId: string) => {
@@ -116,6 +121,7 @@ export default function SalesPage() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/sales"] });
+      refetch();
       toast({
         title: "Sale Deleted",
         description: "Sale has been moved to trash",
