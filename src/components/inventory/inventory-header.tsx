@@ -57,7 +57,7 @@ export function InventoryHeader({
 
         {/* Category Filter */}
         <Select value={selectedCategory} onValueChange={setSelectedCategory}>
-          <SelectTrigger className="w-full sm:w-48 md:w-56">
+          <SelectTrigger className="w-full sm:w-48 md:w-56 ">
             <SelectValue placeholder="All Categories" />
           </SelectTrigger>
           <SelectContent>
