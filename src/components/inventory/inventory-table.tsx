@@ -123,12 +123,12 @@ export function InventoryTable() {
                 <tr className="bg-muted ">
                   <th className="p-4 text-left w-[45%] md:w-auto">Product</th>
                   <th className="p-4 text-left hidden lg:table-cell">Category</th>
+                  <th className="p-4 text-left w-[120px] md:w-auto">Actions</th>
                   <th className="p-4 text-left hidden lg:table-cell">Size</th>
                   <th className="p-4 text-left">Stock</th>
                   <th className="p-4 text-left">Price</th>
                   <th className="p-4 text-left hidden lg:table-cell">Total Profit</th>
                   <th className="p-4 text-left hidden sm:table-cell">Status</th>
-                  <th className="p-4 text-left w-[120px] md:w-auto">Actions</th>
                 </tr>
               </thead>
               <tbody>
