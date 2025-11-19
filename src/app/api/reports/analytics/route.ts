@@ -110,8 +110,6 @@ export async function GET(request: NextRequest) {
 
   const categorySalesStart = fromDate ? new Date(fromDate) : undefined;
   const categorySalesEnd = toDate ? new Date(toDate) : undefined;
-  if (categorySalesStart) categorySalesStart.setHours(0, 0, 0, 0);
-  if (categorySalesEnd) categorySalesEnd.setHours(23, 59, 59, 999);
 
   for (const s of sales || []) {
     if (!s.items) continue;
@@ -168,8 +166,6 @@ export async function GET(request: NextRequest) {
   const productRevenue: Record<string, { name: string; revenue: number }> = {};
   const productSalesStart = fromDate ? new Date(fromDate) : undefined;
   const productSalesEnd = toDate ? new Date(toDate) : undefined;
-  if (productSalesStart) productSalesStart.setHours(0, 0, 0, 0);
-  if (productSalesEnd) productSalesEnd.setHours(23, 59, 59, 999);
 
   for (const s of sales || []) {
     if (!s.items) continue;
@@ -222,8 +218,6 @@ export async function GET(request: NextRequest) {
   // Filter by date range if provided
   const profitStart = fromDate ? new Date(fromDate) : undefined;
   const profitEnd = toDate ? new Date(toDate) : undefined;
-  if (profitStart) profitStart.setHours(0, 0, 0, 0);
-  if (profitEnd) profitEnd.setHours(23, 59, 59, 999);
 
   const monthsBack = 4;
   const monthBuckets: Record<string, { profit: number; expense: number }> = {};
@@ -272,7 +266,7 @@ export async function GET(request: NextRequest) {
       0,
       Number((s as any).discount_amount ?? 0) || 0
     );
-    const saleRevenueNet = Math.max(0, recomputedSubtotal - discountAmount);
+    const saleRevenueNet = Number((s as any).total_amount || 0);
     const saleProfit = saleRevenueNet - costSum;
 
     monthBuckets[key].profit += saleProfit;
