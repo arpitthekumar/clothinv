@@ -199,7 +199,7 @@ export function InventoryRow({
                 <div className="flex items-center gap-1 text-orange-600">
                   <IndianRupee className="h-4 w-4" /> {formatIN(stats.cost)}
                 </div>
-                <div className="flex items-center gap-1 text-gray-900">
+                <div className="flex items-center gap-1">
                   <Package className="h-4 w-4" /> {formatIN(stats.quantity)}
                 </div>
               </div>
