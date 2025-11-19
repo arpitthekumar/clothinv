@@ -39,40 +39,98 @@ export function InventoryPagination({
       {/* Info text */}
       <p className="text-sm text-muted-foreground">
         Showing {startIndex + 1}–
-        {Math.min(startIndex + itemsPerPage, totalItems)} of {totalItems} products
+        {Math.min(startIndex + itemsPerPage, totalItems)} of {totalItems}{" "}
+        products
       </p>
 
       {/* Pagination Controls */}
-      <div className="flex items-center space-x-2">
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
-          disabled={currentPage === 1}
-        >
-          Previous
-        </Button>
-
-        {pages.map((page) => (
+      <div className="flex flex-col  items-center space-x-2">
+        {/* Previous */}
+        <div className="flex">
           <Button
-            key={page}
-            variant={currentPage === page ? "default" : "outline"}
+            variant="outline"
             size="sm"
-            onClick={() => setCurrentPage(page)}
+            onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+            disabled={currentPage === 1}
+            className="min-w-[70px] hidden md:inline-flex mr-2"
           >
-            {page}
+            Prev
           </Button>
-        ))}
+          
+          {/* --- FIRST PAGE BUTTON --- */}
+          {startPage > 1 && (
+            <>
+              <Button
+                variant={currentPage === 1 ? "default" : "outline"}
+                size="sm"
+                onClick={() => setCurrentPage(1)}
+              >
+                1
+              </Button>
 
-        {/* ✅ fixed parentheses here */}
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
-          disabled={currentPage === totalPages}
-        >
-          Next
-        </Button>
+              {/* Dots */}
+              {startPage > 2 && <span className="px-1">...</span>}
+            </>
+          )}
+
+          {/* --- CENTER DYNAMIC PAGES --- */}
+          {pages.map((page) => (
+            <Button
+              key={page}
+              variant={currentPage === page ? "default" : "outline"}
+              size="sm"
+              onClick={() => setCurrentPage(page)}
+            >
+              {page}
+            </Button>
+          ))}
+
+          {/* --- LAST PAGE BUTTON --- */}
+          {endPage < totalPages && (
+            <>
+              {/* Dots */}
+              {endPage < totalPages - 1 && <span className="px-1">...</span>}
+
+              <Button
+                variant={currentPage === totalPages ? "default" : "outline"}
+                size="sm"
+                onClick={() => setCurrentPage(totalPages)}
+              >
+                {totalPages}
+              </Button>
+            </>
+          )}
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+            disabled={currentPage === totalPages}
+            className="min-w-[70px] hidden md:inline-flex ml-2"
+          >
+            Next{" "}
+          </Button>
+        </div>
+
+        {/* mobile buttons */}
+        <div className="md:hidden space-x-2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+            disabled={currentPage === 1}
+          >
+            Prev{" "}
+          </Button>
+          {/* Next */}
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+            disabled={currentPage === totalPages}
+          >
+            Next{" "}
+          </Button>
+        </div>
       </div>
     </div>
   );

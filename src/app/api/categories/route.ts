@@ -21,7 +21,10 @@ export async function POST(req: NextRequest) {
     const category = await storage.createCategory(data);
     return NextResponse.json(category, { status: 201 });
   } catch {
-    return NextResponse.json({ error: "Invalid category data" }, { status: 400 });
+    return NextResponse.json(
+      { error: "Invalid category data" },
+      { status: 400 }
+    );
   }
 }
 
@@ -33,21 +36,26 @@ export async function DELETE(req: NextRequest) {
   try {
     const { searchParams } = new URL(req.url);
     const categoryId = searchParams.get("id");
-    
+
     if (!categoryId) {
-      return NextResponse.json({ error: "Category ID is required" }, { status: 400 });
+      return NextResponse.json(
+        { error: "Category ID is required" },
+        { status: 400 }
+      );
     }
 
     // Check if any products are using this category
     const productsRaw = await storage.getProducts(false); // Exclude deleted products
     const products = productsRaw.map(mapProductFromDb);
-    const productsUsingCategory = products.filter(p => p.categoryId === categoryId);
+    const productsUsingCategory = products.filter(
+      (p) => p.categoryId === categoryId
+    );
 
     if (productsUsingCategory.length > 0) {
       return NextResponse.json(
-        { 
+        {
           error: `Cannot delete category. ${productsUsingCategory.length} product(s) are using this category.`,
-          productCount: productsUsingCategory.length
+          productCount: productsUsingCategory.length,
         },
         { status: 400 }
       );
@@ -64,4 +72,30 @@ export async function DELETE(req: NextRequest) {
   }
 }
 
+export async function PUT(req: NextRequest) {
+  const auth = await requireAuth();
+  if (!auth.ok) return NextResponse.json({}, { status: 401 });
+  if (auth.user.role !== "admin") return NextResponse.json({}, { status: 403 });
 
+  try {
+    const body = await req.json();
+    const { id, ...rest } = body;
+
+    if (!id) {
+      return NextResponse.json(
+        { error: "Category ID is required" },
+        { status: 400 }
+      );
+    }
+
+    const data = insertCategorySchema.partial().parse(rest);
+    const updatedCategory = await storage.updateCategory(id, data);
+
+    return NextResponse.json(updatedCategory, { status: 200 });
+  } catch (err: any) {
+    return NextResponse.json(
+      { error: err.message || "Failed to update category" },
+      { status: 400 }
+    );
+  }
+}

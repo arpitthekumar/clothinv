@@ -1,10 +1,21 @@
 import { sql } from "drizzle-orm";
-import { pgTable, text, varchar, integer, decimal, timestamp, boolean, jsonb } from "drizzle-orm/pg-core";
+import {
+  pgTable,
+  text,
+  varchar,
+  integer,
+  decimal,
+  timestamp,
+  boolean,
+  jsonb,
+} from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
 export const users = pgTable("users", {
-  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  id: varchar("id")
+    .primaryKey()
+    .default(sql`gen_random_uuid()`),
   username: text("username").notNull().unique(),
   password: text("password").notNull(),
   role: text("role").notNull().default("employee"), // admin or employee
@@ -13,14 +24,18 @@ export const users = pgTable("users", {
 });
 
 export const categories = pgTable("categories", {
-  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  id: varchar("id").primaryKey(),
   name: text("name").notNull().unique(),
   description: text("description"),
+  color: text("color").notNull().default("white"),
   createdAt: timestamp("created_at").defaultNow(),
 });
 
+
 export const products = pgTable("products", {
-  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  id: varchar("id")
+    .primaryKey()
+    .default(sql`gen_random_uuid()`),
   name: text("name").notNull(),
   sku: text("sku").notNull().unique(),
   categoryId: varchar("category_id").references(() => categories.id),
@@ -38,7 +53,9 @@ export const products = pgTable("products", {
 });
 
 export const sales = pgTable("sales", {
-  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  id: varchar("id")
+    .primaryKey()
+    .default(sql`gen_random_uuid()`),
   user_id: varchar("user_id").notNull(),
   customer_id: varchar("customer_id"),
   customer_name: text("customer_name").notNull(),
@@ -59,9 +76,15 @@ export const sales = pgTable("sales", {
 });
 
 export const stockMovements = pgTable("stock_movements", {
-  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  productId: varchar("product_id").references(() => products.id).notNull(),
-  userId: varchar("user_id").references(() => users.id).notNull(),
+  id: varchar("id")
+    .primaryKey()
+    .default(sql`gen_random_uuid()`),
+  productId: varchar("product_id")
+    .references(() => products.id)
+    .notNull(),
+  userId: varchar("user_id")
+    .references(() => users.id)
+    .notNull(),
   type: text("type").notNull(), // 'po_receipt' | 'sale_out' | 'return_in' | 'damage_out' | 'manual_adjust'
   quantity: integer("quantity").notNull(),
   reason: text("reason"),
@@ -71,7 +94,9 @@ export const stockMovements = pgTable("stock_movements", {
 });
 
 export const syncStatus = pgTable("sync_status", {
-  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  id: varchar("id")
+    .primaryKey()
+    .default(sql`gen_random_uuid()`),
   tableName: text("table_name").notNull(),
   lastSyncAt: timestamp("last_sync_at").defaultNow(),
   pendingChanges: integer("pending_changes").default(0),
@@ -85,9 +110,10 @@ export const insertUserSchema = createInsertSchema(users).pick({
   fullName: true,
 });
 
-export const insertCategorySchema = createInsertSchema(categories).pick({
-  name: true,
-  description: true,
+export const insertCategorySchema = z.object({
+  name: z.string().min(1),
+  description: z.string().optional(),
+  color: z.string().min(1), // required for RHF types to match
 });
 
 export const insertProductSchema = createInsertSchema(products).pick({
@@ -119,7 +145,9 @@ export const insertSaleSchema = createInsertSchema(sales).pick({
   payment_method: true,
 });
 
-export const insertStockMovementSchema = createInsertSchema(stockMovements).pick({
+export const insertStockMovementSchema = createInsertSchema(
+  stockMovements
+).pick({
   productId: true,
   userId: true,
   type: true,
@@ -173,7 +201,9 @@ export type SaleItem = {
 
 // New: Suppliers & Purchasing
 export const suppliers = pgTable("suppliers", {
-  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  id: varchar("id")
+    .primaryKey()
+    .default(sql`gen_random_uuid()`),
   name: text("name").notNull(),
   phone: text("phone"),
   email: text("email"),
@@ -183,9 +213,15 @@ export const suppliers = pgTable("suppliers", {
 });
 
 export const supplierProducts = pgTable("supplier_products", {
-  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  supplierId: varchar("supplier_id").references(() => suppliers.id).notNull(),
-  productId: varchar("product_id").references(() => products.id).notNull(),
+  id: varchar("id")
+    .primaryKey()
+    .default(sql`gen_random_uuid()`),
+  supplierId: varchar("supplier_id")
+    .references(() => suppliers.id)
+    .notNull(),
+  productId: varchar("product_id")
+    .references(() => products.id)
+    .notNull(),
   supplierSku: text("supplier_sku"),
   defaultCost: decimal("default_cost", { precision: 10, scale: 2 }),
   leadTimeDays: integer("lead_time_days"),
@@ -194,8 +230,12 @@ export const supplierProducts = pgTable("supplier_products", {
 });
 
 export const purchaseOrders = pgTable("purchase_orders", {
-  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  supplierId: varchar("supplier_id").references(() => suppliers.id).notNull(),
+  id: varchar("id")
+    .primaryKey()
+    .default(sql`gen_random_uuid()`),
+  supplierId: varchar("supplier_id")
+    .references(() => suppliers.id)
+    .notNull(),
   status: text("status").notNull().default("draft"), // draft | ordered | received | closed
   expectedDate: timestamp("expected_date"),
   receivedDate: timestamp("received_date"),
@@ -204,9 +244,15 @@ export const purchaseOrders = pgTable("purchase_orders", {
 });
 
 export const purchaseOrderItems = pgTable("purchase_order_items", {
-  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  purchaseOrderId: varchar("purchase_order_id").references(() => purchaseOrders.id).notNull(),
-  productId: varchar("product_id").references(() => products.id).notNull(),
+  id: varchar("id")
+    .primaryKey()
+    .default(sql`gen_random_uuid()`),
+  purchaseOrderId: varchar("purchase_order_id")
+    .references(() => purchaseOrders.id)
+    .notNull(),
+  productId: varchar("product_id")
+    .references(() => products.id)
+    .notNull(),
   quantityOrdered: integer("quantity_ordered").notNull(),
   quantityReceived: integer("quantity_received").notNull().default(0),
   unitCost: decimal("unit_cost", { precision: 10, scale: 2 }).notNull(),
@@ -215,23 +261,33 @@ export const purchaseOrderItems = pgTable("purchase_order_items", {
 
 // New: Pricing & Cost History
 export const productCostHistory = pgTable("product_cost_history", {
-  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  productId: varchar("product_id").references(() => products.id).notNull(),
+  id: varchar("id")
+    .primaryKey()
+    .default(sql`gen_random_uuid()`),
+  productId: varchar("product_id")
+    .references(() => products.id)
+    .notNull(),
   cost: decimal("cost", { precision: 10, scale: 2 }).notNull(),
   source: text("source").notNull(), // 'PO' | 'manual'
   effectiveAt: timestamp("effective_at").defaultNow(),
 });
 
 export const productPriceHistory = pgTable("product_price_history", {
-  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  productId: varchar("product_id").references(() => products.id).notNull(),
+  id: varchar("id")
+    .primaryKey()
+    .default(sql`gen_random_uuid()`),
+  productId: varchar("product_id")
+    .references(() => products.id)
+    .notNull(),
   price: decimal("price", { precision: 10, scale: 2 }).notNull(),
   effectiveAt: timestamp("effective_at").defaultNow(),
 });
 
 // New: Promotions
 export const promotions = pgTable("promotions", {
-  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  id: varchar("id")
+    .primaryKey()
+    .default(sql`gen_random_uuid()`),
   name: text("name").notNull(),
   type: text("type").notNull(), // 'percent' | 'fixed'
   value: decimal("value", { precision: 10, scale: 2 }).notNull(),
@@ -242,15 +298,21 @@ export const promotions = pgTable("promotions", {
 });
 
 export const promotionTargets = pgTable("promotion_targets", {
-  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  promotionId: varchar("promotion_id").references(() => promotions.id).notNull(),
+  id: varchar("id")
+    .primaryKey()
+    .default(sql`gen_random_uuid()`),
+  promotionId: varchar("promotion_id")
+    .references(() => promotions.id)
+    .notNull(),
   targetType: text("target_type").notNull(), // 'product' | 'category'
   targetId: varchar("target_id").notNull(),
 });
 
 // New: Customers
 export const customers = pgTable("customers", {
-  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  id: varchar("id")
+    .primaryKey()
+    .default(sql`gen_random_uuid()`),
   name: text("name").notNull(),
   phone: text("phone"),
   email: text("email"),
@@ -259,9 +321,15 @@ export const customers = pgTable("customers", {
 
 // New: Sales normalization and returns
 export const saleItems = pgTable("sale_items", {
-  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  saleId: varchar("sale_id").references(() => sales.id).notNull(),
-  productId: varchar("product_id").references(() => products.id).notNull(),
+  id: varchar("id")
+    .primaryKey()
+    .default(sql`gen_random_uuid()`),
+  saleId: varchar("sale_id")
+    .references(() => sales.id)
+    .notNull(),
+  productId: varchar("product_id")
+    .references(() => products.id)
+    .notNull(),
   quantity: integer("quantity").notNull(),
   price: decimal("price", { precision: 10, scale: 2 }).notNull(),
   name: text("name").notNull(), // snapshot
@@ -270,18 +338,28 @@ export const saleItems = pgTable("sale_items", {
 });
 
 export const salesReturns = pgTable("sales_returns", {
-  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  saleId: varchar("sale_id").references(() => sales.id).notNull(),
+  id: varchar("id")
+    .primaryKey()
+    .default(sql`gen_random_uuid()`),
+  saleId: varchar("sale_id")
+    .references(() => sales.id)
+    .notNull(),
   customerId: varchar("customer_id").references(() => customers.id),
   reason: text("reason"),
   createdAt: timestamp("created_at").defaultNow(),
 });
 
 export const salesReturnItems = pgTable("sales_return_items", {
-  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  salesReturnId: varchar("sales_return_id").references(() => salesReturns.id).notNull(),
+  id: varchar("id")
+    .primaryKey()
+    .default(sql`gen_random_uuid()`),
+  salesReturnId: varchar("sales_return_id")
+    .references(() => salesReturns.id)
+    .notNull(),
   saleItemId: varchar("sale_item_id").references(() => saleItems.id),
-  productId: varchar("product_id").references(() => products.id).notNull(),
+  productId: varchar("product_id")
+    .references(() => products.id)
+    .notNull(),
   quantity: integer("quantity").notNull(),
   refundAmount: decimal("refund_amount", { precision: 10, scale: 2 }),
   createdAt: timestamp("created_at").defaultNow(),
@@ -289,8 +367,12 @@ export const salesReturnItems = pgTable("sales_return_items", {
 
 // New: Payments (Razorpay etc.)
 export const payments = pgTable("payments", {
-  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  saleId: varchar("sale_id").references(() => sales.id).notNull(),
+  id: varchar("id")
+    .primaryKey()
+    .default(sql`gen_random_uuid()`),
+  saleId: varchar("sale_id")
+    .references(() => sales.id)
+    .notNull(),
   provider: text("provider").notNull(), // 'razorpay'
   orderId: text("order_id"),
   paymentId: text("payment_id"),
@@ -302,12 +384,16 @@ export const payments = pgTable("payments", {
 
 // Discount coupons table
 export const discountCoupons = pgTable("discount_coupons", {
-  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  id: varchar("id")
+    .primaryKey()
+    .default(sql`gen_random_uuid()`),
   name: text("name").notNull().unique(),
   percentage: decimal("percentage", { precision: 5, scale: 2 }).notNull(), // e.g., 10.00 for 10%
   active: boolean("active").default(true),
   createdAt: timestamp("created_at").defaultNow(),
-  createdBy: varchar("created_by").references(() => users.id).notNull(),
+  createdBy: varchar("created_by")
+    .references(() => users.id)
+    .notNull(),
 });
 
 // Insert schemas (new)
@@ -319,28 +405,36 @@ export const insertSupplierSchema = createInsertSchema(suppliers).pick({
   notes: true,
 });
 
-export const insertPurchaseOrderSchema = createInsertSchema(purchaseOrders).pick({
+export const insertPurchaseOrderSchema = createInsertSchema(
+  purchaseOrders
+).pick({
   supplierId: true,
   status: true,
   expectedDate: true,
   notes: true,
 });
 
-export const insertPurchaseOrderItemSchema = createInsertSchema(purchaseOrderItems).pick({
+export const insertPurchaseOrderItemSchema = createInsertSchema(
+  purchaseOrderItems
+).pick({
   purchaseOrderId: true,
   productId: true,
   quantityOrdered: true,
   unitCost: true,
 });
 
-export const insertProductCostSchema = createInsertSchema(productCostHistory).pick({
+export const insertProductCostSchema = createInsertSchema(
+  productCostHistory
+).pick({
   productId: true,
   cost: true,
   source: true,
   effectiveAt: true,
 });
 
-export const insertProductPriceSchema = createInsertSchema(productPriceHistory).pick({
+export const insertProductPriceSchema = createInsertSchema(
+  productPriceHistory
+).pick({
   productId: true,
   price: true,
   effectiveAt: true,
@@ -355,7 +449,9 @@ export const insertPromotionSchema = createInsertSchema(promotions).pick({
   active: true,
 });
 
-export const insertPromotionTargetSchema = createInsertSchema(promotionTargets).pick({
+export const insertPromotionTargetSchema = createInsertSchema(
+  promotionTargets
+).pick({
   promotionId: true,
   targetType: true,
   targetId: true,
@@ -382,7 +478,9 @@ export const insertSalesReturnSchema = createInsertSchema(salesReturns).pick({
   reason: true,
 });
 
-export const insertSalesReturnItemSchema = createInsertSchema(salesReturnItems).pick({
+export const insertSalesReturnItemSchema = createInsertSchema(
+  salesReturnItems
+).pick({
   salesReturnId: true,
   saleItemId: true,
   productId: true,
@@ -400,7 +498,9 @@ export const insertPaymentSchema = createInsertSchema(payments).pick({
   method: true,
 });
 
-export const insertDiscountCouponSchema = createInsertSchema(discountCoupons).pick({
+export const insertDiscountCouponSchema = createInsertSchema(
+  discountCoupons
+).pick({
   name: true,
   percentage: true,
   active: true,
@@ -414,7 +514,9 @@ export type SupplierProduct = typeof supplierProducts.$inferSelect;
 export type PurchaseOrder = typeof purchaseOrders.$inferSelect;
 export type InsertPurchaseOrder = z.infer<typeof insertPurchaseOrderSchema>;
 export type PurchaseOrderItem = typeof purchaseOrderItems.$inferSelect;
-export type InsertPurchaseOrderItem = z.infer<typeof insertPurchaseOrderItemSchema>;
+export type InsertPurchaseOrderItem = z.infer<
+  typeof insertPurchaseOrderItemSchema
+>;
 export type ProductCost = typeof productCostHistory.$inferSelect;
 export type InsertProductCost = z.infer<typeof insertProductCostSchema>;
 export type ProductPrice = typeof productPriceHistory.$inferSelect;
@@ -435,5 +537,3 @@ export type Payment = typeof payments.$inferSelect;
 export type InsertPayment = z.infer<typeof insertPaymentSchema>;
 export type DiscountCoupon = typeof discountCoupons.$inferSelect;
 export type InsertDiscountCoupon = z.infer<typeof insertDiscountCouponSchema>;
-
-

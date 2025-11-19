@@ -6,13 +6,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { 
-  Plus, 
-  Trash2, 
-  Search,
-  Folder,
-  AlertCircle
-} from "lucide-react";
+import { Plus, Trash2, Search, Folder, AlertCircle, Edit } from "lucide-react";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { AddCategoryModal } from "@/components/shared/add-category-modal";
@@ -26,13 +20,16 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import { EditCategoryModal } from "../shared/edit-category-modal";
+import { tailwindBorderMap, tailwindColorMap } from "@/lib/colors";
 
 export function CategoriesManagement() {
   const [searchTerm, setSearchTerm] = useState("");
   const [showAddModal, setShowAddModal] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [categoryToDelete, setCategoryToDelete] = useState<any>(null);
-  
+  const [editModalOpen, setEditModalOpen] = useState(false);
+  const [editCategory, setEditCategory] = useState<any>(null);
   const { toast } = useToast();
 
   const { data: categories = [], isLoading } = useQuery<any[]>({
@@ -45,7 +42,10 @@ export function CategoriesManagement() {
 
   const deleteCategoryMutation = useMutation({
     mutationFn: async (categoryId: string) => {
-      const response = await apiRequest("DELETE", `/api/categories?id=${categoryId}`);
+      const response = await apiRequest(
+        "DELETE",
+        `/api/categories?id=${categoryId}`
+      );
       if (!response.ok) {
         const error = await response.json();
         throw new Error(error.error || "Failed to delete category");
@@ -76,7 +76,9 @@ export function CategoriesManagement() {
 
   // Check how many products use each category
   const getProductCount = (categoryId: string) => {
-    return products.filter((p: any) => p.categoryId === categoryId && !p.deleted).length;
+    return products.filter(
+      (p: any) => p.categoryId === categoryId && !p.deleted
+    ).length;
   };
 
   const handleDeleteClick = (category: any) => {
@@ -100,7 +102,11 @@ export function CategoriesManagement() {
   };
 
   if (isLoading) {
-    return <div className="text-center py-8 text-muted-foreground">Loading categories...</div>;
+    return (
+      <div className="text-center py-8 text-muted-foreground">
+        Loading categories...
+      </div>
+    );
   }
 
   return (
@@ -125,7 +131,9 @@ export function CategoriesManagement() {
       {/* Categories List */}
       {filteredCategories.length === 0 ? (
         <div className="text-center py-8 text-muted-foreground">
-          {searchTerm ? "No categories found matching your search" : "No categories found. Add your first category!"}
+          {searchTerm
+            ? "No categories found matching your search"
+            : "No categories found. Add your first category!"}
         </div>
       ) : (
         <div className="space-y-2">
@@ -134,19 +142,27 @@ export function CategoriesManagement() {
             const canDelete = productCount === 0;
 
             return (
-              <Card key={category.id}>
+              <Card
+                key={category.id}
+                className={`${
+                  tailwindBorderMap[category.color]
+                } `}
+              >
                 <CardContent className="p-4">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-3">
                       <Folder className="h-5 w-5 text-primary" />
                       <div>
-                        <h3 className="font-semibold">{category.name}</h3>
+                        <h3 className="font-semibold ">{category.name}</h3>
                         {category.description && (
-                          <p className="text-sm text-muted-foreground">{category.description}</p>
+                          <p className="text-sm text-muted-foreground">
+                            {category.description}
+                          </p>
                         )}
                         <div className="flex items-center gap-2 mt-1">
                           <Badge variant={canDelete ? "secondary" : "outline"}>
-                            {productCount} {productCount === 1 ? "product" : "products"}
+                            {productCount}{" "}
+                            {productCount === 1 ? "product" : "products"}
                           </Badge>
                           {!canDelete && (
                             <Badge variant="destructive" className="text-xs">
@@ -157,14 +173,28 @@ export function CategoriesManagement() {
                         </div>
                       </div>
                     </div>
-                    <Button
-                      variant="destructive"
-                      size="sm"
-                      onClick={() => handleDeleteClick(category)}
-                      disabled={!canDelete || deleteCategoryMutation.isPending}
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
+                    <div className="space-x-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => {
+                          setEditCategory(category);
+                          setEditModalOpen(true);
+                        }}
+                      >
+                        <Edit className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        variant="destructive"
+                        size="sm"
+                        onClick={() => handleDeleteClick(category)}
+                        disabled={
+                          !canDelete || deleteCategoryMutation.isPending
+                        }
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </div>
                   </div>
                 </CardContent>
               </Card>
@@ -178,6 +208,11 @@ export function CategoriesManagement() {
         isOpen={showAddModal}
         onClose={() => setShowAddModal(false)}
       />
+      <EditCategoryModal
+        open={editModalOpen}
+        onClose={() => setEditModalOpen(false)}
+        category={editCategory}
+      />
 
       {/* Delete Confirmation Dialog */}
       <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
@@ -185,11 +220,13 @@ export function CategoriesManagement() {
           <AlertDialogHeader>
             <AlertDialogTitle>Delete Category?</AlertDialogTitle>
             <AlertDialogDescription>
-              Are you sure you want to delete "{categoryToDelete?.name}"? This action cannot be undone.
+              Are you sure you want to delete "{categoryToDelete?.name}"? This
+              action cannot be undone.
               {categoryToDelete && getProductCount(categoryToDelete.id) > 0 && (
                 <div className="mt-2 p-2 bg-destructive/10 border border-destructive/20 rounded text-destructive">
                   <AlertCircle className="h-4 w-4 inline mr-1" />
-                  This category is being used by {getProductCount(categoryToDelete.id)} product(s).
+                  This category is being used by{" "}
+                  {getProductCount(categoryToDelete.id)} product(s).
                 </div>
               )}
             </AlertDialogDescription>
@@ -209,4 +246,3 @@ export function CategoriesManagement() {
     </div>
   );
 }
-

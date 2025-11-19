@@ -91,7 +91,7 @@ export default function ReportControls({
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="flex flex-col sm:flex-row gap-4 ">
+          <div className="flex flex-col sm:flex-row gap-4 md:items-end ">
             <div className="flex-1">
               <label className="text-sm font-medium mb-2 block">Report Type</label>
               <Select value={reportType} onValueChange={setReportType}>

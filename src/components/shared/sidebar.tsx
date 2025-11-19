@@ -66,7 +66,7 @@ export function Sidebar({ isOpen }: SidebarProps) {
   }, []);
 
   const adminMenuItems = [
-    { href: "/admin", icon: BarChart3, label: "Dashboard" },
+    { href: "/", icon: BarChart3, label: "Dashboard" },
     { href: "/admin/users", icon: Users, label: "Users" },
     { href: "/inventory", icon: Package, label: "Inventory" },
     { href: "/sales", icon: Receipt, label: "Sales Management" },
@@ -75,8 +75,9 @@ export function Sidebar({ isOpen }: SidebarProps) {
   ];
 
   const employeeMenuItems = [
-    { href: "/", icon: RotateCcw, label: "Dashboard" },
-    { href: "/inventory", icon: Search, label: "Find Products" },
+    { href: "/", icon: BarChart3, label: "Dashboard" },
+    { href: "/inventory", icon: Package, label: "Inventory" },
+    { href: "/sales", icon: Receipt, label: "Sales Management" },
   ];
 
   const commonMenuItems = [
