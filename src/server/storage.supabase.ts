@@ -613,232 +613,220 @@ export class SupabaseStorage implements IStorage {
     }
   }
 
+  // FILE: src/server/storage/createSalesReturn.ts
+
   async createSalesReturn(params: {
-    saleId: string;
-    customerId?: string;
-    reason?: string;
-    items: Array<{
-      productId: string;
-      saleItemId?: string;
-      quantity: number;
-      refundAmount?: string;
-    }>;
-    userId: string;
-  }): Promise<{ salesReturnId: string }> {
-    const { saleId, customerId, reason, items, userId } = params;
-    console.log("Creating sales return for saleId:", saleId, "items:", items);
+  saleId: string;
+  customerId?: string;
+  reason?: string;
+  items: Array<{
+    productId: string;
+    saleItemId?: string;
+    quantity: number;
+    refundAmount?: string;
+  }>;
+  userId: string;
+}): Promise<{ salesReturnId: string }> {
+  const { saleId, customerId, reason, items, userId } = params;
 
-    const { data: sr, error: srErr } = await this.client
-      .from("sales_returns")
-      .insert({ sale_id: saleId, customer_id: customerId as any, reason })
-      .select("id")
-      .single();
-    if (srErr) {
-      console.error("Error creating sales return:", srErr);
-      throw srErr;
-    }
+  console.log("Creating sales return for sale:", saleId);
 
-    for (const it of items) {
-      // Find the sale_item_id for this product in this sale
-      let saleItemId = it.saleItemId;
-      if (!saleItemId) {
-        console.log(
-          "Looking up sale_item_id for saleId:",
-          saleId,
-          "productId:",
-          it.productId
-        );
+  // ---------------------------------------------
+  // 1️⃣ Create sales return header row
+  // ---------------------------------------------
+  const { data: sr, error: srErr } = await this.client
+    .from("sales_returns")
+    .insert({ sale_id: saleId, customer_id: customerId || null, reason })
+    .select("id")
+    .single();
 
-        // First check if sale_items table exists and has data
-        const { data: allSaleItems, error: checkErr } = await this.client
-          .from("sale_items")
-          .select("*")
-          .eq("sale_id", saleId)
-          .limit(5);
+  if (srErr) throw srErr;
 
-        console.log("All sale items for this sale:", allSaleItems);
-        if (checkErr) {
-          console.error("Error checking sale items table:", checkErr);
-          throw checkErr;
-        }
+  const returnId = sr.id;
+  console.log("Sales return created:", returnId);
 
-        const { data: saleItem, error: itemErr } = await this.client
-          .from("sale_items")
-          .select("id")
-          .eq("sale_id", saleId)
-          .eq("product_id", it.productId)
-          .maybeSingle();
-        if (itemErr) {
-          console.error("Error looking up sale item:", itemErr);
-          throw itemErr;
-        }
-        saleItemId = saleItem?.id;
-        console.log("Found sale_item_id:", saleItemId);
+  // ---------------------------------------------
+  // 2️⃣ Process each returned item
+  // ---------------------------------------------
+  for (const it of items) {
+    let saleItemId = it.saleItemId;
 
-        // If no sale_item found, create one from the original sale data
-        if (!saleItemId) {
-          console.log("No sale_item found, creating one from sale data");
-          const { data: saleData, error: saleErr } = await this.client
-            .from("sales")
-            .select("items")
-            .eq("id", saleId)
-            .single();
-
-          if (saleErr) {
-            console.error("Error fetching sale data:", saleErr);
-            throw saleErr;
-          }
-
-          // Parse the items and find the matching product
-          const items =
-            typeof saleData.items === "string"
-              ? JSON.parse(saleData.items)
-              : saleData.items;
-          const itemArray = Array.isArray(items) ? items : [items];
-          const matchingItem = itemArray.find(
-            (item: any) => item.productId === it.productId
-          );
-
-          if (matchingItem) {
-            const { data: newSaleItem, error: createErr } = await this.client
-              .from("sale_items")
-              .insert({
-                sale_id: saleId,
-                product_id: it.productId,
-                quantity: matchingItem.quantity,
-                price: matchingItem.price,
-                name: matchingItem.name,
-                sku: matchingItem.sku,
-              })
-              .select("id")
-              .single();
-
-            if (createErr) {
-              console.error("Error creating sale item:", createErr);
-              throw createErr;
-            }
-
-            saleItemId = newSaleItem.id;
-            console.log("Created new sale_item_id:", saleItemId);
-          } else {
-            console.error(
-              "Could not find matching item in sale data for productId:",
-              it.productId
-            );
-            throw new Error(
-              `Product ${it.productId} not found in sale ${saleId}`
-            );
-          }
-        }
-      }
-
-      const { error: sriErr } = await this.client
-        .from("sales_return_items")
-        .insert({
-          sales_return_id: sr.id,
-          sale_item_id: saleItemId as any,
-          product_id: it.productId,
-          quantity: it.quantity as any,
-          refund_amount: (it.refundAmount ?? null) as any,
-        } as any);
-      if (sriErr) throw sriErr;
-
-      // Restock and create movement
-      console.log(
-        "Updating inventory for productId:",
-        it.productId,
-        "returning quantity:",
-        it.quantity
-      );
-      const { data: productRow, error: prodErr } = await this.client
-        .from("products")
-        .select("id, stock")
-        .eq("id", it.productId)
+    // STEP A — Find sale_item_id
+    if (!saleItemId) {
+      const { data: saleItem, error: findErr } = await this.client
+        .from("sale_items")
+        .select("id")
+        .eq("sale_id", saleId)
+        .eq("product_id", it.productId)
         .maybeSingle();
-      if (prodErr) throw prodErr;
-      const currentStock = (productRow?.stock ?? 0) as number;
-      const newStock = currentStock + it.quantity;
-      console.log("Current stock:", currentStock, "New stock:", newStock);
 
-      const { error: stockErr } = await this.client
-        .from("products")
-        .update({ stock: newStock as any })
-        .eq("id", it.productId);
-      if (stockErr) {
-        console.error("Error updating stock:", stockErr);
-        throw stockErr;
-      }
-      console.log("Stock updated successfully");
+      if (findErr) throw findErr;
 
-      const { error: moveErr } = await this.client
-        .from("stock_movements")
-        .insert({
-          product_id: it.productId,
-          user_id: userId,
-          type: "return_in",
-          quantity: it.quantity,
-          reason: `Sales return for sale ${saleId}`,
-          ref_table: "sales_return_items",
-          ref_id: sr.id,
-        } as any);
-      if (moveErr) throw moveErr;
-    }
+      saleItemId = saleItem?.id || null;
 
-    // Update the original sale's items to reflect returned quantities
-    console.log("Updating original sale items to reflect returns");
-    const { data: originalSale, error: saleErr } = await this.client
-      .from("sales")
-      .select("items")
-      .eq("id", saleId)
-      .single();
+      // STEP B — If missing in sale_items table → create from original sale JSON
+      if (!saleItemId) {
+        const { data: saleData, error: saleErr } = await this.client
+          .from("sales")
+          .select("items")
+          .eq("id", saleId)
+          .single();
 
-    if (saleErr) {
-      console.error("Error fetching original sale:", saleErr);
-      throw saleErr;
-    }
+        if (saleErr) throw saleErr;
 
-    // Parse and update the items
-    const originalItems =
-      typeof originalSale.items === "string"
-        ? JSON.parse(originalSale.items)
-        : originalSale.items;
-    const itemArray = Array.isArray(originalItems)
-      ? originalItems
-      : [originalItems];
+        const parsed = Array.isArray(saleData.items)
+          ? saleData.items
+          : JSON.parse(saleData.items || "[]");
 
-    // Update quantities for returned items
-    for (const returnedItem of items) {
-      const itemIndex = itemArray.findIndex(
-        (item: any) => item.productId === returnedItem.productId
-      );
-      if (itemIndex !== -1) {
-        itemArray[itemIndex].quantity = Math.max(
-          0,
-          itemArray[itemIndex].quantity - returnedItem.quantity
-        );
-        console.log(
-          `Updated quantity for product ${returnedItem.productId}: ${itemArray[itemIndex].quantity}`
-        );
+        const original = parsed.find((x: any) => x.productId === it.productId);
+        if (!original) throw new Error(`Product ${it.productId} not in sale.`);
+
+        const { data: newSaleItem, error: createErr } = await this.client
+          .from("sale_items")
+          .insert({
+            sale_id: saleId,
+            product_id: it.productId,
+            quantity: original.quantity,
+            price: original.price,
+            name: original.name,
+            sku: original.sku,
+          })
+          .select("id")
+          .single();
+
+        if (createErr) throw createErr;
+        saleItemId = newSaleItem.id;
       }
     }
 
-    // Remove items with 0 quantity
-    const updatedItems = itemArray.filter((item: any) => item.quantity > 0);
+    // STEP C — Insert into sales_return_items
+    const { error: sriErr } = await this.client.from("sales_return_items").insert({
+      sales_return_id: returnId,
+      sale_item_id: saleItemId,
+      product_id: it.productId,
+      quantity: it.quantity,
+      refund_amount: it.refundAmount ?? null,
+    });
 
-    // Update the sale with new items
-    const { error: updateErr } = await this.client
-      .from("sales")
-      .update({ items: updatedItems })
-      .eq("id", saleId);
+    if (sriErr) throw sriErr;
 
-    if (updateErr) {
-      console.error("Error updating sale items:", updateErr);
-      throw updateErr;
-    }
+    // STEP D — Restock
+    const { data: prod, error: prodErr } = await this.client
+      .from("products")
+      .select("stock")
+      .eq("id", it.productId)
+      .maybeSingle();
 
-    console.log("Sale items updated successfully");
-    return { salesReturnId: sr.id as string };
+    if (prodErr) throw prodErr;
+
+    const newStock = Number(prod?.stock || 0) + it.quantity;
+
+    const { error: updErr } = await this.client
+      .from("products")
+      .update({ stock: newStock })
+      .eq("id", it.productId);
+
+    if (updErr) throw updErr;
+
+    // STEP E — Log stock movement
+    const { error: moveErr } = await this.client.from("stock_movements").insert({
+      product_id: it.productId,
+      user_id: userId,
+      type: "return_in",
+      quantity: it.quantity,
+      reason: `Sales return for sale ${saleId}`,
+      ref_table: "sales_return_items",
+      ref_id: returnId,
+    });
+
+    if (moveErr) throw moveErr;
   }
+
+  // ---------------------------------------------
+  // 3️⃣ Recalculate sale totals
+  // ---------------------------------------------
+  // console.log("Recalculating totals…");
+
+  const { data: saleMeta, error: saleMetaErr } = await this.client
+    .from("sales")
+    .select("items, discount_type, discount_value, tax_percent")
+    .eq("id", saleId)
+    .single();
+
+  if (saleMetaErr) throw saleMetaErr;
+
+  const originalItems = Array.isArray(saleMeta.items)
+    ? saleMeta.items
+    : JSON.parse(saleMeta.items || "[]");
+
+  // Reduce quantities from returned items
+  for (const ret of items) {
+    const idx = originalItems.findIndex((i: any) => i.productId === ret.productId);
+    if (idx >= 0) {
+      originalItems[idx].quantity = Math.max(
+        0,
+        originalItems[idx].quantity - ret.quantity
+      );
+    }
+  }
+
+  // Remove items with zero quantity
+  const updatedItems = originalItems.filter((i: any) => i.quantity > 0);
+
+  // Step 2: NEW subtotal
+  let newSubtotal = 0;
+  for (const item of updatedItems) {
+    newSubtotal += Number(item.price) * Number(item.quantity);
+  }
+
+  // Step 3: Discount
+  const discountType = saleMeta.discount_type || "none";
+  const discountValue = Number(saleMeta.discount_value || 0);
+
+  let discountAmount = 0;
+
+  if (discountType === "percentage") {
+    discountAmount = (newSubtotal * discountValue) / 100;
+  } else if (discountType === "flat") {
+    discountAmount = discountValue;
+  }
+
+  // Step 4: TAX
+  const taxPercent = Number(saleMeta.tax_percent || 0);
+  const taxableAmount = newSubtotal - discountAmount;
+  const taxAmount = (taxableAmount * taxPercent) / 100;
+
+  // Step 5: New total
+  const newTotal = taxableAmount + taxAmount;
+
+  // ---------------------------------------------
+  // 4️⃣ Update sale record
+  // ---------------------------------------------
+  const { error: finalErr } = await this.client
+    .from("sales")
+    .update({
+      items: updatedItems,
+      subtotal: newSubtotal,
+      discount_amount: discountAmount,
+      discount_value: discountValue,
+      tax_percent: taxPercent,
+      tax_amount: taxAmount,
+      total_amount: newTotal,
+    })
+    .eq("id", saleId);
+
+  if (finalErr) throw finalErr;
+
+  // console.log("Sale updated:", {
+  //   subtotal: newSubtotal,
+  //   discountAmount,
+  //   taxAmount,
+  //   total_amount: newTotal,
+  // });
+
+  return { salesReturnId: returnId };
+}
+
 
   // Promotions
   async getPromotions() {
