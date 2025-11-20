@@ -1,3 +1,4 @@
+//#region Path src/components/sales/SalesCard.tsx
 "use client";
 
 import { Badge } from "@/components/ui/badge";
@@ -57,7 +58,13 @@ export default function SalesCard({
         </div>
 
         <div className="text-right">
-          <p className="font-semibold">₹{sale.total_amount}</p>
+          <p className="font-semibold">
+            ₹
+            {Number(sale.total_amount || 0).toLocaleString("en-IN", {
+              minimumFractionDigits: 0,
+              maximumFractionDigits: 0,
+            })}
+          </p>
           <p
             className={`text-sm font-medium capitalize ${getPaymentColor(
               sale.payment_method

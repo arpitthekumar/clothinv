@@ -169,70 +169,7 @@ export function InventoryRow({
             {category?.name || "Uncategorized"}
           </Badge>
         </td>
-
-        <td className="p-2 sm:p-4 text-sm hidden md:table-cell">
-          {product.size || "-"}
-        </td>
-
-        <td className="p-2 sm:p-4 text-sm">{formatIN(product.stock)} units</td>
-
-        <td className="p-2 sm:p-4 font-medium text-sm sm:text-base">
-          <div>₹{formatIN(Number(product.price))}</div>
-          {!isEmployee && product.buyingPrice && (
-            <div className="text-xs text-muted-foreground font-normal">
-              Cost: ₹{formatIN(Number(product.buyingPrice))}
-            </div>
-          )}
-        </td>
-
-        {/* ✅ Show stats for Admins/System Admins */}
-        {!isEmployee ? (
-          <td className="p-2 sm:p-4">
-            {stats ? (
-              <div className="  md:inline-flex gap-3 text-xs sm:text-sm">
-                <div className="flex items-center gap-1 text-green-600 font-semibold">
-                  <TrendingUp className="h-4 w-4" /> ₹{formatIN(stats.profit)}
-                </div>
-                <div className="flex items-center gap-1 text-blue-600">
-                  <IndianRupee className="h-4 w-4" /> {formatIN(stats.revenue)}
-                </div>
-                <div className="flex items-center gap-1 text-orange-600">
-                  <IndianRupee className="h-4 w-4" /> {formatIN(stats.cost)}
-                </div>
-                <div className="flex items-center gap-1">
-                  <Package className="h-4 w-4" /> {formatIN(stats.quantity)}
-                </div>
-              </div>
-            ) : (
-              <span className="text-xs text-muted-foreground">No sales</span>
-            )}
-          </td>
-        ) : (
-          <td className="p-2 sm:p-4 hidden lg:table-cell text-sm text-muted-foreground text-center">
-            —
-          </td>
-        )}
-
-        <td className="p-2 sm:p-4 hidden sm:table-cell">
-          <span
-            className={`
-      inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold
-      ${
-        getStockStatus(product.stock, product.minStock ?? undefined).label ===
-        "In Stock"
-          ? "bg-green-100 text-green-700"
-          : getStockStatus(product.stock, product.minStock ?? undefined)
-              .label === "Low Stock"
-          ? "bg-yellow-100 text-yellow-700"
-          : "bg-red-100 text-red-700"
-      }
-    `}
-          >
-            {getStockStatus(product.stock, product.minStock ?? undefined).label}
-          </span>
-        </td>
-
-        <td className="p-2 sm:p-4">
+<td className="p-2 sm:p-4">
           <div className="flex gap-1 sm:gap-2 flex-wrap md:flex-nowrap">
             {showTrash ? (
               <>
@@ -297,6 +234,69 @@ export function InventoryRow({
             )}
           </div>
         </td>
+        <td className="p-2 sm:p-4 text-sm hidden md:table-cell">
+          {product.size || "-"}
+        </td>
+
+        <td className="p-2 sm:p-4 text-sm">{formatIN(product.stock)} units</td>
+
+        <td className="p-2 sm:p-4 font-medium text-sm sm:text-base">
+          <div>₹{formatIN(Number(product.price))}</div>
+          {!isEmployee && product.buyingPrice && (
+            <div className="text-xs text-muted-foreground font-normal">
+              Cost: ₹{formatIN(Number(product.buyingPrice))}
+            </div>
+          )}
+        </td>
+
+        {/* ✅ Show stats for Admins/System Admins */}
+        {!isEmployee ? (
+          <td className="p-2 sm:p-4">
+            {stats ? (
+              <div className="  md:inline-flex gap-3 text-xs sm:text-sm">
+                <div className="flex items-center gap-1 text-green-600 font-semibold">
+                  <TrendingUp className="h-4 w-4" /> ₹{formatIN(stats.profit)}
+                </div>
+                <div className="flex items-center gap-1 text-blue-600">
+                  <IndianRupee className="h-4 w-4" /> {formatIN(stats.revenue)}
+                </div>
+                <div className="flex items-center gap-1 text-orange-600">
+                  <IndianRupee className="h-4 w-4" /> {formatIN(stats.cost)}
+                </div>
+                <div className="flex items-center gap-1">
+                  <Package className="h-4 w-4" /> {formatIN(stats.quantity)}
+                </div>
+              </div>
+            ) : (
+              <span className="text-xs text-muted-foreground">No sales</span>
+            )}
+          </td>
+        ) : (
+          <td className="p-2 sm:p-4 hidden lg:table-cell text-sm text-muted-foreground text-center">
+            —
+          </td>
+        )}
+
+        <td className="p-2 sm:p-4 hidden sm:table-cell">
+          <span
+            className={`
+      inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold
+      ${
+        getStockStatus(product.stock, product.minStock ?? undefined).label ===
+        "In Stock"
+          ? "bg-green-100 text-green-700"
+          : getStockStatus(product.stock, product.minStock ?? undefined)
+              .label === "Low Stock"
+          ? "bg-yellow-100 text-yellow-700"
+          : "bg-red-100 text-red-700"
+      }
+    `}
+          >
+            {getStockStatus(product.stock, product.minStock ?? undefined).label}
+          </span>
+        </td>
+
+        
       </tr>
 
       {/* 🗑️ Move to Trash confirmation */}
