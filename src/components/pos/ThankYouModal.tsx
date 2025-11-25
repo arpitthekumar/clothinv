@@ -1,5 +1,7 @@
 "use client";
 
+import { useRef, useState, useEffect } from "react";
+import html2canvas from "html2canvas";
 import {
   Dialog,
   DialogContent,
@@ -8,9 +10,6 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Printer, Share2, Send } from "lucide-react";
-import { useRef, useState } from "react";
-import jsPDF from "jspdf";
-import html2canvas from "html2canvas";
 import LabelBill from "./LabelBill";
 import { SaleData } from "@/lib/type";
 import { InvoiceData } from "@/lib/printer";
@@ -28,7 +27,9 @@ export function ThankYouModal({
   invoiceData,
   customerPhone,
 }: ThankYouModalProps) {
-  const invoiceRef = useRef<HTMLDivElement>(null);
+  const billRef = useRef<HTMLDivElement>(null);
+
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
   const saleData: SaleData | null = invoiceData
@@ -38,8 +39,8 @@ export function ThankYouModal({
           quantity: item.quantity,
           price: item.price,
           total: item.total,
-          discount_value: item.discountValue || item.discount_value || 0,
-          discount_amount: item.discountAmount || item.discount_amount || 0,
+          discount_value: item.discountValue || 0,
+          discount_amount: item.discountAmount || 0,
         })),
         totalAmount: invoiceData.total ?? 0,
         paymentMethod: invoiceData.paymentMethod ?? "Cash",
@@ -49,173 +50,153 @@ export function ThankYouModal({
         customerPhone: customerPhone || "N/A",
       }
     : null;
-  
-  // Get sale-level discount from invoiceData
+
   const saleDiscountAmount = invoiceData?.discountAmount || 0;
 
-  // ✅ Generate PDF blob for sharing/downloading
-  const generatePDF = async (): Promise<Blob | null> => {
-    if (!invoiceRef.current) return null;
+  // -------- Helpers ----------
+  const waitForImages = async (root: HTMLElement) => {
+    const imgs = Array.from(root.querySelectorAll("img"));
+    await Promise.all(
+      imgs.map(
+        (img) =>
+          new Promise<void>((resolve) => {
+            if (img.complete) resolve();
+            img.onload = () => resolve();
+            img.onerror = () => resolve();
+          })
+      )
+    );
+  };
+
+  const generateCanvas = async () => {
+    if (!billRef.current) return null;
+
+    await waitForImages(billRef.current);
+
+    return html2canvas(billRef.current, {
+      backgroundColor: "#ffffff",
+      scale: 2,
+      useCORS: true,
+      allowTaint: false,
+    });
+  };
+
+  const canvasToBlob = (canvas: HTMLCanvasElement) =>
+    new Promise<Blob>((resolve, reject) => {
+      canvas.toBlob(
+        (blob) => {
+          if (blob) resolve(blob);
+          else reject("Unable to create blob");
+        },
+        "image/png",
+        1
+      );
+    });
+
+  // ---------- AUTO GENERATE IMAGE WHEN MODAL OPENS ----------
+  useEffect(() => {
+    if (!open) return;
+
+    let cancelled = false;
+
+    const generatePreview = async () => {
+      try {
+        setLoading(true);
+
+        await new Promise((r) => setTimeout(r, 150)); // allow UI render
+
+        const canvas = await generateCanvas();
+        if (!canvas || cancelled) return;
+
+        const blob = await canvasToBlob(canvas);
+        if (cancelled) return;
+
+        const url = URL.createObjectURL(blob);
+        setPreviewUrl(url);
+      } catch (err) {
+        console.error("Preview image generation failed:", err);
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    };
+
+    generatePreview();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [open]);
+
+  // ---------- CLEAR IMAGE WHEN MODAL CLOSES ----------
+  useEffect(() => {
+    if (!open && previewUrl) {
+      URL.revokeObjectURL(previewUrl);
+      setPreviewUrl(null);
+      setLoading(false);
+    }
+  }, [open, previewUrl]);
+
+  // ---------- Download ----------
+  const handleDownloadImage = () => {
+    if (!previewUrl) return;
+
+    const a = document.createElement("a");
+    a.href = previewUrl;
+    a.download = `Invoice_${saleData?.invoiceNumber}.png`;
+    a.click();
+  };
+
+  // ---------- Share ----------
+  const handleShareImage = async () => {
+    if (!previewUrl) return;
+
+    setLoading(true);
 
     try {
-      const element = invoiceRef.current;
+      const blob = await (await fetch(previewUrl)).blob();
+      const file = new File([blob], "invoice.png", { type: "image/png" });
 
-      // Force element width to a fixed size during capture
-      const originalWidth = element.style.width;
-      element.style.width = `${element.scrollWidth}px`;
+      const shareData = { files: [file], title: "Invoice", text: "Your Invoice" };
 
-      const canvas = await html2canvas(element, {
-        backgroundColor: "#ffffff",
-        scale: 3,
-        useCORS: true,
-        allowTaint: true,
-        scrollX: 0,
-        scrollY: 0,
-        windowWidth: element.scrollWidth,
-      });
-
-      // Restore element width after render
-      element.style.width = originalWidth;
-
-      const imgData = canvas.toDataURL("image/png");
-      const contentWidth = canvas.width;
-      const contentHeight = canvas.height;
-
-      const pdfWidth = contentWidth * 0.75;
-      const pdfHeight = contentHeight * 0.75;
-
-      const pdf = new jsPDF({
-        orientation: "portrait",
-        unit: "pt",
-        format: [pdfWidth, pdfHeight],
-      });
-
-      // ✅ Full fill, no edges visible
-      pdf.addImage(imgData, "PNG", 0, 0, pdfWidth + 3, pdfHeight);
-
-      return pdf.output("blob");
-    } catch (err) {
-      console.error("PDF Generation Failed:", err);
-      return null;
-    }
-  };
-
-  // ✅ Download PDF
-  const handleDownloadPDF = async () => {
-    setLoading(true);
-    const pdfBlob = await generatePDF();
-    if (pdfBlob && saleData) {
-      const pdfFile = new File(
-        [pdfBlob],
-        `Invoice_${saleData.invoiceNumber}.pdf`,
-        { type: "application/pdf" }
-      );
-      const url = URL.createObjectURL(pdfFile);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = pdfFile.name;
-      a.click();
-      URL.revokeObjectURL(url);
-    }
-    setLoading(false);
-  };
-
-  // ✅ Share PDF via Web Share API
-  const handleSharePDF = async () => {
-    setLoading(true);
-    const pdfBlob = await generatePDF();
-
-    if (pdfBlob && saleData) {
-      const pdfFile = new File(
-        [pdfBlob],
-        `Invoice_${saleData.invoiceNumber}.pdf`,
-        { type: "application/pdf" }
-      );
-
-      try {
-        const shareData = {
-          files: [pdfFile],
-          title: "Invoice",
-          text: `Here is your invoice from Bhootia Fabric Collection`,
-        };
-
-        // ✅ 1️⃣ Normal PWA/Phone Share
-        if (navigator.share && navigator.canShare?.(shareData)) {
-          await navigator.share(shareData);
-          setLoading(false);
-          return;
-        }
-
-        // ✅ 2️⃣ Android native intent fallback (same as your image version)
-        if (/Android/i.test(navigator.userAgent)) {
-          const blobUrl = URL.createObjectURL(pdfBlob);
-
-          // Create Android intent for PDF
-          const intentUrl = `intent:${encodeURIComponent(
-            blobUrl
-          )}#Intent;action=android.intent.action.SEND;type=application/pdf;end;`;
-
-          window.location.assign(intentUrl);
-          setLoading(false);
-          return;
-        }
-
-        // ✅ 3️⃣ Fallback: trigger download
-        alert(
-          "Sharing not supported on this device. The invoice will be downloaded instead."
-        );
-        const url = URL.createObjectURL(pdfFile);
-        const a = document.createElement("a");
-        a.href = url;
-        a.download = pdfFile.name;
-        a.click();
-        URL.revokeObjectURL(url);
-      } catch (err) {
-        console.error("Share failed:", err);
-        alert("Sharing failed. Please try downloading manually.");
+      if (navigator.share && navigator.canShare?.(shareData)) {
+        await navigator.share(shareData);
+        return;
       }
-    }
 
-    setLoading(false);
+      // Android fallback intent
+      if (/Android/i.test(navigator.userAgent)) {
+        const intentUrl = `intent:${encodeURIComponent(
+          previewUrl
+        )}#Intent;action=android.intent.action.SEND;type=image/png;end;`;
+
+        window.location.assign(intentUrl);
+        return;
+      }
+
+      alert("Sharing not supported, downloading instead.");
+      handleDownloadImage();
+    } catch (err) {
+      console.error("Share failed:", err);
+    } finally {
+      setLoading(false);
+    }
   };
 
-  // ✅ Send WhatsApp Message Only (no PDF)
-  const handleSendToCustomer = async () => {
-    // Skip WhatsApp if using default/placeholder phone number
-    if (
-      !customerPhone ||
-      customerPhone === "0000000000" ||
-      customerPhone === "N/A"
-    ) {
-      return alert("Customer phone number not available for WhatsApp sharing");
+  // ---------- WhatsApp ----------
+  const handleSendWhatsApp = () => {
+    if (!customerPhone || customerPhone === "N/A") {
+      alert("Invalid phone number");
+      return;
     }
 
-    setLoading(true);
+    const msg = `Hello ${
+      saleData?.customerName
+    }! 😊\nThank you for shopping with *Bhootia Fabric Collection*!\nInvoice No: ${
+      saleData?.invoiceNumber
+    }\nTotal: ₹${saleData?.totalAmount}\nVisit again! ❤️`;
 
-    if (saleData) {
-      // ✅ Custom WhatsApp message
-      const message = `Hello ${saleData.customerName || "dear customer"}! 😊
-Thank you for shopping with *Bhootia Fabric Collection* 🛍️
-
-🧾 *Invoice Details*
-• Invoice No: ${saleData.invoiceNumber}
-• Date: ${new Date(saleData.createdAt ?? new Date()).toLocaleDateString()}
-• Payment Method: ${saleData.paymentMethod}
-• Total Amount: ₹${Math.round(saleData.totalAmount)}
-
-We appreciate your purchase ❤️`;
-
-      // ✅ Create WhatsApp message link
-      const whatsappUrl = `https://wa.me/${customerPhone.replace(
-        /[^0-9]/g,
-        ""
-      )}?text=${encodeURIComponent(message)}`;
-
-      // ✅ Open WhatsApp directly
-      window.open(whatsappUrl, "_blank");
-    }
-
-    setLoading(false);
+    const url = `https://wa.me/${customerPhone}?text=${encodeURIComponent(msg)}`;
+    window.open(url, "_blank");
   };
 
   return (
@@ -227,29 +208,41 @@ We appreciate your purchase ❤️`;
           </DialogTitle>
         </DialogHeader>
 
-        {/* Bill Preview */}
-        {/* Bill Preview */}
-        <div className="flex justify-center">
-          <div ref={invoiceRef} className="scale-[0.95] origin-top">
-            {saleData && <LabelBill data={saleData} discountAmount={saleDiscountAmount} />}
-          </div>
+        {/* PREVIEW */}
+        <div className="flex justify-center py-3">
+          {previewUrl ? (
+            <img
+              src={previewUrl}
+              className="w-[280px] rounded border shadow-sm"
+              alt="Invoice Preview"
+            />
+          ) : (
+            <div ref={billRef}>
+              {saleData && (
+                <LabelBill
+                  data={saleData}
+                  discountAmount={saleDiscountAmount}
+                />
+              )}
+            </div>
+          )}
         </div>
 
-        {/* Buttons */}
+        {/* ACTIONS */}
         <div className="mt-4 flex gap-2 flex-wrap justify-center">
-          <Button onClick={handleDownloadPDF} disabled={loading}>
+          <Button disabled={!previewUrl || loading} onClick={handleDownloadImage}>
             <Printer className="mr-2 h-4 w-4" />
-            {loading ? "Processing..." : "Download PDF"}
+            {loading ? "Processing..." : "Download"}
           </Button>
 
-          <Button onClick={handleSharePDF} disabled={loading}>
+          <Button disabled={!previewUrl || loading} onClick={handleShareImage}>
             <Share2 className="mr-2 h-4 w-4" />
-            {loading ? "Processing..." : "Share PDF"}
+            {loading ? "Processing..." : "Share"}
           </Button>
 
-          <Button onClick={handleSendToCustomer} disabled={loading}>
+          <Button disabled={loading} onClick={handleSendWhatsApp}>
             <Send className="mr-2 h-4 w-4" />
-            {loading ? "Processing..." : "Send to Customer"}
+            WhatsApp
           </Button>
         </div>
       </DialogContent>
