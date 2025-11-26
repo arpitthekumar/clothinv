@@ -7,30 +7,38 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { Printer, Share2, Send } from "lucide-react";
-import { useRef, useState } from "react";
-import jsPDF from "jspdf";
+import { Printer, Share2, Send, ImageDown, RotateCcw } from "lucide-react";
+import { useEffect, useState, useRef } from "react";
 import html2canvas from "html2canvas";
+import { jsPDF } from "jspdf";
 import LabelBill from "./LabelBill";
 import { SaleData } from "@/lib/type";
 import { InvoiceData } from "@/lib/printer";
-
-interface ThankYouModalProps {
-  open: boolean;
-  onOpenChange: (open: boolean) => void;
-  invoiceData: InvoiceData | null;
-  customerPhone: string;
-}
 
 export function ThankYouModal({
   open,
   onOpenChange,
   invoiceData,
   customerPhone,
-}: ThankYouModalProps) {
+}: {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  invoiceData: InvoiceData | null;
+  customerPhone: string;
+}) {
   const invoiceRef = useRef<HTMLDivElement>(null);
-  const [loading, setLoading] = useState(false);
 
+  const [loading, setLoading] = useState(false);
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [base64Image, setBase64Image] = useState<string | null>(null);
+  const [hasRenderedOnce, setHasRenderedOnce] = useState(false);
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
+
+  /*
+    -------------------------------------------------------------
+    SALE DATA
+    -------------------------------------------------------------
+  */
   const saleData: SaleData | null = invoiceData
     ? {
         items: (invoiceData.items ?? []).map((item: any) => ({
@@ -38,8 +46,8 @@ export function ThankYouModal({
           quantity: item.quantity,
           price: item.price,
           total: item.total,
-          discount_value: item.discountValue || item.discount_value || 0,
-          discount_amount: item.discountAmount || item.discount_amount || 0,
+          discount_value: item.discountValue || 0,
+          discount_amount: item.discountAmount || 0,
         })),
         totalAmount: invoiceData.total ?? 0,
         paymentMethod: invoiceData.paymentMethod ?? "Cash",
@@ -49,207 +57,247 @@ export function ThankYouModal({
         customerPhone: customerPhone || "N/A",
       }
     : null;
-  
-  // Get sale-level discount from invoiceData
-  const saleDiscountAmount = invoiceData?.discountAmount || 0;
 
-  // ✅ Generate PDF blob for sharing/downloading
-  const generatePDF = async (): Promise<Blob | null> => {
-    if (!invoiceRef.current) return null;
+  const discountAmount = invoiceData?.discountAmount || 0;
+
+  /*
+    -------------------------------------------------------------
+    GENERATE IMAGE — RUN ONLY ONE TIME
+    -------------------------------------------------------------
+  */
+  const generatePreviewOnce = async () => {
+    if (hasRenderedOnce) return;
+    if (!invoiceRef.current) return;
+
+    setLoading(true);
+    setErrorMsg(null);
 
     try {
-      const element = invoiceRef.current;
+      await new Promise((res) => setTimeout(res, 150)); // allow DOM paint
 
-      // Force element width to a fixed size during capture
-      const originalWidth = element.style.width;
-      element.style.width = `${element.scrollWidth}px`;
-
-      const canvas = await html2canvas(element, {
-        backgroundColor: "#ffffff",
+      const canvas = await html2canvas(invoiceRef.current, {
+        backgroundColor: "#fff",
         scale: 3,
-        useCORS: true,
-        allowTaint: true,
-        scrollX: 0,
-        scrollY: 0,
-        windowWidth: element.scrollWidth,
       });
 
-      // Restore element width after render
-      element.style.width = originalWidth;
-
-      const imgData = canvas.toDataURL("image/png");
-      const contentWidth = canvas.width;
-      const contentHeight = canvas.height;
-
-      const pdfWidth = contentWidth * 0.75;
-      const pdfHeight = contentHeight * 0.75;
-
-      const pdf = new jsPDF({
-        orientation: "portrait",
-        unit: "pt",
-        format: [pdfWidth, pdfHeight],
-      });
-
-      // ✅ Full fill, no edges visible
-      pdf.addImage(imgData, "PNG", 0, 0, pdfWidth + 3, pdfHeight);
-
-      return pdf.output("blob");
+      const dataUrl = canvas.toDataURL("image/png");
+      setPreviewUrl(dataUrl);
+      setBase64Image(dataUrl.replace("data:image/png;base64,", ""));
+      setHasRenderedOnce(true);
     } catch (err) {
-      console.error("PDF Generation Failed:", err);
-      return null;
-    }
-  };
-
-  // ✅ Download PDF
-  const handleDownloadPDF = async () => {
-    setLoading(true);
-    const pdfBlob = await generatePDF();
-    if (pdfBlob && saleData) {
-      const pdfFile = new File(
-        [pdfBlob],
-        `Invoice_${saleData.invoiceNumber}.pdf`,
-        { type: "application/pdf" }
-      );
-      const url = URL.createObjectURL(pdfFile);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = pdfFile.name;
-      a.click();
-      URL.revokeObjectURL(url);
-    }
-    setLoading(false);
-  };
-
-  // ✅ Share PDF via Web Share API
-  const handleSharePDF = async () => {
-    setLoading(true);
-    const pdfBlob = await generatePDF();
-
-    if (pdfBlob && saleData) {
-      const pdfFile = new File(
-        [pdfBlob],
-        `Invoice_${saleData.invoiceNumber}.pdf`,
-        { type: "application/pdf" }
-      );
-
-      try {
-        const shareData = {
-          files: [pdfFile],
-          title: "Invoice",
-          text: `Here is your invoice from Bhootia Fabric Collection`,
-        };
-
-        // ✅ 1️⃣ Normal PWA/Phone Share
-        if (navigator.share && navigator.canShare?.(shareData)) {
-          await navigator.share(shareData);
-          setLoading(false);
-          return;
-        }
-
-        // ✅ 2️⃣ Android native intent fallback (same as your image version)
-        if (/Android/i.test(navigator.userAgent)) {
-          const blobUrl = URL.createObjectURL(pdfBlob);
-
-          // Create Android intent for PDF
-          const intentUrl = `intent:${encodeURIComponent(
-            blobUrl
-          )}#Intent;action=android.intent.action.SEND;type=application/pdf;end;`;
-
-          window.location.assign(intentUrl);
-          setLoading(false);
-          return;
-        }
-
-        // ✅ 3️⃣ Fallback: trigger download
-        alert(
-          "Sharing not supported on this device. The invoice will be downloaded instead."
-        );
-        const url = URL.createObjectURL(pdfFile);
-        const a = document.createElement("a");
-        a.href = url;
-        a.download = pdfFile.name;
-        a.click();
-        URL.revokeObjectURL(url);
-      } catch (err) {
-        console.error("Share failed:", err);
-        alert("Sharing failed. Please try downloading manually.");
-      }
+      console.error("Preview generation failed:", err);
+      setErrorMsg("Failed to generate preview");
     }
 
     setLoading(false);
   };
 
-  // ✅ Send WhatsApp Message Only (no PDF)
-  const handleSendToCustomer = async () => {
-    // Skip WhatsApp if using default/placeholder phone number
-    if (
-      !customerPhone ||
-      customerPhone === "0000000000" ||
-      customerPhone === "N/A"
-    ) {
-      return alert("Customer phone number not available for WhatsApp sharing");
+  // Fire ONLY ONCE per modal open
+  useEffect(() => {
+    if (!open) {
+      setHasRenderedOnce(false);
+      setPreviewUrl(null);
+      setBase64Image(null);
+      return;
     }
 
-    setLoading(true);
+    const timer = setTimeout(generatePreviewOnce, 100);
+    return () => clearTimeout(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open]);
 
-    if (saleData) {
-      // ✅ Custom WhatsApp message
-      const message = `Hello ${saleData.customerName || "dear customer"}! 😊
-Thank you for shopping with *Bhootia Fabric Collection* 🛍️
+  /*
+    -------------------------------------------------------------
+    PDF GENERATOR
+    -------------------------------------------------------------
+  */
+  const generatePDF = async (): Promise<Blob | null> => {
+  if (!invoiceRef.current) return null;
 
-🧾 *Invoice Details*
-• Invoice No: ${saleData.invoiceNumber}
-• Date: ${new Date(saleData.createdAt ?? new Date()).toLocaleDateString()}
-• Payment Method: ${saleData.paymentMethod}
-• Total Amount: ₹${Math.round(saleData.totalAmount)}
+  setLoading(true);
 
-We appreciate your purchase ❤️`;
+  try {
+    const canvas = await html2canvas(invoiceRef.current, {
+      backgroundColor: "#fff",
+      scale: 3,
+    });
 
-      // ✅ Create WhatsApp message link
-      const whatsappUrl = `https://wa.me/${customerPhone.replace(
-        /[^0-9]/g,
-        ""
-      )}?text=${encodeURIComponent(message)}`;
+    const imgData = canvas.toDataURL("image/png");
 
-      // ✅ Open WhatsApp directly
-      window.open(whatsappUrl, "_blank");
-    }
+    // Correct jsPDF initialization
+    const pdf = new jsPDF({
+      orientation: "portrait",
+      unit: "px",
+      format: [canvas.width, canvas.height],
+    });
 
+    pdf.addImage(imgData, "PNG", 0, 0, canvas.width, canvas.height);
+
+    return pdf.output("blob");
+  } catch (e) {
+    console.error("PDF Error:", e);
+    return null;
+  } finally {
     setLoading(false);
+  }
+};
+
+
+  /*
+    -------------------------------------------------------------
+    BUTTONS
+    -------------------------------------------------------------
+  */
+  const downloadPDF = async () => {
+    const blob = await generatePDF();
+    if (!blob) return;
+
+    const file = new File([blob], "invoice.pdf", { type: "application/pdf" });
+    const url = URL.createObjectURL(file);
+
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = file.name;
+    a.click();
+
+    URL.revokeObjectURL(url);
   };
 
+  const sharePDF = async () => {
+    const blob = await generatePDF();
+    if (!blob) return;
+
+    const file = new File([blob], "invoice.pdf", { type: "application/pdf" });
+    const shareData = { files: [file] };
+
+    if (navigator.share && navigator.canShare?.(shareData)) {
+      await navigator.share(shareData);
+      return;
+    }
+
+    const url = URL.createObjectURL(blob);
+    const intentUrl = `intent:${encodeURIComponent(
+      url
+    )}#Intent;action=android.intent.action.SEND;type=application/pdf;end;`;
+
+    window.location.assign(intentUrl);
+  };
+
+  const downloadPNG = () => {
+    if (!previewUrl) return alert("Image not ready");
+
+    const a = document.createElement("a");
+    a.href = previewUrl;
+    a.download = "invoice.png";
+    a.click();
+  };
+
+  const printNative = () => {
+    if (!base64Image) return alert("Image not ready");
+
+    const deep = `wts://print?type=receipt&image=${encodeURIComponent(
+      base64Image
+    )}`;
+
+    window.location.href = deep;
+
+    setTimeout(() => {
+      window.location.href =
+        "https://play.google.com/store/apps/details?id=com.example.wts";
+    }, 1500);
+  };
+
+  const sendWhatsApp = () => {
+    if (!customerPhone || customerPhone === "N/A")
+      return alert("Invalid number");
+
+    const msg = `Hello ${
+      saleData?.customerName
+    }!\nThanks for shopping.\nInvoice: ${
+      saleData?.invoiceNumber
+    }\nTotal: ₹${saleData?.totalAmount}`;
+
+    window.open(
+      `https://wa.me/${customerPhone}?text=${encodeURIComponent(msg)}`,
+      "_blank"
+    );
+  };
+
+  /*
+    -------------------------------------------------------------
+    UI
+    -------------------------------------------------------------
+  */
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-[380px]">
+      <DialogContent aria-describedby="invoice-description" className="max-w-[380px]">
         <DialogHeader>
-          <DialogTitle className="text-lg font-bold">
-            Thank you for your purchase!
-          </DialogTitle>
+          <DialogTitle>Invoice Receipt</DialogTitle>
         </DialogHeader>
 
-        {/* Bill Preview */}
-        {/* Bill Preview */}
-        <div className="flex justify-center">
-          <div ref={invoiceRef} className="scale-[0.95] origin-top">
-            {saleData && <LabelBill data={saleData} discountAmount={saleDiscountAmount} />}
+        <p id="invoice-description" className="hidden">
+          Customer invoice preview.
+        </p>
+
+        <div className="flex justify-center py-2 relative">
+          {!previewUrl && (
+            <div className="absolute text-gray-500 text-sm">
+              {loading ? "Rendering…" : "Preparing…"}
+            </div>
+          )}
+
+          <div
+            ref={invoiceRef}
+            className="scale-[0.93] origin-top "
+          >
+            {saleData && (
+              <LabelBill data={saleData} discountAmount={discountAmount} />
+            )}
           </div>
         </div>
 
-        {/* Buttons */}
-        <div className="mt-4 flex gap-2 flex-wrap justify-center">
-          <Button onClick={handleDownloadPDF} disabled={loading}>
-            <Printer className="mr-2 h-4 w-4" />
-            {loading ? "Processing..." : "Download PDF"}
+        {errorMsg && (
+          <p className="text-red-500 text-center text-sm">{errorMsg}</p>
+        )}
+
+        <div className="flex flex-wrap gap-2 justify-center mt-3">
+          <Button onClick={downloadPDF} disabled={loading}>
+            <Printer className="mr-1 h-4 w-4" /> PDF
           </Button>
 
-          <Button onClick={handleSharePDF} disabled={loading}>
-            <Share2 className="mr-2 h-4 w-4" />
-            {loading ? "Processing..." : "Share PDF"}
+          <Button onClick={sharePDF} disabled={loading}>
+            <Share2 className="mr-1 h-4 w-4" /> Share
           </Button>
 
-          <Button onClick={handleSendToCustomer} disabled={loading}>
-            <Send className="mr-2 h-4 w-4" />
-            {loading ? "Processing..." : "Send to Customer"}
+          <Button onClick={downloadPNG} disabled={!previewUrl || loading}>
+            <ImageDown className="mr-1 h-4 w-4" /> PNG
+          </Button>
+
+          <Button
+            onClick={printNative}
+            disabled={!base64Image || loading}
+            className="bg-blue-600 text-white"
+          >
+            Print
+          </Button>
+
+          <Button onClick={sendWhatsApp} disabled={loading}>
+            <Send className="mr-1 h-4 w-4" /> WhatsApp
+          </Button>
+        </div>
+
+        <div className="flex justify-center mt-2">
+          <Button
+            variant="ghost"
+            onClick={() => {
+              setHasRenderedOnce(false);
+              setPreviewUrl(null);
+              setBase64Image(null);
+              generatePreviewOnce();
+            }}
+            disabled={loading}
+          >
+            <RotateCcw className="mr-1 h-4 w-4" /> Regenerate
           </Button>
         </div>
       </DialogContent>
