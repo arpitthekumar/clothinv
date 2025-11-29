@@ -9,10 +9,15 @@ interface LabelBillProps {
   data: SaleData;
   taxPercent?: number;
   discountAmount?: number;
+  onBarcode?: (b64: string | null) => void;
 }
 
+
 const LabelBill = React.forwardRef<HTMLDivElement, LabelBillProps>(
-  ({ data, taxPercent = 0, discountAmount = 0 }, ref) => {
+  ({ data, taxPercent = 0, discountAmount = 0, onBarcode }, ref) => {
+    const [barcodeBase64, setBarcodeBase64] = React.useState<string | null>(
+      null
+    );
     // ✅ Convert UTC → IST safely using date-fns-tz
     const createdAtRaw =
       typeof data.createdAt === "string"
@@ -169,6 +174,7 @@ const LabelBill = React.forwardRef<HTMLDivElement, LabelBillProps>(
             height={60}
             displayValue={true}
             className="max-w-full"
+            onBase64={(b64) => onBarcode?.(b64)}
           />
         </div>
 

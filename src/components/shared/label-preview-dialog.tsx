@@ -199,10 +199,11 @@ export function LabelPreviewDialog({
       window.location.href = deepLink;
 
       // fallback after 1.5 sec
-      setTimeout(() => {
-        window.location.href =
-          "https://play.google.com/store/apps/details?id=com.example.wts";
-      }, 1500);
+
+      // setTimeout(() => {
+      //   window.location.href =
+      //     "https://play.google.com/store/apps/details?id=com.example.wts";
+      // }, 1500);
     } catch (err) {
       console.error("Native print failed:", err);
       alert("Failed to send to native app.");
