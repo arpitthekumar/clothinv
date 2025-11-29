@@ -57,21 +57,21 @@ export function ThankYouModal({
   // ====== SALE DATA ======
   const saleData: SaleData | null = invoiceData
     ? {
-        items: (invoiceData.items ?? []).map((item: any) => ({
-          name: item.name,
-          quantity: item.quantity,
-          price: item.price,
-          total: item.total,
-          discount_value: item.discountValue || 0,
-          discount_amount: item.discountAmount || 0,
-        })),
-        totalAmount: invoiceData.total ?? 0,
-        paymentMethod: invoiceData.paymentMethod ?? "Cash",
-        invoiceNumber: invoiceData.invoiceNumber ?? "N/A",
-        createdAt: invoiceData.date ?? new Date().toISOString(),
-        customerName: invoiceData.customerName || "Walk-in Customer",
-        customerPhone: customerPhone || "N/A",
-      }
+      items: (invoiceData.items ?? []).map((item: any) => ({
+        name: item.name,
+        quantity: item.quantity,
+        price: item.price,
+        total: item.total,
+        discount_value: item.discountValue || 0,
+        discount_amount: item.discountAmount || 0,
+      })),
+      totalAmount: invoiceData.total ?? 0,
+      paymentMethod: invoiceData.paymentMethod ?? "Cash",
+      invoiceNumber: invoiceData.invoiceNumber ?? "N/A",
+      createdAt: invoiceData.date ?? new Date().toISOString(),
+      customerName: invoiceData.customerName || "Walk-in Customer",
+      customerPhone: customerPhone || "N/A",
+    }
     : null;
 
   const discountAmount = invoiceData?.discountAmount || 0;
@@ -209,20 +209,66 @@ export function ThankYouModal({
     }
   };
 
+  // ------------------- ADD THIS AT TOP OF FILE -------------------
+
+  /**
+   * Safely parse ANY datetime (MySQL, ISO, UTC, string, null)
+   * And converts it into IST (Indian Standard Time)
+   */
+  const parseToIST = (input: any): Date => {
+    if (!input) return new Date();
+
+    let raw =
+      typeof input === "string"
+        ? input.replace(" ", "T") // convert MySQL "2025-01-29 10:22" → ISO
+        : input;
+
+    // If it's a string but does NOT end in Z → force UTC so IST conversion works
+    if (typeof raw === "string" && !raw.endsWith("Z")) {
+      raw += "Z";
+    }
+
+    const utc = new Date(raw);
+
+    // If still invalid → fallback to now
+    if (isNaN(utc.getTime())) {
+      return new Date();
+    }
+
+    // Add IST offset: 5 hours 30 minutes
+    const IST_OFFSET = 5.5 * 60 * 60 * 1000;
+    return new Date(utc.getTime() + IST_OFFSET);
+  };
+
+  // --------------------------------------------------------------------
+
+
+
+
+  // ------------------ YOUR ORIGINAL COMPONENT BELOW -------------------
+
   const printFast = () => {
     if (!saleData) return;
 
-    const raw = saleData.createdAt
-      ? saleData.createdAt.toString().replace(" ", "T")
-      : new Date().toISOString();
+    // Convert createdAt → IST safely
+    const ist = parseToIST(saleData.createdAt);
 
-    const createdAt = new Date(raw);
-    const dateStr = createdAt.toLocaleDateString("en-IN");
-    const timeStr = createdAt.toLocaleTimeString("en-IN", {
-      hour: "2-digit",
-      minute: "2-digit",
+    // Format date: dd/MM/yyyy
+    const formattedDate = ist.toLocaleDateString("en-IN", {
+      day: "2-digit",
+      month: "2-digit",
+      year: "numeric",
     });
 
+    // Format time: 12-hour "H:mm"
+    let hour = ist.getHours();
+    const minute = ist.getMinutes().toString().padStart(2, "0");
+    if (hour > 12) hour -= 12;
+    if (hour === 0) hour = 12;
+
+    const formattedTime = `${hour}:${minute}`;
+
+    // Calculate totals
     const itemsWithTotals = saleData.items.map((item) => ({
       ...item,
       itemSubtotal: item.price * item.quantity,
@@ -236,23 +282,25 @@ export function ThankYouModal({
       discountAmount > 0
         ? Math.round(discountAmount)
         : Math.round(
-            itemsWithTotals.reduce((s, i) => s + (i.discount_amount || 0), 0)
-          );
+          itemsWithTotals.reduce((s, i) => s + (i.discount_amount || 0), 0)
+        );
 
     const total = subtotal - totalDiscount;
 
+    // Format numbers like 25,000
     const formatIN = (num: number) =>
       num.toLocaleString("en-IN", {
         minimumFractionDigits: 0,
         maximumFractionDigits: 0,
       });
 
+    // Build fast-print object
     const fastData = {
       invoiceNumber: saleData.invoiceNumber,
       customerName: saleData.customerName,
       customerPhone: saleData.customerPhone,
-      date: dateStr,
-      time: timeStr,
+      date: formattedDate,
+      time: formattedTime,
       paymentMethod: saleData.paymentMethod,
       items: saleData.items.map((i) => ({
         name: i.name,
@@ -266,12 +314,15 @@ export function ThankYouModal({
       barcode: barcodeBase64,
     };
 
+    // Encode for deep link
     const json = JSON.stringify(fastData);
     const base64 = btoa(unescape(encodeURIComponent(json)));
     const deepLink = `wts://receipt?json=${encodeURIComponent(base64)}`;
 
+    // Trigger Android App
     window.location.href = deepLink;
   };
+
 
   const sendWhatsApp = () => {
     if (!customerPhone || customerPhone === "N/A")
