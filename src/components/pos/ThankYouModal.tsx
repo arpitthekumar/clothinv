@@ -80,11 +80,7 @@ export function ThankYouModal({
   // SELECT HANDLERS
   // ============================================================
 
-  // ---- TEXT selected (NO IMAGE / NO PDF) ----
-  const handleSelectText = () => {
-    setSelectedType("TEXT");
-    setStep(2);
-  };
+ 
 
   // ---- IMAGE selected → generate PNG ----
   const handleSelectImage = async () => {
@@ -379,30 +375,24 @@ export function ThankYouModal({
           </div>
         )}
 
+        <div className="flex flex-col gap-3 mt-6">
+          <Button onClick={sendWhatsApp}>
+            <Send className="mr-1 h-4 w-4" /> WhatsApp
+          </Button>
+          <Button onClick={printFast} className="bg-green-600 text-white">
+            Fast Print
+          </Button>
+
+        </div>
         {/* STEP 1 — SELECT MODE */}
         {step === 1 && (
           <div className="flex flex-col gap-3 mt-6">
-            <Button onClick={handleSelectText}>Text</Button>
             <Button onClick={handleSelectImage}>Image</Button>
             <Button onClick={handleSelectPDF}>PDF</Button>
           </div>
         )}
 
         {/* STEP 2 — TEXT OPTIONS */}
-        {step === 2 && selectedType === "TEXT" && (
-          <div className="flex flex-col gap-3 mt-6">
-            <Button onClick={sendWhatsApp}>
-              <Send className="mr-1 h-4 w-4" /> WhatsApp
-            </Button>
-            <Button onClick={printFast} className="bg-green-600 text-white">
-              Fast Print
-            </Button>
-
-            <Button variant="ghost" onClick={() => setStep(1)} className="mt-3">
-              <RotateCcw className="mr-1 h-4 w-4" /> Back
-            </Button>
-          </div>
-        )}
 
         {/* STEP 2 — IMAGE OPTIONS */}
         {step === 2 && selectedType === "IMAGE" && (

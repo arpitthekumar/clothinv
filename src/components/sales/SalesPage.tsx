@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Sidebar } from "@/components/shared/sidebar";
 import { Header } from "@/components/shared/header";
 
@@ -8,94 +8,154 @@ import { normalizeItems } from "@/lib/json";
 import { ThankYouModal } from "@/components/pos/ThankYouModal";
 import { useAuth } from "@/hooks/use-auth";
 import { useSales } from "./useSales";
+import DateRangePicker from "@/components/reports/DateRangePicker";
 
 import SalesSearchBar from "./SalesSearchBar";
 import SalesList from "./SalesList";
 import ReturnModal from "./ReturnModal";
 import RequireAuth from "@/app/_components/require-auth";
+import { queryClient } from "@/lib/queryClient";
 
-// ------------------------
-// TYPES
-// ------------------------
-interface ReturnItem {
-  productId: string;
-  name: string;
-  price: number;
-  maxQuantity: number;
-  quantity: number;
-}
-
-interface SaleType {
-  id: string;
-  invoice_number: string;
-  created_at: string;
-  total_amount: number;
-  payment_method: string;
-  customer_name?: string;
-  customer_phone?: string;
-  items: any;
-}
-
-interface InvoiceItem {
-  name: string;
-  quantity: number;
-  price: number;
-  total: number;
-}
-
-interface InvoiceDataType {
-  invoiceNumber: string;
-  date: Date;
-  items: InvoiceItem[];
-  subtotal: number;
-  tax: number;
-  total: number;
-  paymentMethod: string;
-  customerName: string;
-}
-
-// ------------------------
-// PAGE COMPONENT
-// ------------------------
 export default function SalesPage() {
+  // ------------------------ STATE ------------------------
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
   const [showTrash, setShowTrash] = useState(false);
+  const [limit, setLimit] = useState<number>(20);
+  const [payment, setPayment] = useState<string>("");
+  const [productId, setProductId] = useState<string>("");
 
-  const [returnItems, setReturnItems] = useState<ReturnItem[]>([]);
-  const [selectedSale, setSelectedSale] = useState<SaleType | null>(null);
+  // 🔥 ONLY USE THESE FOR DATE (REMOVE old start/end)
+  const [startDate, setStartDate] = useState("");
+  const [endDate, setEndDate] = useState("");
+
+  const [datePickerOpen, setDatePickerOpen] = useState(false);
+  const [dateRange, setDateRange] = useState("");
+
+  const [returnItems, setReturnItems] = useState<any[]>([]);
+  const [selectedSale, setSelectedSale] = useState<any>(null);
   const [returnModalOpen, setReturnModalOpen] = useState(false);
 
-  const [invoiceData, setInvoiceData] = useState<InvoiceDataType | null>(null);
+  const [invoiceData, setInvoiceData] = useState<any>(null);
   const [thankYouOpen, setThankYouOpen] = useState(false);
   const [customerPhone, setCustomerPhone] = useState("");
+  const [searchBy, setSearchBy] = useState("all");
 
   const { user } = useAuth();
   const isSystemAdmin = user?.role === "admin";
+  useEffect(() => {
+    if (!dateRange) {
+      setStartDate("");
+      setEndDate("");
+      refresh(true);
+      return;
+    }
 
+    const now = new Date();
+    let from: Date | null = null;
+    let to: Date | null = new Date();
+
+    switch (dateRange) {
+
+      case "today":
+        from = new Date();
+        from.setHours(0, 0, 0, 0);
+        break;
+
+      case "yesterday":
+        from = new Date(now);
+        from.setDate(from.getDate() - 1);
+        from.setHours(0, 0, 0, 0);
+
+        to = new Date(from);
+        to.setHours(23, 59, 59, 999);
+        break;
+
+      case "7days":
+        from = new Date();
+        from.setDate(from.getDate() - 7);
+        break;
+
+      case "month":
+        from = new Date(now.getFullYear(), now.getMonth(), 1);
+        break;
+    }
+
+    if (from) {
+      setStartDate(from.toISOString());
+      setEndDate(to.toISOString());
+      refresh(true);
+    }
+  }, [dateRange]);
+
+
+  // ------------------------ QUERY ------------------------
   const { salesQuery, deleteSale, restoreSale, permanentDelete, returnSale } =
-    useSales();
+    useSales({
+      limit,
+      deleted: showTrash,
+      search: searchTerm,
+      searchBy,             // ← add this
+      payment,
+      product: productId,
+      start: startDate,
+      end: endDate,
+    });
 
-  // ------------------------
-  // FILTERED SALES
-  // ------------------------
-  const filteredSales =
-    salesQuery.data?.filter((sale: SaleType) => {
-      const matchTerm =
-        sale.invoice_number?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        sale.total_amount.toString().includes(searchTerm) ||
-        sale.payment_method?.toLowerCase().includes(searchTerm.toLowerCase());
+  // Refresh helper
+  function refresh(reset: boolean = false) {
+    if (reset) {
+      queryClient.removeQueries({ queryKey: ["/api/sales/load"] });
+    }
+    salesQuery.refetch();
+  }
 
-      return (
-        matchTerm &&
-        (showTrash ? (sale as any).deleted : !(sale as any).deleted)
-      );
-    }) || [];
+  // ------------------------ MERGED SALES ------------------------
+  const allSales = useMemo(() => {
+    const pages = salesQuery.data?.pages || [];
+    const merged = pages.flatMap((p: any) => p?.data || []);
 
-  // ------------------------
-  // RETURN LOGIC
-  // ------------------------
-  function openReturnDialog(sale: SaleType) {
+    const seen = new Set<string>();
+    const unique: any[] = [];
+
+    for (const s of merged) {
+      if (!seen.has(s.id)) {
+        seen.add(s.id);
+        unique.push(s);
+      }
+    }
+    return unique;
+  }, [salesQuery.data]);
+
+  const filteredSales = allSales;
+
+  // ------------------------ INFINITE SCROLL ------------------------
+  const loadMoreRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    const el = loadMoreRef.current;
+    if (!el) return;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        const entry = entries[0];
+        if (
+          entry.isIntersecting &&
+          salesQuery.hasNextPage &&
+          !salesQuery.isFetchingNextPage
+        ) {
+          salesQuery.fetchNextPage();
+        }
+      },
+      { root: null, rootMargin: "200px", threshold: 0 }
+    );
+
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [salesQuery.hasNextPage, salesQuery.isFetchingNextPage]);
+
+  // ------------------------ RETURN LOGIC ------------------------
+  function openReturnDialog(sale: any) {
     setSelectedSale(sale);
 
     const items = normalizeItems(sale.items).map((item: any) => ({
@@ -111,13 +171,10 @@ export default function SalesPage() {
   }
 
   function updateReturnQty(productId: string, qty: number) {
-    setReturnItems((prev: ReturnItem[]) =>
+    setReturnItems((prev) =>
       prev.map((item) =>
         item.productId === productId
-          ? {
-              ...item,
-              quantity: Math.max(0, Math.min(qty, item.maxQuantity)),
-            }
+          ? { ...item, quantity: Math.max(0, Math.min(qty, item.maxQuantity)) }
           : item
       )
     );
@@ -143,13 +200,11 @@ export default function SalesPage() {
     );
   }
 
-  // ------------------------
-  // PRINT BILL
-  // ------------------------
-  function handlePrint(sale: SaleType) {
+  // ------------------------ PRINT BILL ------------------------
+  function handlePrint(sale: any) {
     const items = normalizeItems(sale.items);
 
-    const invoiceFormatted: InvoiceDataType = {
+    setInvoiceData({
       invoiceNumber: sale.invoice_number,
       date: new Date(sale.created_at),
       items: items.map((i: any) => ({
@@ -163,16 +218,13 @@ export default function SalesPage() {
       total: sale.total_amount,
       paymentMethod: sale.payment_method,
       customerName: sale.customer_name || "Walk-in Customer",
-    };
+    });
 
-    setInvoiceData(invoiceFormatted);
     setCustomerPhone(sale.customer_phone || "");
     setThankYouOpen(true);
   }
 
-  // ------------------------
-  // RENDER
-  // ------------------------
+  // ------------------------ UI ------------------------
   return (
     <RequireAuth>
       <div className="flex h-screen overflow-hidden bg-background">
@@ -185,25 +237,64 @@ export default function SalesPage() {
           />
 
           <main className="p-4 space-y-6 overflow-auto">
-            {/* Search Bar */}
+            {/* 🔍 Filters */}
             <SalesSearchBar
               searchTerm={searchTerm}
               setSearchTerm={setSearchTerm}
+              searchBy={searchBy}
+              setSearchBy={setSearchBy}
               showTrash={showTrash}
               setShowTrash={setShowTrash}
+              limit={limit}
+              setLimit={setLimit}
+              payment={payment}
+              setPayment={setPayment}
+              productId={productId}
+              setProductId={setProductId}
+              startDate={startDate}
+              endDate={endDate}
+              onOpenDatePicker={() => setDatePickerOpen(true)}
+              refresh={refresh}
+              dateRange={dateRange}
+              setDateRange={setDateRange}
             />
 
-            {/* Sales List */}
+            {/* 📅 Date Picker Modal */}
+            <DateRangePicker
+              open={datePickerOpen}
+              onOpenChange={setDatePickerOpen}
+              currentRange={{
+                from: startDate ? new Date(startDate) : undefined,
+                to: endDate ? new Date(endDate) : undefined,
+              }}
+              onDateRangeChange={(range) => {
+                if (!range) {
+                  setStartDate("");
+                  setEndDate("");
+                } else {
+                  setStartDate(range.from?.toISOString() || "");
+                  setEndDate(range.to?.toISOString() || "");
+                }
+                refresh(true);
+              }}
+            />
+
+            {/* 🧾 Sales List */}
             <SalesList
               isLoading={salesQuery.isLoading}
-              filteredSales={filteredSales}
+              salesQuery={salesQuery}
               handleDelete={(id: string) => deleteSale.mutate(id)}
               handleRestore={(id: string) => restoreSale.mutate(id)}
-              handlePermanentDelete={(id: string) => permanentDelete.mutate(id)}
+              handlePermanentDelete={(id: string) =>
+                permanentDelete.mutate(id)
+              }
               handleReturnSale={openReturnDialog}
               handlePrintSale={handlePrint}
               isSystemAdmin={isSystemAdmin}
             />
+
+            {/* Infinite scroll loader */}
+            <div ref={loadMoreRef} className="h-6" />
           </main>
         </div>
       </div>
