@@ -321,6 +321,7 @@ export class SupabaseStorage implements IStorage {
     start?: string | null;
     end?: string | null;
     search?: string | null;
+    searchBy?: string; // ← add this
   }) {
     const {
       userId,
@@ -333,6 +334,7 @@ export class SupabaseStorage implements IStorage {
       start,
       end,
       search,
+      searchBy,
     } = params;
 
     let query = this.client.from("sales").select("*");
@@ -341,29 +343,64 @@ export class SupabaseStorage implements IStorage {
 
     if (deleted !== undefined) query = query.eq("deleted", deleted);
 
-    // 🔥 Payment filter (case insensitive)
     if (payment) query = query.ilike("payment_method", payment);
 
-    // 🔥 Date range
     if (start) query = query.gte("created_at", start);
     if (end) query = query.lte("created_at", end);
 
-    // 🔥 Product JSON search
     if (product) query = query.contains("items", [{ productId: product }]);
 
-    // 🔥 Category filter (if stored in product items)
     if (category) query = query.contains("items", [{ category }]);
 
-    // 🔍 Multi-field search
-    if (search) {
-      query = query.or(
-        `invoice_number.ilike.%${search}%,payment_method.ilike.%${search}%,total_amount::text.ilike.%${search}%`
-      );
+    // ✔ SAFE MULTI-FIELD SEARCH (NO ::text)
+    // ✔ SEARCH WITH SEARCH-BY CONTROL
+    if (search && searchBy) {
+      const isNumeric = !isNaN(Number(search));
+      let orParts: string[] = [];
+
+      switch (searchBy) {
+        case "invoice":
+          orParts.push(`invoice_number.ilike.%${search}%`);
+          break;
+
+        case "name":
+          orParts.push(`customer_name.ilike.%${search}%`);
+          break;
+
+        case "phone":
+          orParts.push(`customer_phone.ilike.%${search}%`);
+          break;
+
+        case "payment":
+          orParts.push(`payment_method.ilike.%${search}%`);
+          break;
+
+        case "amount":
+          if (isNumeric) orParts.push(`total_amount.eq.${Number(search)}`);
+          break;
+
+        case "all":
+        default:
+          orParts = [
+            `invoice_number.ilike.%${search}%`,
+            `payment_method.ilike.%${search}%`,
+            `customer_name.ilike.%${search}%`,
+            `customer_phone.ilike.%${search}%`,
+          ];
+          if (isNumeric) {
+            orParts.push(`total_amount.eq.${Number(search)}`);
+          }
+          break;
+      }
+
+      if (orParts.length > 0) {
+        query = query.or(orParts.join(","));
+      }
     }
 
-    // 🔥 Pagination using created_at cursor
-    query = query.order("created_at", { ascending: false }).limit(limit + 1);
     if (cursor) query = query.lt("created_at", cursor);
+
+    query = query.order("created_at", { ascending: false }).limit(limit + 1);
 
     const { data, error } = await query;
     if (error) throw error;
