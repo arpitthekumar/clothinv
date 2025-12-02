@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Sidebar } from "@/components/shared/sidebar";
 import { Header } from "@/components/shared/header";
@@ -19,7 +19,12 @@ export default function Reports() {
   const [reportType, setReportType] = useState("daily");
   const [dateRange, setDateRange] = useState("today");
   const [customDateRange, setCustomDateRange] = useState<{ from?: Date; to?: Date } | null>(null);
-
+  useEffect(() => {
+    const isMobile = window.innerWidth < 768; // md breakpoint
+    if (isMobile) {
+      setSidebarOpen(false);
+    }
+  }, []);
   const { data: sales = [], isLoading } = useQuery<Sale[]>({
     queryKey: ["/api/sales"],
   });

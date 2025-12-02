@@ -44,6 +44,12 @@ export default function SalesPage() {
   const { user } = useAuth();
   const isSystemAdmin = user?.role === "admin";
   useEffect(() => {
+    const isMobile = window.innerWidth < 768; // md breakpoint
+    if (isMobile) {
+      setSidebarOpen(false);
+    }
+  }, []);
+  useEffect(() => {
     if (!dateRange) {
       setStartDate("");
       setEndDate("");

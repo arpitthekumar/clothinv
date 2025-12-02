@@ -88,10 +88,10 @@ export function Header({ title, subtitle, onSidebarToggle }: HeaderProps) {
                   {isLoading
                     ? "Loading..."
                     : error
-                    ? "Failed to load"
-                    : count === 0
-                    ? "No new notifications"
-                    : `${count} new update${count > 1 ? "s" : ""}`}
+                      ? "Failed to load"
+                      : count === 0
+                        ? "No new notifications"
+                        : `${count} new update${count > 1 ? "s" : ""}`}
                 </p>
               </div>
               <div className="max-h-64 overflow-auto">

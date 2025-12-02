@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Sidebar } from "@/components/shared/sidebar";
 import { Header } from "@/components/shared/header";
 import { ScannerModal } from "@/components/shared/scanner-modal";
@@ -31,6 +31,12 @@ export default function Scan() {
     setSidebarOpen(!sidebarOpen);
   };
 
+  useEffect(() => {
+    const isMobile = window.innerWidth < 768; // md breakpoint
+    if (isMobile) {
+      setSidebarOpen(false);
+    }
+  }, []);
   const handleScan = (barcode: string) => {
     setScannedCode(barcode);
     setProductCode(barcode);
@@ -48,7 +54,7 @@ export default function Scan() {
   return (
     <div className="flex h-screen overflow-hidden bg-background">
       <Sidebar isOpen={sidebarOpen} />
-      
+
       <div className="flex-1 flex flex-col overflow-hidden">
         <Header
           title="Quick Scan"
@@ -74,7 +80,7 @@ export default function Scan() {
                   <p className="text-muted-foreground mb-4">
                     Ready to scan product barcodes
                   </p>
-                  <Button 
+                  <Button
                     onClick={() => setShowScanner(true)}
                     size="lg"
                     data-testid="button-open-scanner"
@@ -93,7 +99,7 @@ export default function Scan() {
                         Enter barcode or product SKU manually
                       </p>
                     </div>
-                    
+
                     <div className="flex gap-2">
                       <Input
                         placeholder="Enter barcode or SKU"
@@ -102,7 +108,7 @@ export default function Scan() {
                         onKeyDown={(e) => e.key === "Enter" && handleManualSearch()}
                         data-testid="input-manual-code"
                       />
-                      <Button 
+                      <Button
                         onClick={handleManualSearch}
                         disabled={!productCode.trim()}
                         data-testid="button-search-manual"
@@ -131,7 +137,7 @@ export default function Scan() {
                         SKU: {product.sku}
                       </p>
                     </div>
-                    
+
                     <div className="flex justify-between items-center">
                       <div>
                         <p className="text-2xl font-bold" data-testid="text-product-price">
