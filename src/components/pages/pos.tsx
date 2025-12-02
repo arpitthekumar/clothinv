@@ -13,7 +13,7 @@ export default function POS() {
   return (
     <div className="flex h-dvh md:h-screen overflow-hidden bg-background">
       <Sidebar isOpen={sidebarOpen} />
-      
+
       <div className="flex-1 flex flex-col overflow-hidden">
         <Header
           title="Point of Sale"

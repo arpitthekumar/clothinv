@@ -55,20 +55,16 @@ export default function SalesSearchBar({
 
       <CardContent className="space-y-4">
         {/* Search + Trash Toggle */}
-        <div className="flex flex-col md:flex-row gap-4">
-          <div className="relative flex-1 flex items-center gap-2">
+        <div className="flex flex-col md:flex-row md:items-center gap-4 w-full">
 
-            {/* Search By Filter */}
-            <Select
-              value={searchBy}
-              onValueChange={(value) => {
-                setSearchBy(value);
-              }}
-            >
-              <SelectTrigger className="w-36">
+          {/* LEFT SIDE — Filters + Search */}
+          <div className="flex flex-col md:flex-row flex-1 gap-3 w-full">
+
+            {/* Search By Select */}
+            <Select value={searchBy} onValueChange={(v) => setSearchBy(v)}>
+              <SelectTrigger className="w-full md:w-36">
                 <SelectValue placeholder="Search By" />
               </SelectTrigger>
-
               <SelectContent>
                 <SelectItem value="all">All</SelectItem>
                 <SelectItem value="invoice">Invoice No.</SelectItem>
@@ -79,42 +75,45 @@ export default function SalesSearchBar({
               </SelectContent>
             </Select>
 
-            <div className="relative flex-1">
+            {/* Search Input */}
+            <div className="relative flex-1 w-full">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground h-4 w-4" />
               <Input
                 placeholder={`Search by ${searchBy}...`}
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter") refresh(true);
-                }}
-                className="pl-10"
+                onKeyDown={(e) => e.key === "Enter" && refresh(true)}
+                className="pl-10 w-full"
               />
             </div>
 
-            {/* Search Button */}
-            <Button variant="default" onClick={() => refresh(true)}>
-              Search
-            </Button>
+            {/* Search + Clear Buttons */}
+            <div className="flex w-full md:w-auto gap-3">
+              <Button className="flex-1 md:flex-none" onClick={() => refresh(true)}>
+                Search
+              </Button>
 
-            {/* Clear Button */}
-            <Button
-              variant="outline"
-              onClick={() => {
-                setSearchTerm("");
-                refresh(true);
-              }}
-            >
-              Clear
-            </Button>
+              <Button
+                variant="outline"
+                className="flex-1 md:flex-none"
+                onClick={() => {
+                  setSearchTerm("");
+                  refresh(true);
+                }}
+              >
+                Clear
+              </Button>
+            </div>
           </div>
 
+          {/* RIGHT — Trash Toggle */}
           <Button
             variant={showTrash ? "destructive" : "outline"}
             onClick={() => {
               setShowTrash(!showTrash);
               refresh(true);
             }}
+            className="whitespace-nowrap"
           >
             <Trash2 className="mr-2 h-4 w-4" />
             {showTrash ? "Active Sales" : "Trash"}
