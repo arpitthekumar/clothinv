@@ -1,11 +1,17 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Sidebar } from "@/components/shared/sidebar";
 import { Header } from "@/components/shared/header";
 import { BillingInterface } from "@/components/pos/billing-interface";
 
 export default function POS() {
   const [sidebarOpen, setSidebarOpen] = useState(true);
-
+ // Auto-close sidebar on mobile on first load
+  useEffect(() => {
+    const isMobile = window.innerWidth < 768; // md breakpoint
+    if (isMobile) {
+      setSidebarOpen(false);
+    }
+  }, []);
   const toggleSidebar = () => {
     setSidebarOpen(!sidebarOpen);
   };
@@ -13,7 +19,7 @@ export default function POS() {
   return (
     <div className="flex h-dvh md:h-screen overflow-hidden bg-background">
       <Sidebar isOpen={sidebarOpen} />
-      
+
       <div className="flex-1 flex flex-col overflow-hidden">
         <Header
           title="Point of Sale"

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Sidebar } from "@/components/shared/sidebar";
 import { Header } from "@/components/shared/header";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -14,7 +14,12 @@ export default function Settings() {
   const toggleSidebar = () => {
     setSidebarOpen(!sidebarOpen);
   };
-
+  useEffect(() => {
+    const isMobile = window.innerWidth < 768; // md breakpoint
+    if (isMobile) {
+      setSidebarOpen(false);
+    }
+  }, []);
   // Only allow admins to access settings
   if (user?.role !== "admin") {
     return (
@@ -45,7 +50,7 @@ export default function Settings() {
       </div>
     );
   }
-  
+
   return (
     <div className="flex h-screen overflow-hidden bg-background">
       <Sidebar isOpen={sidebarOpen} />

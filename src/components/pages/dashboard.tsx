@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Sidebar } from "@/components/shared/sidebar";
 import { Header } from "@/components/shared/header";
 import { StatsGrid } from "@/components/dashboard/stats-grid";
@@ -12,7 +12,12 @@ import { useAuth } from "@/hooks/use-auth";
 export default function Dashboard() {
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const { user } = useAuth();
-
+  useEffect(() => {
+    const isMobile = window.innerWidth < 768; // md breakpoint
+    if (isMobile) {
+      setSidebarOpen(false);
+    }
+  }, []);
   const toggleSidebar = () => {
     setSidebarOpen(!sidebarOpen);
   };
@@ -42,7 +47,7 @@ export default function Dashboard() {
             </div>
           </div>
           <div>
-            
+
           </div>
           {/* Inventory Overview */}
           <div>
