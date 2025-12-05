@@ -54,11 +54,11 @@ const LabelBill = React.forwardRef<HTMLDivElement, LabelBillProps>(
       discountAmount > 0
         ? Math.round(discountAmount)
         : Math.round(
-            itemsWithTotals.reduce(
-              (sum, i) => sum + (i.discount_amount || 0),
-              0
-            )
-          );
+          itemsWithTotals.reduce(
+            (sum, i) => sum + (i.discount_amount || 0),
+            0
+          )
+        );
 
     const total = subtotal - totalDiscount;
 
@@ -147,7 +147,6 @@ const LabelBill = React.forwardRef<HTMLDivElement, LabelBillProps>(
         </table>
 
         <hr style={{ borderColor: "#000", margin: "4px 0" }} />
-
         {/* TOTALS */}
         <div style={{ fontSize: "13px" }}>
           <p>

@@ -62,8 +62,9 @@ export function ThankYouModal({
         quantity: item.quantity,
         price: item.price,
         total: item.total,
-        discount_value: item.discountValue || 0,
-        discount_amount: item.discountAmount || 0,
+        discount_value: item.discount_value ?? item.discountValue ?? 0,
+        discount_amount: item.discount_amount ?? item.discountAmount ?? 0,
+
       })),
       totalAmount: invoiceData.total ?? 0,
       paymentMethod: invoiceData.paymentMethod ?? "Cash",
@@ -74,13 +75,16 @@ export function ThankYouModal({
     }
     : null;
 
-  const discountAmount = invoiceData?.discountAmount || 0;
+ const discountAmount =
+  invoiceData?.discount_amount ??
+  0;
+
 
   // ============================================================
   // SELECT HANDLERS
   // ============================================================
 
- 
+
 
   // ---- IMAGE selected → generate PNG ----
   const handleSelectImage = async () => {
@@ -278,7 +282,10 @@ export function ThankYouModal({
       discountAmount > 0
         ? Math.round(discountAmount)
         : Math.round(
-          itemsWithTotals.reduce((s, i) => s + (i.discount_amount || 0), 0)
+          itemsWithTotals.reduce(
+            (sum, i) => sum + (i.discount_amount || 0),
+            0
+          )
         );
 
     const total = subtotal - totalDiscount;
