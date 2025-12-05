@@ -75,9 +75,9 @@ export function ThankYouModal({
     }
     : null;
 
- const discountAmount =
-  invoiceData?.discount_amount ??
-  0;
+  const discountAmount =
+    invoiceData?.discount_amount ??
+    0;
 
 
   // ============================================================
@@ -326,17 +326,39 @@ export function ThankYouModal({
     window.location.href = deepLink;
   };
 
+  const formatPhone = (phone: string) => {
+    if (!phone) return "";
+
+    // Remove spaces, +, -, brackets
+    let cleaned = phone.replace(/[^0-9]/g, "");
+
+    // If already starts with 91 (Indian number)
+    if (cleaned.startsWith("91")) return cleaned;
+
+    // Remove leading zero (e.g., 0987654321 → 987654321)
+    if (cleaned.startsWith("0")) cleaned = cleaned.substring(1);
+
+    // Add India country code
+    return "91" + cleaned;
+  };
 
   const sendWhatsApp = () => {
     if (!customerPhone || customerPhone === "N/A")
       return alert("Invalid number");
 
-    const msg = `Hello ${saleData?.customerName}!\nThanks for shopping.\nInvoice: ${saleData?.invoiceNumber}\nTotal: ₹${saleData?.totalAmount}`;
+    const phone = formatPhone(customerPhone);
 
-    window.open(
-      `https://wa.me/${customerPhone}?text=${encodeURIComponent(msg)}`,
-      "_blank"
-    );
+    const msg =
+      `Hello ${saleData?.customerName}!\n` +
+      `Thanks for shopping with us.\n` +
+      `Invoice: ${saleData?.invoiceNumber}\n` +
+      `Total: ₹${saleData?.totalAmount}`;
+
+    const encodedMsg = encodeURIComponent(msg).replace(/%0A/g, "%0A");
+
+    window.open(`https://wa.me/${phone}?text=${encodedMsg}`, "_blank");
+
+
   };
 
   // ============================================================
