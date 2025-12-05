@@ -50,15 +50,22 @@ const LabelBill = React.forwardRef<HTMLDivElement, LabelBillProps>(
       itemsWithTotals.reduce((sum, i) => sum + i.itemSubtotal, 0)
     );
 
+    const getItemDiscount = (item: any) => {
+      return (
+        item.discount_amount ??
+        item.discountAmount ??
+        item.discount_value ??
+        0
+      );
+    };
+
     const totalDiscount =
       discountAmount > 0
         ? Math.round(discountAmount)
         : Math.round(
-          itemsWithTotals.reduce(
-            (sum, i) => sum + (i.discount_amount || 0),
-            0
-          )
+          itemsWithTotals.reduce((sum, i) => sum + getItemDiscount(i), 0)
         );
+    ;
 
     const total = subtotal - totalDiscount;
 
@@ -157,6 +164,7 @@ const LabelBill = React.forwardRef<HTMLDivElement, LabelBillProps>(
               <strong>Discount:</strong> -₹{formatIN(totalDiscount)}
             </p>
           )}
+
           <p style={{ fontSize: "16px", fontWeight: "bold" }}>
             Total: ₹{formatIN(total)}
           </p>

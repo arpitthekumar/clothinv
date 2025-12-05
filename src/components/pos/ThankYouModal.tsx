@@ -76,8 +76,18 @@ export function ThankYouModal({
     : null;
 
   const discountAmount =
-    invoiceData?.discount_amount ??
+    invoiceData?.discountAmount ??  // from POS
+    invoiceData?.discount_amount ?? // from DB
     0;
+
+  const getItemDiscount = (item: any) => {
+    return (
+      item.discount_amount ??  // from DB
+      item.discountAmount ??  // from POS object
+      item.discount_value ??  // fallback
+      0
+    );
+  };
 
 
   // ============================================================
@@ -282,10 +292,7 @@ export function ThankYouModal({
       discountAmount > 0
         ? Math.round(discountAmount)
         : Math.round(
-          itemsWithTotals.reduce(
-            (sum, i) => sum + (i.discount_amount || 0),
-            0
-          )
+          itemsWithTotals.reduce((sum, i) => sum + getItemDiscount(i), 0)
         );
 
     const total = subtotal - totalDiscount;
