@@ -213,18 +213,28 @@ export default function SalesPage() {
     setInvoiceData({
       invoiceNumber: sale.invoice_number,
       date: new Date(sale.created_at),
+
+      discount_amount: Number(sale.discount_amount) ?? 0,
+      discount_value: Number(sale.discount_value) ?? 0,
+      discount_type: sale.discount_type ?? null,
+
       items: items.map((i: any) => ({
         name: i.name,
         quantity: i.quantity,
         price: Number(i.price),
         total: i.quantity * Number(i.price),
+        discount_amount: Number(i.discount_amount) ?? 0,
+        discount_value: Number(i.discount_value) ?? 0,
       })),
+
       subtotal: sale.total_amount,
       tax: 0,
       total: sale.total_amount,
       paymentMethod: sale.payment_method,
       customerName: sale.customer_name || "Walk-in Customer",
     });
+
+
 
     setCustomerPhone(sale.customer_phone || "");
     setThankYouOpen(true);

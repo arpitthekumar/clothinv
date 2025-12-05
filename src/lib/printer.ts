@@ -18,6 +18,7 @@ export interface InvoiceData {
   discountType?: "percentage" | "fixed";
   discountValue?: number;
   discountAmount?: number;
+  discount_amount?: number;  
 }
 
 class InvoicePrinter {
