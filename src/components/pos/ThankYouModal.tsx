@@ -62,9 +62,9 @@ export function ThankYouModal({
         quantity: item.quantity,
         price: item.price,
         total: item.total,
+        
         discount_value: item.discount_value ?? item.discountValue ?? 0,
         discount_amount: item.discount_amount ?? item.discountAmount ?? 0,
-
       })),
       totalAmount: invoiceData.total ?? 0,
       paymentMethod: invoiceData.paymentMethod ?? "Cash",
@@ -256,54 +256,54 @@ export function ThankYouModal({
 
 
   // ------------------ YOUR ORIGINAL COMPONENT BELOW -------------------
-
+  
   const printFast = () => {
     if (!saleData) return;
-
+    
     // Convert createdAt → IST safely
     const ist = parseToIST(saleData.createdAt);
-
+    
     // Format date: dd/MM/yyyy
     const formattedDate = ist.toLocaleDateString("en-IN", {
       day: "2-digit",
       month: "2-digit",
       year: "numeric",
     });
-
+    
     // Format time: 12-hour "H:mm"
     let hour = ist.getHours();
     const minute = ist.getMinutes().toString().padStart(2, "0");
     if (hour > 12) hour -= 12;
     if (hour === 0) hour = 12;
-
+    
     const formattedTime = `${hour}:${minute}`;
-
+    
     // Calculate totals
     const itemsWithTotals = saleData.items.map((item) => ({
       ...item,
       itemSubtotal: item.price * item.quantity,
     }));
-
+    
     const subtotal = Math.round(
       itemsWithTotals.reduce((s, i) => s + i.itemSubtotal, 0)
     );
-
+    
     const totalDiscount =
-      discountAmount > 0
-        ? Math.round(discountAmount)
-        : Math.round(
+    discountAmount > 0
+    ? Math.round(discountAmount)
+    : Math.round(
           itemsWithTotals.reduce((sum, i) => sum + getItemDiscount(i), 0)
         );
-
-    const total = subtotal - totalDiscount;
-
-    // Format numbers like 25,000
-    const formatIN = (num: number) =>
-      num.toLocaleString("en-IN", {
-        minimumFractionDigits: 0,
-        maximumFractionDigits: 0,
-      });
-
+        
+        const total = subtotal - totalDiscount;
+        
+        // Format numbers like 25,000
+        const formatIN = (num: number) =>
+          num.toLocaleString("en-IN", {
+            minimumFractionDigits: 0,
+            maximumFractionDigits: 0,
+          });
+          
     // Build fast-print object
     const fastData = {
       invoiceNumber: saleData.invoiceNumber,
@@ -319,23 +319,23 @@ export function ThankYouModal({
         total: formatIN(i.price * i.quantity),
       })),
       subtotal: formatIN(subtotal),
+      // descount_v: formatIN(discountAmount),
       discount: formatIN(totalDiscount),
       total: formatIN(total),
       barcode: barcodeBase64,
     };
-
     // Encode for deep link
     const json = JSON.stringify(fastData);
     const base64 = btoa(unescape(encodeURIComponent(json)));
     const deepLink = `wts://receipt?json=${encodeURIComponent(base64)}`;
-
+    
     // Trigger Android App
     window.location.href = deepLink;
   };
-
+  
   const formatPhone = (phone: string) => {
     if (!phone) return "";
-
+    
     // Remove spaces, +, -, brackets
     let cleaned = phone.replace(/[^0-9]/g, "");
 
@@ -344,23 +344,23 @@ export function ThankYouModal({
 
     // Remove leading zero (e.g., 0987654321 → 987654321)
     if (cleaned.startsWith("0")) cleaned = cleaned.substring(1);
-
+    
     // Add India country code
     return "91" + cleaned;
   };
-
+  
   const sendWhatsApp = () => {
     if (!customerPhone || customerPhone === "N/A")
       return alert("Invalid number");
-
+    
     const phone = formatPhone(customerPhone);
-
+    
     const msg =
-      `Hello ${saleData?.customerName}!\n` +
-      `Thanks for shopping with us.\n` +
-      `Invoice: ${saleData?.invoiceNumber}\n` +
-      `Total: ₹${saleData?.totalAmount}`;
-
+    `Hello ${saleData?.customerName}!\n` +
+    `Thanks for shopping with us.\n` +
+    `Invoice: ${saleData?.invoiceNumber}\n` +
+    `Total: ₹${saleData?.totalAmount}`;
+    
     const encodedMsg = encodeURIComponent(msg).replace(/%0A/g, "%0A");
 
     window.open(`https://wa.me/${phone}?text=${encodedMsg}`, "_blank");
