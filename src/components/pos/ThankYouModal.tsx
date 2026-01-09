@@ -62,7 +62,7 @@ export function ThankYouModal({
         quantity: item.quantity,
         price: item.price,
         total: item.total,
-        
+
         discount_value: item.discount_value ?? item.discountValue ?? 0,
         discount_amount: item.discount_amount ?? item.discountAmount ?? 0,
       })),
@@ -256,55 +256,79 @@ export function ThankYouModal({
 
 
   // ------------------ YOUR ORIGINAL COMPONENT BELOW -------------------
-  
+
   const printFast = () => {
     if (!saleData) return;
-    
-    // Convert createdAt → IST safely
+
+    /* ───────────────── IST DATE & TIME ───────────────── */
     const ist = parseToIST(saleData.createdAt);
-    
-    // Format date: dd/MM/yyyy
+
     const formattedDate = ist.toLocaleDateString("en-IN", {
       day: "2-digit",
       month: "2-digit",
       year: "numeric",
     });
-    
-    // Format time: 12-hour "H:mm"
+
     let hour = ist.getHours();
     const minute = ist.getMinutes().toString().padStart(2, "0");
     if (hour > 12) hour -= 12;
     if (hour === 0) hour = 12;
-    
+
     const formattedTime = `${hour}:${minute}`;
-    
-    // Calculate totals
-    const itemsWithTotals = saleData.items.map((item) => ({
-      ...item,
-      itemSubtotal: item.price * item.quantity,
-    }));
-    
-    const subtotal = Math.round(
-      itemsWithTotals.reduce((s, i) => s + i.itemSubtotal, 0)
+
+    /* ───────────────── CALCULATIONS ───────────────── */
+
+    // 1️⃣ Gross per item
+    const itemsWithGross = saleData.items.map((item) => {
+      const gross = item.price * item.quantity;
+      return { ...item, gross };
+    });
+
+    // 2️⃣ Subtotal (before discount)
+    const subtotalRaw = itemsWithGross.reduce(
+      (sum, i) => sum + i.gross,
+      0
     );
-    
+
+    const subtotal = Math.round(subtotalRaw);
+
+    // 3️⃣ Total discount (bill or item based)
     const totalDiscount =
-    discountAmount > 0
-    ? Math.round(discountAmount)
-    : Math.round(
-          itemsWithTotals.reduce((sum, i) => sum + getItemDiscount(i), 0)
+      discountAmount && discountAmount > 0
+        ? Math.round(discountAmount)
+        : Math.round(
+          itemsWithGross.reduce(
+            (sum, i) => sum + getItemDiscount(i),
+            0
+          )
         );
-        
-        const total = subtotal - totalDiscount;
-        
-        // Format numbers like 25,000
-        const formatIN = (num: number) =>
-          num.toLocaleString("en-IN", {
-            minimumFractionDigits: 0,
-            maximumFractionDigits: 0,
-          });
-          
-    // Build fast-print object
+
+    // 4️⃣ Distribute discount per item (proportional)
+    const itemsFinal = itemsWithGross.map((item) => {
+      const ratio = subtotalRaw > 0 ? item.gross / subtotalRaw : 0;
+      const itemDiscount = Math.round(totalDiscount * ratio);
+      const net = item.gross - itemDiscount;
+
+      return {
+        ...item,
+        itemDiscount,
+        net,
+      };
+    });
+
+    // 5️⃣ Final payable
+    const total = Math.round(
+      itemsFinal.reduce((sum, i) => sum + i.net, 0)
+    );
+
+    /* ───────────────── FORMATTER ───────────────── */
+    const formatIN = (num: number) =>
+      num.toLocaleString("en-IN", {
+        minimumFractionDigits: 0,
+        maximumFractionDigits: 0,
+      });
+
+    /* ───────────────── FAST PRINT DATA ───────────────── */
     const fastData = {
       invoiceNumber: saleData.invoiceNumber,
       customerName: saleData.customerName,
@@ -312,30 +336,37 @@ export function ThankYouModal({
       date: formattedDate,
       time: formattedTime,
       paymentMethod: saleData.paymentMethod,
-      items: saleData.items.map((i) => ({
+
+      items: itemsFinal.map((i) => ({
         name: i.name,
         qty: i.quantity,
-        price: formatIN(i.price),
-        total: formatIN(i.price * i.quantity),
+        price: formatIN(i.price),        // rate
+        gross: formatIN(i.gross),         // before discount
+        discount: formatIN(i.itemDiscount), // item discount
+        total: formatIN(i.net),           // after discount
       })),
-      subtotal: formatIN(subtotal),
-      // descount_v: formatIN(discountAmount),
-      discount: formatIN(totalDiscount),
-      total: formatIN(total),
+
+      subtotal: formatIN(subtotal),        // before discount
+      discount: formatIN(totalDiscount),   // total discount
+      total: formatIN(total),              // final payable
       barcode: barcodeBase64,
     };
-    // Encode for deep link
+
+    /* ───────────────── DEEP LINK ───────────────── */
     const json = JSON.stringify(fastData);
     const base64 = btoa(unescape(encodeURIComponent(json)));
     const deepLink = `wts://receipt?json=${encodeURIComponent(base64)}`;
-    
-    // Trigger Android App
+
+    console.log("Fast Print Data:", fastData);
+    console.log("Fast Print Deep Link:", deepLink);
+
+    // 🚀 Trigger Android app
     window.location.href = deepLink;
   };
-  
+
   const formatPhone = (phone: string) => {
     if (!phone) return "";
-    
+
     // Remove spaces, +, -, brackets
     let cleaned = phone.replace(/[^0-9]/g, "");
 
@@ -344,23 +375,23 @@ export function ThankYouModal({
 
     // Remove leading zero (e.g., 0987654321 → 987654321)
     if (cleaned.startsWith("0")) cleaned = cleaned.substring(1);
-    
+
     // Add India country code
     return "91" + cleaned;
   };
-  
+
   const sendWhatsApp = () => {
     if (!customerPhone || customerPhone === "N/A")
       return alert("Invalid number");
-    
+
     const phone = formatPhone(customerPhone);
-    
+
     const msg =
-    `Hello ${saleData?.customerName}!\n` +
-    `Thanks for shopping with us.\n` +
-    `Invoice: ${saleData?.invoiceNumber}\n` +
-    `Total: ₹${saleData?.totalAmount}`;
-    
+      `Hello ${saleData?.customerName}!\n` +
+      `Thanks for shopping with us.\n` +
+      `Invoice: ${saleData?.invoiceNumber}\n` +
+      `Total: ₹${saleData?.totalAmount}`;
+
     const encodedMsg = encodeURIComponent(msg).replace(/%0A/g, "%0A");
 
     window.open(`https://wa.me/${phone}?text=${encodedMsg}`, "_blank");
