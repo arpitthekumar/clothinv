@@ -64,7 +64,7 @@ export function Sidebar({ isOpen }: SidebarProps) {
       window.removeEventListener("dataSync", handleDataSync as EventListener);
     };
   }, []);
-
+ 
   const adminMenuItems = [
     { href: "/admin", icon: BarChart3, label: "Dashboard" },
     { href: "/admin/users", icon: Users, label: "Users" },
