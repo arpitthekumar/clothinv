@@ -1,13 +1,15 @@
 
 "use client";
 
-import Dashboard from "@/components/pages/dashboard";
 import RequireAuth from "./_components/require-auth";
+import POS from "@/components/pages/pos";
+
 
 export default function Page() {
+
   return (
     <RequireAuth>
-      <Dashboard />
+      <POS />
     </RequireAuth>
   );
 }
