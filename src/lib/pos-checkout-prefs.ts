@@ -14,8 +14,11 @@ export type ThankYouButtonId =
   | "pdf"
   | "close";
 
+export type PresetMode = "custom" | "fast" | "safe" | "balanced";
+
 export type PosCheckoutPrefs = {
   version: 1;
+  preset: PresetMode;
   paymentConfirmMode: PaymentConfirmMode;
   /** Seconds before auto-action; 0 = fire immediately when the dialog opens. */
   paymentConfirmAutoSeconds: number;
@@ -23,17 +26,69 @@ export type PosCheckoutPrefs = {
   thankYouMode: ThankYouMode;
   thankYouAutoSeconds: number;
   thankYouAutoButton: ThankYouButtonId;
+  /** Whether to play sound before automation runs */
+  soundEnabled: boolean;
 };
 
 export const DEFAULT_POS_CHECKOUT_PREFS: PosCheckoutPrefs = {
   version: 1,
+  preset: "safe",
   paymentConfirmMode: "manual",
   paymentConfirmAutoSeconds: 3,
   paymentConfirmAutoButton: "payment_done",
   thankYouMode: "manual",
   thankYouAutoSeconds: 0,
   thankYouAutoButton: "close",
+  soundEnabled: true,
 };
+
+export const PRESET_CONFIGS: Record<PresetMode, Omit<PosCheckoutPrefs, 'version' | 'preset'>> = {
+  custom: {
+    paymentConfirmMode: "manual",
+    paymentConfirmAutoSeconds: 3,
+    paymentConfirmAutoButton: "payment_done",
+    thankYouMode: "manual",
+    thankYouAutoSeconds: 0,
+    thankYouAutoButton: "close",
+    soundEnabled: true,
+  },
+  fast: {
+    paymentConfirmMode: "none",
+    paymentConfirmAutoSeconds: 0,
+    paymentConfirmAutoButton: "payment_done",
+    thankYouMode: "automated",
+    thankYouAutoSeconds: 1,
+    thankYouAutoButton: "close",
+    soundEnabled: true,
+  },
+  safe: {
+    paymentConfirmMode: "manual",
+    paymentConfirmAutoSeconds: 0,
+    paymentConfirmAutoButton: "payment_done",
+    thankYouMode: "manual",
+    thankYouAutoSeconds: 0,
+    thankYouAutoButton: "close",
+    soundEnabled: true,
+  },
+  balanced: {
+    paymentConfirmMode: "automated",
+    paymentConfirmAutoSeconds: 3,
+    paymentConfirmAutoButton: "payment_done",
+    thankYouMode: "automated",
+    thankYouAutoSeconds: 2,
+    thankYouAutoButton: "fast_print",
+    soundEnabled: true,
+  },
+};
+
+export function applyPreset(preset: PresetMode): PosCheckoutPrefs {
+  const config = PRESET_CONFIGS[preset];
+  return {
+    version: 1,
+    preset,
+    ...config,
+  };
+}
 
 export function getPosCheckoutPrefs(): PosCheckoutPrefs {
   if (typeof window === "undefined") return DEFAULT_POS_CHECKOUT_PREFS;

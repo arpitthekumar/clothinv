@@ -33,7 +33,7 @@ export function SettingsSubNav() {
 
   return (
     <nav
-      className="flex flex-wrap gap-2 border-b border-border pb-4"
+      className="flex flex-wrap gap-2 border-b border-border pb-4 sm:flex-nowrap sm:overflow-x-auto"
       aria-label="Settings sections"
     >
       {tabs.map(({ href, label, icon: Icon }) => {
@@ -43,7 +43,7 @@ export function SettingsSubNav() {
             key={href}
             href={href}
             className={cn(
-              "inline-flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium transition-colors",
+              "inline-flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium transition-colors whitespace-nowrap",
               active
                 ? "bg-primary text-primary-foreground"
                 : "bg-muted/60 text-muted-foreground hover:bg-muted hover:text-foreground"

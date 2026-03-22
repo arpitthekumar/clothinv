@@ -11,6 +11,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Loader2 } from "lucide-react";
 import type { PosCheckoutPrefs } from "@/lib/pos-checkout-prefs";
+import { playAutomationSound } from "@/lib/sound";
 
 interface CheckoutDialogProps {
   open: boolean;
@@ -65,6 +66,14 @@ export function CheckoutDialog({
     const runAuto = async () => {
       if (consumedRef.current) return;
       consumedRef.current = true;
+
+      // Play sound before automation if enabled
+      if (prefs.soundEnabled) {
+        playAutomationSound();
+        // Small delay to let sound play before action
+        await new Promise(resolve => setTimeout(resolve, 150));
+      }
+
       if (autoButton === "cancel") {
         onCancel();
         return;

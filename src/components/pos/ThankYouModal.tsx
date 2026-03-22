@@ -19,6 +19,7 @@ import {
   getPosCheckoutPrefs,
   type ThankYouButtonId,
 } from "@/lib/pos-checkout-prefs";
+import { playAutomationSound } from "@/lib/sound";
 
 export function ThankYouModal({
   open,
@@ -431,6 +432,14 @@ export function ThankYouModal({
       if (autoFiredRef.current) return; // user acted manually or already ran
       autoFiredRef.current = true;
       setAutomationRunning(true);
+
+      // Play sound before automation if enabled
+      if (p.soundEnabled) {
+        playAutomationSound();
+        // Small delay to let sound play before action
+        await new Promise(resolve => setTimeout(resolve, 150));
+      }
+
       try {
         if (btn === "close") onOpenChange(false);
         else if (btn === "whatsapp") sendWhatsApp();
