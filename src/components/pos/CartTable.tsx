@@ -18,8 +18,20 @@ interface CartTableProps {
   onDecrease: (productId: string) => void;
   onIncrease: (productId: string) => void;
   onRemove: (productId: string) => void;
-  /** When set, shows regular vs discounted unit price and line savings. */
+
   getDiscountedUnitPrice?: (productId: string, basePrice: number) => number;
+
+  // ✅ ADD THESE
+  getFinalUnitPrice?: (
+    productId: string,
+    basePrice: number,
+    quantity: number,
+    subtotal: number,
+    couponDiscount: number
+  ) => number;
+
+  subtotal?: number;
+  couponDiscount?: number;
 }
 
 export function CartTable({
@@ -28,8 +40,10 @@ export function CartTable({
   onIncrease,
   onRemove,
   getDiscountedUnitPrice,
+   getFinalUnitPrice,   // ✅ ADD
+  subtotal,            // ✅ ADD
+  couponDiscount,      // ✅ ADD
 }: CartTableProps) {
-  // ✅ Format numbers using Indian comma system (no decimals)
   const formatIN = (num: number) =>
     num.toLocaleString("en-IN", {
       minimumFractionDigits: 0,
@@ -48,104 +62,140 @@ export function CartTable({
   }
 
   return (
-    <div className="space-y-3 md:space-y-4">
+    <div className="space-y-3">
       {items.map((item) => {
         const baseUnit = parseFloat(item.price);
-        const unitCharged = getDiscountedUnitPrice
+
+        const productPrice = getDiscountedUnitPrice
           ? getDiscountedUnitPrice(item.productId, baseUnit)
           : baseUnit;
-        const lineList = Math.round(baseUnit * item.quantity * 100) / 100;
-        const lineCharged =
-          Math.round(unitCharged * item.quantity * 100) / 100;
-        const lineSave = Math.round((lineList - lineCharged) * 100) / 100;
-        const hasPromo = lineSave > 0.005;
+
+        const unitCharged =
+          getFinalUnitPrice && subtotal !== undefined && couponDiscount !== undefined
+            ? getFinalUnitPrice(
+              item.productId,
+              baseUnit,
+              item.quantity,
+              subtotal,
+              couponDiscount
+            )
+            : productPrice;
+
+        const lineList = baseUnit * item.quantity;
+        const lineCharged = unitCharged * item.quantity;
+        const lineSave = lineList - lineCharged;
+
+        const hasPromo = lineSave > 0.01;
+
+        const discountPercent =
+          hasPromo && lineList > 0
+            ? Math.round((lineSave / lineList) * 100)
+            : 0;
 
         return (
           <div
             key={item.id}
-            className="flex sm:flex-col flex-col md:flex-row md:items-center justify-between gap-3 border-b pb-3 md:pb-4"
+            className="group rounded-xl border bg-background p-4 transition hover:shadow-sm"
           >
-            {/* Product Info */}
-            <div className="flex-1 min-w-0">
-              <h4 className="font-medium truncate">{item.name}</h4>
-              <p className="text-sm text-muted-foreground">
-                SKU: {item.sku}
-                {getDiscountedUnitPrice ? (
+            <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+
+              {/* LEFT */}
+              <div className="flex-1 space-y-1">
+                <h4 className="font-semibold text-sm md:text-base leading-tight">
+                  {item.name}
+                </h4>
+
+                <p className="text-xs text-muted-foreground">
+                  SKU: {item.sku}
+                </p>
+
+                {/* PRICE */}
+                {hasPromo ? (
+                  <div className="flex items-center gap-2 text-sm flex-wrap">
+                    <span className="line-through text-muted-foreground">
+                      ₹{formatIN(baseUnit)}
+                    </span>
+
+                    <span className="text-green-600 font-semibold">
+                      ₹{formatIN(unitCharged)}
+                    </span>
+
+                    <span className="text-xs text-muted-foreground">
+                      per item
+                    </span>
+                  </div>
+                ) : (
+                  <div className="text-sm text-muted-foreground">
+                    ₹{formatIN(baseUnit)} × {item.quantity}
+                  </div>
+                )}
+
+                {/* STOCK + SAVE */}
+                <div className="flex items-center gap-2 flex-wrap">
+                  <Badge variant="outline" className="text-xs">
+                    {item.stock} in stock
+                  </Badge>
+
+                  {hasPromo && (
+                    <Badge className="bg-green-100 text-green-700 text-xs">
+                      Save ₹{formatIN(lineSave)} ({discountPercent}%)
+                    </Badge>
+                  )}
+                </div>
+              </div>
+
+              {/* CENTER - QUANTITY */}
+              <div className="flex items-center justify-between md:justify-center gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="h-8 w-8 p-0"
+                  onClick={() => onDecrease(item.productId)}
+                >
+                  -
+                </Button>
+
+                <span className="w-8 text-center font-semibold">
+                  {item.quantity}
+                </span>
+
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="h-8 w-8 p-0"
+                  onClick={() => onIncrease(item.productId)}
+                >
+                  +
+                </Button>
+
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="text-xs text-muted-foreground hover:text-red-500"
+                  onClick={() => onRemove(item.productId)}
+                >
+                  Remove
+                </Button>
+              </div>
+
+              {/* RIGHT - TOTAL */}
+              <div className="text-right min-w-[110px]">
+                {hasPromo ? (
                   <>
-                    {" "}
-                    •{" "}
-                    {hasPromo ? (
-                      <>
-                        <span className="line-through opacity-80">
-                          ₹{formatIN(baseUnit)}
-                        </span>
-                        {" → "}
-                        <span className="text-foreground font-medium">
-                          ₹{formatIN(unitCharged)}
-                        </span>
-                        {" each "}
-                        <span className="text-xs">
-                          (× {item.quantity}{" "}
-                          {item.quantity === 1 ? "pc" : "pcs"})
-                        </span>
-                        {lineSave > 0 && (
-                          <span className="ml-1 text-green-600 dark:text-green-500">
-                            · Save ₹{formatIN(lineSave)}
-                          </span>
-                        )}
-                      </>
-                    ) : (
-                      <>
-                        ₹{formatIN(baseUnit)} each (× {item.quantity}{" "}
-                        {item.quantity === 1 ? "pc" : "pcs"})
-                      </>
-                    )}
+                    <p className="text-xs line-through text-muted-foreground">
+                      ₹{formatIN(lineList)}
+                    </p>
+
+                    <p className="text-green-600 font-bold text-lg">
+                      ₹{formatIN(lineCharged)}
+                    </p>
                   </>
                 ) : (
-                  <> • ₹{formatIN(baseUnit)}</>
+                  <p className="font-semibold text-lg">
+                    ₹{formatIN(lineCharged)}
+                  </p>
                 )}
-              </p>
-              <Badge variant="outline" className="mt-1">
-                {item.stock} in stock
-              </Badge>
-            </div>
-
-            {/* Quantity Controls */}
-            <div className="flex items-center gap-2">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => onDecrease(item.productId)}
-              >
-                -
-              </Button>
-              <span className="w-10 md:w-12 text-center font-medium">
-                {item.quantity}
-              </span>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => onIncrease(item.productId)}
-              >
-                +
-              </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => onRemove(item.productId)}
-              >
-                Remove
-              </Button>
-            </div>
-
-            {/* Total Price */}
-            <div className="text-right ml-2 md:ml-4 min-w-[100px]">
-              {hasPromo && getDiscountedUnitPrice && (
-                <p className="text-xs text-muted-foreground line-through">
-                  ₹{formatIN(lineList)}
-                </p>
-              )}
-              <p className="font-medium">₹{formatIN(lineCharged)}</p>
+              </div>
             </div>
           </div>
         );

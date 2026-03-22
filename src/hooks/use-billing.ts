@@ -25,7 +25,7 @@ export function useBilling() {
   const [showConfirmPayment, setShowConfirmPayment] = useState(false);
   const [showThankYou, setShowThankYou] = useState(false);
   const [lastInvoiceData, setLastInvoiceData] = useState<InvoiceData | null>(
-    null
+    null,
   );
   const [lastCustomerPhone, setLastCustomerPhone] = useState<string>("");
   const [customerPhone, setCustomerPhone] = useState("");
@@ -104,8 +104,8 @@ export function useBilling() {
       }
       setCart((prev) =>
         prev.map((i) =>
-          i.productId === product.id ? { ...i, quantity: newQty } : i
-        )
+          i.productId === product.id ? { ...i, quantity: newQty } : i,
+        ),
       );
       return;
     }
@@ -146,8 +146,10 @@ export function useBilling() {
     }
     setCart((prev) =>
       prev.map((item) =>
-        item.productId === productId ? { ...item, quantity: newQuantity } : item
-      )
+        item.productId === productId
+          ? { ...item, quantity: newQuantity }
+          : item,
+      ),
     );
   };
 
@@ -175,7 +177,7 @@ export function useBilling() {
     const filtered = products.filter(
       (p) =>
         p.name.toLowerCase().includes(query.toLowerCase()) ||
-        p.sku?.toLowerCase().includes(query.toLowerCase())
+        p.sku?.toLowerCase().includes(query.toLowerCase()),
     );
 
     // Pagination
@@ -211,7 +213,7 @@ export function useBilling() {
     const applicable = (promoTargets as any[])
       .map((t: any) => {
         const promo = promotions.find(
-          (p: any) => p.id === t.promotionId || p.id === t.promotion_id
+          (p: any) => p.id === t.promotionId || p.id === t.promotion_id,
         );
         if (!promo || promo.active === false) return null;
         const now = Date.now();
@@ -240,7 +242,27 @@ export function useBilling() {
     }
     return best;
   };
+  const getFinalUnitPrice = (
+    productId: string,
+    basePrice: number,
+    quantity: number,
+    subtotal: number,
+    couponDiscount: number,
+  ) => {
+    const productPrice = getDiscountedUnitPrice(productId, basePrice);
 
+    if (!couponDiscount || subtotal <= 0) {
+      return productPrice;
+    }
+
+    const itemTotal = productPrice * quantity;
+    const ratio = itemTotal / subtotal;
+
+    const itemCouponShare = couponDiscount * ratio;
+    const couponPerUnit = itemCouponShare / quantity;
+
+    return Math.max(0, Math.round(productPrice - couponPerUnit));
+  };
   const calculateTotals = () => {
     let listSubtotal = 0;
     let afterPromoSubtotal = 0;
@@ -252,7 +274,8 @@ export function useBilling() {
     }
     listSubtotal = Math.round(listSubtotal * 100) / 100;
     afterPromoSubtotal = Math.round(afterPromoSubtotal * 100) / 100;
-    const promoSavings = Math.round((listSubtotal - afterPromoSubtotal) * 100) / 100;
+    const promoSavings =
+      Math.round((listSubtotal - afterPromoSubtotal) * 100) / 100;
 
     const cartWithDiscounts = cart.map((item) => ({
       ...item,
@@ -262,7 +285,7 @@ export function useBilling() {
     const calculation = calculateSaleTotals(
       cartWithDiscounts,
       appliedCoupon ? "percentage" : null,
-      appliedCoupon ? parseFloat(appliedCoupon.percentage) : 0
+      appliedCoupon ? parseFloat(appliedCoupon.percentage) : 0,
     );
 
     return {
@@ -323,7 +346,7 @@ export function useBilling() {
           price: getDiscountedUnitPrice(item.productId, parseFloat(item.price)),
         })),
         appliedCoupon ? "percentage" : null,
-        appliedCoupon ? parseFloat(appliedCoupon.percentage) : 0
+        appliedCoupon ? parseFloat(appliedCoupon.percentage) : 0,
       );
 
       const saleData = {
@@ -335,7 +358,7 @@ export function useBilling() {
           quantity: item.quantity,
           price: getDiscountedUnitPrice(
             item.productId,
-            parseFloat(item.price)
+            parseFloat(item.price),
           ).toFixed(2),
           name: item.name,
           sku: item.sku,
@@ -362,7 +385,7 @@ export function useBilling() {
           const price =
             Math.round(
               getDiscountedUnitPrice(item.productId, parseFloat(item.price)) *
-                100
+                100,
             ) / 100;
           return {
             name: item.name,
@@ -426,7 +449,7 @@ export function useBilling() {
   const applyCoupon = () => {
     if (!couponCode.trim()) return;
     const coupon = (coupons as any[]).find(
-      (c) => c.name.toLowerCase() === couponCode.toLowerCase()
+      (c) => c.name.toLowerCase() === couponCode.toLowerCase(),
     );
     if (coupon) {
       setAppliedCoupon(coupon);
@@ -494,5 +517,6 @@ export function useBilling() {
     removeCoupon,
     isFavorite: (id: string) => favoritesStorage.isFavorite(id),
     getDiscountedUnitPrice,
+    getFinalUnitPrice,
   };
 }

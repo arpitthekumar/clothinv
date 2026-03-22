@@ -64,6 +64,7 @@ export function BillingInterface() {
     removeCoupon,
     isFavorite,
     getDiscountedUnitPrice,
+    getFinalUnitPrice,
   } = useBilling();
 
   const addFavoriteIdToCart = (favoriteId: string) => {
@@ -192,6 +193,9 @@ export function BillingInterface() {
             <CartTable
               items={cart as any}
               getDiscountedUnitPrice={getDiscountedUnitPrice}
+              getFinalUnitPrice={getFinalUnitPrice}   // ✅ ADD THIS
+              subtotal={subtotal}                    // ✅ ADD THIS
+              couponDiscount={couponDiscount}        // ✅ ADD THIS
               onDecrease={(productId) => {
                 const item = cart.find((i) => i.productId === productId);
                 if (!item) return;
