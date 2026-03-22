@@ -8,10 +8,10 @@ import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
-import { 
-  Plus, 
-  Edit, 
-  Trash2, 
+import {
+  Plus,
+  Edit,
+  Trash2,
   Search,
   Percent,
   Calendar,
@@ -28,7 +28,7 @@ export function CouponsManagement() {
   const [selectedCoupon, setSelectedCoupon] = useState<any>(null);
   const [newCoupon, setNewCoupon] = useState({ name: "", percentage: "" });
   const [editCoupon, setEditCoupon] = useState({ name: "", percentage: "", active: true });
-  
+
   const { toast } = useToast();
 
   const { data: coupons = [], isLoading } = useQuery<any[]>({
@@ -202,7 +202,7 @@ export function CouponsManagement() {
                 <Button variant="outline" onClick={() => setShowAddModal(false)}>
                   Cancel
                 </Button>
-                <Button 
+                <Button
                   onClick={handleAddCoupon}
                   disabled={createCouponMutation.isPending}
                 >
@@ -267,22 +267,37 @@ export function CouponsManagement() {
                       </Badge>
                     </div>
                   </div>
-                  
-                  <div className="flex items-center gap-4 mb-3 text-sm text-muted-foreground">
-                    <div className="flex items-center gap-1">
-                      <Calendar className="h-4 w-4" />
+
+                  <div className="flex flex-col sm:flex-row sm:flex-wrap sm:items-center gap-2 sm:gap-4 mb-3 text-xs sm:text-sm text-muted-foreground">
+
+                    {/* CREATED */}
+                    <div className="flex items-center gap-1 min-w-0">
+                      <Calendar className="h-4 w-4 flex-shrink-0" />
                       {(() => {
-                        const raw = coupon?.createdAt;
+                        const raw = coupon?.created_at;
                         const created = raw ? new Date(raw) : null;
                         const isValid = created && !isNaN(created.getTime());
-                        const text = isValid ? formatDistanceToNow(created as Date, { addSuffix: true }) : "Unknown";
-                        return <span>Created {text}</span>;
+
+                        const text = isValid
+                          ? formatDistanceToNow(created, { addSuffix: true })
+                          : "just now";
+
+                        return (
+                          <span className="truncate">
+                            Created {text}
+                          </span>
+                        );
                       })()}
                     </div>
-                    <div className="flex items-center gap-1">
-                      <User className="h-4 w-4" />
-                      <span>By: {coupon.createdBy?.slice(0, 8) || 'Unknown'}</span>
+
+                    {/* USER */}
+                    <div className="flex items-center gap-1 min-w-0">
+                      <User className="h-4 w-4 flex-shrink-0" />
+                      <span className="truncate">
+                        By: {coupon.created_by?.slice(0, 8) || "Admin"}
+                      </span>
                     </div>
+
                   </div>
 
                   <Separator className="my-3" />
@@ -354,7 +369,7 @@ export function CouponsManagement() {
               <Button variant="outline" onClick={() => setShowEditModal(false)}>
                 Cancel
               </Button>
-              <Button 
+              <Button
                 onClick={handleUpdateCoupon}
                 disabled={updateCouponMutation.isPending}
               >
