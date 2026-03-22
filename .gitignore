@@ -24,6 +24,9 @@
 .DS_Store
 *.pem
 
+# local Supabase JSON backups (may contain sensitive business data)
+/backups/
+
 # debug
 npm-debug.log*
 yarn-debug.log*
