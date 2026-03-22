@@ -11,10 +11,10 @@ import {
   Users,
   FileBarChart,
   Settings,
-  Search,
-  RotateCcw,
   ScanBarcode,
   Receipt,
+  Folder,
+  Percent,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useEffect, useState } from "react";
@@ -71,7 +71,9 @@ export function Sidebar({ isOpen }: SidebarProps) {
     { href: "/inventory", icon: Package, label: "Inventory" },
     { href: "/sales", icon: Receipt, label: "Sales Management" },
     { href: "/reports", icon: FileBarChart, label: "Reports" },
-    { href: "/settings", icon: Settings, label: "Settings" },
+    { href: "/settings/system", icon: Settings, label: "Settings" },
+    { href: "/categories", icon: Folder, label: "Categories" },
+    { href: "/coupons", icon: Percent, label: "Coupons" },
   ];
 
   const employeeMenuItems = [
@@ -174,17 +176,23 @@ export function Sidebar({ isOpen }: SidebarProps) {
               <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3">
                 {user?.role === "admin" ? "Admin" : "Employee"}
               </div>
-              {menuItems.map((item) => (
-                <Link key={item.href} href={item.href}>
-                  <Button
-                    variant={location === item.href ? "default" : "ghost"}
-                    className="w-full justify-start"
-                  >
-                    <item.icon className="mr-2 h-4 w-4" />
-                    {item.label}
-                  </Button>
-                </Link>
-              ))}
+              {menuItems.map((item) => {
+                const active =
+                  item.href === "/settings/system"
+                    ? location.startsWith("/settings")
+                    : location === item.href;
+                return (
+                  <Link key={item.href} href={item.href}>
+                    <Button
+                      variant={active ? "default" : "ghost"}
+                      className="w-full justify-start"
+                    >
+                      <item.icon className="mr-2 h-4 w-4" />
+                      {item.label}
+                    </Button>
+                  </Link>
+                );
+              })}
             </div>
 
             {/* Common Menu Items */}
