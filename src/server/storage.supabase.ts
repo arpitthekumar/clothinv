@@ -18,6 +18,7 @@ import {
   type PurchaseOrderItem,
   type InsertPurchaseOrderItem,
 } from "@shared/schema";
+import { mapUserFromDb } from "@/lib/db-column-mapper";
 
 export class SupabaseStorage implements IStorage {
   private async sb() {
@@ -41,7 +42,7 @@ export class SupabaseStorage implements IStorage {
       .eq("id", id)
       .maybeSingle();
     if (error) throw error;
-    return (data ?? undefined) as User | undefined;
+    return data ? (mapUserFromDb(data) as User) : undefined;
   }
   async getUserByUsername(username: string): Promise<User | undefined> {
     const { data, error } = await (await this.sb())
@@ -50,7 +51,7 @@ export class SupabaseStorage implements IStorage {
       .eq("username", username)
       .maybeSingle();
     if (error) throw error;
-    return (data ?? undefined) as User | undefined;
+    return data ? (mapUserFromDb(data) as User) : undefined;
   }
   async createUser(user: InsertUser): Promise<User> {
     const { data, error } = await (await this.sb())
@@ -59,7 +60,7 @@ export class SupabaseStorage implements IStorage {
       .select("*")
       .single();
     if (error) throw error;
-    return data as User;
+    return mapUserFromDb(data) as User;
   }
   async updateUser(
     id: string,
@@ -72,7 +73,7 @@ export class SupabaseStorage implements IStorage {
       .select("*")
       .maybeSingle();
     if (error) throw error;
-    return (data ?? undefined) as User | undefined;
+    return data ? (mapUserFromDb(data) as User) : undefined;
   }
   async deleteUser(id: string): Promise<boolean> {
     const { error } = await (await this.sb()).from("users").delete().eq("id", id);
@@ -82,7 +83,7 @@ export class SupabaseStorage implements IStorage {
   async getUsers(): Promise<User[]> {
     const { data, error } = await (await this.sb()).from("users").select("*");
     if (error) throw error;
-    return data as User[];
+    return (data ?? []).map((row) => mapUserFromDb(row) as User);
   }
 
   // Categories
@@ -1148,12 +1149,117 @@ export class SupabaseStorage implements IStorage {
     };
   }
 
+  /**
+   * Profit margins without DB RPC (e.g. new Supabase project where `profit_margins` was never created).
+   */
+  private async computeProfitMarginsForDateRange(
+    fromDate: Date,
+    toDateInclusive: Date
+  ) {
+    const toEnd = new Date(toDateInclusive);
+    toEnd.setHours(23, 59, 59, 999);
+
+    const { data: sales, error: salesError } = await (await this.sb())
+      .from("sales")
+      .select("items, created_at, total_amount, discount_amount")
+      .eq("deleted", false)
+      .gte("created_at", fromDate.toISOString())
+      .lte("created_at", toEnd.toISOString());
+
+    if (salesError) throw salesError;
+
+    const { data: products } = await (await this.sb())
+      .from("products")
+      .select("id, name, price, buying_price");
+
+    const productMap: Record<string, any> = {};
+    for (const p of products || []) {
+      productMap[p.id] = p;
+    }
+
+    let totalProfit = 0;
+    const byProduct: Record<
+      string,
+      {
+        productId: string;
+        name: string;
+        quantity: number;
+        revenue: number;
+        cost: number;
+        profit: number;
+        marginPercent: number;
+      }
+    > = {};
+
+    for (const sale of sales || []) {
+      let items: any[] = [];
+      try {
+        items = Array.isArray(sale.items)
+          ? sale.items
+          : JSON.parse((sale.items as string) || "[]");
+      } catch {
+        continue;
+      }
+
+      const discountAmount = Number((sale as any).discount_amount || 0) || 0;
+      const subtotal = items.reduce(
+        (sum: number, it: any) =>
+          sum + Number(it.quantity || 0) * Number(it.price || 0),
+        0
+      );
+      const discountRate =
+        subtotal > 0 ? Math.min(discountAmount / subtotal, 1) : 0;
+
+      for (const item of items) {
+        const productId = item.productId;
+        const product = productMap[productId];
+        if (!product) continue;
+
+        const qty = Number(item.quantity || 0);
+        const sellingPrice = Number(item.price || 0);
+        const costPrice = Number(product.buying_price || product.price || 0);
+
+        const revenue = qty * sellingPrice * (1 - discountRate);
+        const cost = qty * costPrice;
+        const profit = revenue - cost;
+
+        totalProfit += profit;
+
+        if (!byProduct[productId]) {
+          byProduct[productId] = {
+            productId,
+            name: product.name || "Unknown",
+            quantity: 0,
+            revenue: 0,
+            cost: 0,
+            profit: 0,
+            marginPercent: 0,
+          };
+        }
+
+        byProduct[productId].quantity += qty;
+        byProduct[productId].revenue += revenue;
+        byProduct[productId].cost += cost;
+        byProduct[productId].profit += profit;
+      }
+    }
+
+    for (const key in byProduct) {
+      const p = byProduct[key];
+      p.marginPercent = p.revenue > 0 ? (p.profit / p.revenue) * 100 : 0;
+    }
+
+    return {
+      totalProfit,
+      byProduct: Object.values(byProduct),
+    };
+  }
+
   async getProfitMargins(params: {
     sinceDays: number;
     fromDate?: Date;
     toDate?: Date;
   }) {
-    // Use fromDate if provided, otherwise calculate from sinceDays
     let since: Date;
     if (params.fromDate) {
       since = new Date(params.fromDate);
@@ -1162,126 +1268,42 @@ export class SupabaseStorage implements IStorage {
       since.setDate(since.getDate() - params.sinceDays);
     }
 
+    const fromRange = params.fromDate
+      ? new Date(params.fromDate)
+      : (() => {
+          const d = new Date();
+          d.setDate(d.getDate() - params.sinceDays);
+          d.setHours(0, 0, 0, 0);
+          return d;
+        })();
+    const toRange = params.toDate
+      ? new Date(params.toDate)
+      : (() => {
+          const d = new Date();
+          d.setHours(23, 59, 59, 999);
+          return d;
+        })();
+    if (params.toDate) {
+      toRange.setHours(23, 59, 59, 999);
+    }
+
     const { data, error } = await (await this.sb()).rpc("profit_margins", {
       since_ts: since.toISOString(),
     });
-    if (error) throw error;
 
-    // If toDate is provided, we need to filter the results
-    // The RPC function returns all sales since the since_ts date
-    // So we filter client-side if toDate is provided
+    if (error) {
+      return this.computeProfitMarginsForDateRange(fromRange, toRange);
+    }
+
     let result = data as any;
 
-    if (params.toDate && result) {
-      const toDate = new Date(params.toDate);
-      toDate.setHours(23, 59, 59, 999);
-
-      // Filter the sales data by toDate if the RPC returns detailed data
-      // If it's just aggregated data, we might need to recalculate
-      // For now, we'll assume the RPC returns aggregated data and we can't filter it
-      // So we'll fetch sales directly and calculate profit if both dates are provided
-      if (params.fromDate && params.toDate) {
-        // Fetch sales in the date range and calculate profit
-        const { data: sales, error: salesError } = await (await this.sb())
-          .from("sales")
-          .select("items, created_at, total_amount, discount_amount")
-          .eq("deleted", false)
-          .gte("created_at", params.fromDate.toISOString())
-          .lte("created_at", toDate.toISOString());
-
-        if (!salesError && sales) {
-          // Calculate profit from sales
-          const { data: products } = await (await this.sb())
-            .from("products")
-            .select("id, name, price, buying_price");
-
-          const productMap: Record<string, any> = {};
-          for (const p of products || []) {
-            productMap[p.id] = p;
-          }
-
-          let totalProfit = 0;
-          const byProduct: Record<
-            string,
-            {
-              productId: string;
-              name: string;
-              quantity: number;
-              revenue: number;
-              cost: number;
-              profit: number;
-              marginPercent: number;
-            }
-          > = {};
-
-          for (const sale of sales) {
-            let items: any[] = [];
-            try {
-              items = Array.isArray(sale.items)
-                ? sale.items
-                : JSON.parse(sale.items || "[]");
-            } catch (e) {
-              continue;
-            }
-
-            const discountAmount =
-              Number((sale as any).discount_amount || 0) || 0;
-            const subtotal = items.reduce(
-              (sum: number, it: any) =>
-                sum + Number(it.quantity || 0) * Number(it.price || 0),
-              0
-            );
-            const discountRate =
-              subtotal > 0 ? Math.min(discountAmount / subtotal, 1) : 0;
-
-            for (const item of items) {
-              const productId = item.productId;
-              const product = productMap[productId];
-              if (!product) continue;
-
-              const qty = Number(item.quantity || 0);
-              const sellingPrice = Number(item.price || 0);
-              const costPrice = Number(
-                product.buying_price || product.price || 0
-              );
-
-              const revenue = qty * sellingPrice * (1 - discountRate);
-              const cost = qty * costPrice;
-              const profit = revenue - cost;
-
-              totalProfit += profit;
-
-              if (!byProduct[productId]) {
-                byProduct[productId] = {
-                  productId,
-                  name: product.name || "Unknown",
-                  quantity: 0,
-                  revenue: 0,
-                  cost: 0,
-                  profit: 0,
-                  marginPercent: 0,
-                };
-              }
-
-              byProduct[productId].quantity += qty;
-              byProduct[productId].revenue += revenue;
-              byProduct[productId].cost += cost;
-              byProduct[productId].profit += profit;
-            }
-          }
-
-          // Calculate margin percentages
-          for (const key in byProduct) {
-            const p = byProduct[key];
-            p.marginPercent = p.revenue > 0 ? (p.profit / p.revenue) * 100 : 0;
-          }
-
-          result = {
-            totalProfit,
-            byProduct: Object.values(byProduct),
-          };
-        }
-      }
+    if (params.fromDate && params.toDate) {
+      const toEnd = new Date(params.toDate);
+      toEnd.setHours(23, 59, 59, 999);
+      result = await this.computeProfitMarginsForDateRange(
+        new Date(params.fromDate),
+        toEnd
+      );
     }
 
     return result;

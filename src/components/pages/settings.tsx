@@ -7,6 +7,7 @@ import { Settings as SettingsIcon, Shield, Percent, Folder, Monitor, Smartphone,
 import { CouponsManagement } from "@/components/settings/coupons-management";
 import { CategoriesManagement } from "@/components/settings/categories-management";
 import { SupabaseProfileCard } from "@/components/settings/supabase-profile-card";
+import { SecondarySyncCard } from "@/components/settings/secondary-sync-card";
 import { Button } from "../ui/button";
 
 export default function Settings() {
@@ -119,6 +120,8 @@ export default function Settings() {
             </Card>
 
             <SupabaseProfileCard />
+
+            <SecondarySyncCard />
 
             <Card>
               <CardHeader>

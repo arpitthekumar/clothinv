@@ -52,6 +52,11 @@ export const RESTORE_INSERT_ORDER: readonly string[] = [
   "sync_status",
 ];
 
+/** Delete children before parents (reverse of restore insert order). */
+export const RESTORE_DELETE_ORDER: readonly string[] = [
+  ...RESTORE_INSERT_ORDER,
+].reverse();
+
 const orderIndex = new Map<string, number>(
   RESTORE_INSERT_ORDER.map((name, i) => [name, i])
 );

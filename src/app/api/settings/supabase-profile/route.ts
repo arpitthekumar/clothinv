@@ -6,6 +6,7 @@ import {
   getSecondarySupabaseUrl,
   isSecondarySupabaseConfigured,
 } from "@server/supabase-env";
+import { isSuperAdminUser } from "@server/super-admin";
 
 const COOKIE_NAME = "clothinv.supabase_profile";
 const HEADER_PROFILE = "x-clothinv-supabase-profile";
@@ -33,18 +34,16 @@ export async function GET() {
 
   const primaryUrl =
     process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const secondaryUrl = process.env.SUPABASE_URL_SECONDARY;
-  const secondaryConfigured = Boolean(
-    secondaryUrl?.trim() &&
-      (process.env.SUPABASE_SERVICE_ROLE_KEY_SECONDARY?.trim() ||
-        process.env.SUPABASE_ANON_KEY_SECONDARY?.trim())
-  );
+  const secondaryUrl = getSecondarySupabaseUrl();
+  const secondaryConfigured = isSecondarySupabaseConfigured();
+  const canManageSupabase = isSuperAdminUser(auth.user);
 
   return NextResponse.json({
     profile,
     primaryHost: hostFromEnv(primaryUrl),
     secondaryHost: hostFromEnv(secondaryUrl),
     secondaryConfigured,
+    canManageSupabase,
   });
 }
 
@@ -53,6 +52,15 @@ export async function POST(req: Request) {
   if (!auth.ok) return NextResponse.json({}, { status: 401 });
   if (auth.user.role !== "admin") {
     return NextResponse.json({}, { status: 403 });
+  }
+  if (!isSuperAdminUser(auth.user)) {
+    return NextResponse.json(
+      {
+        error:
+          "Only the super admin (username admin, full name admin) can change the active Supabase project.",
+      },
+      { status: 403 }
+    );
   }
 
   let body: { profile?: string };

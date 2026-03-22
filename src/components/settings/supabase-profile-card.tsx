@@ -19,6 +19,8 @@ type ProfileState = {
   primaryHost: string | null;
   secondaryHost: string | null;
   secondaryConfigured: boolean;
+  /** Super admin only: username admin, full name admin (or dev bypass). */
+  canManageSupabase: boolean;
 };
 
 export function SupabaseProfileCard() {
@@ -103,7 +105,10 @@ export function SupabaseProfileCard() {
         </CardTitle>
         <CardDescription>
           Choose which Supabase project this app uses for API requests in your
-          session. Add secondary credentials in{" "}
+          session. Only the <strong>super admin</strong> (username{" "}
+          <code className="text-xs bg-muted px-1">admin</code>, full name{" "}
+          <code className="text-xs bg-muted px-1">admin</code>) can switch
+          projects; dev bypass is also allowed. Add secondary credentials in{" "}
           <code className="text-xs bg-muted px-1 rounded">.env.local</code>{" "}
           first.
         </CardDescription>
@@ -131,10 +136,18 @@ export function SupabaseProfileCard() {
             </strong>
           </p>
         </div>
+        {!data.canManageSupabase && (
+          <p className="text-xs text-muted-foreground">
+            You can view the active project, but only the super admin can switch
+            between primary and secondary.
+          </p>
+        )}
         <div className="flex flex-wrap gap-2">
           <Button
             variant={data.profile === "primary" ? "default" : "outline"}
-            disabled={mutation.isPending}
+            disabled={
+              mutation.isPending || !data.canManageSupabase
+            }
             onClick={() => mutation.mutate("primary")}
           >
             Use primary
@@ -142,7 +155,9 @@ export function SupabaseProfileCard() {
           <Button
             variant={data.profile === "secondary" ? "default" : "outline"}
             disabled={
-              mutation.isPending || !data.secondaryConfigured
+              mutation.isPending ||
+              !data.secondaryConfigured ||
+              !data.canManageSupabase
             }
             onClick={() => mutation.mutate("secondary")}
             title={
