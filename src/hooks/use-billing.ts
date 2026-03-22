@@ -242,13 +242,23 @@ export function useBilling() {
   };
 
   const calculateTotals = () => {
-    // Calculate subtotal with any product-specific discounts
+    let listSubtotal = 0;
+    let afterPromoSubtotal = 0;
+    for (const item of cart) {
+      const base = parseFloat(item.price);
+      const unitPromo = getDiscountedUnitPrice(item.productId, base);
+      listSubtotal += base * item.quantity;
+      afterPromoSubtotal += unitPromo * item.quantity;
+    }
+    listSubtotal = Math.round(listSubtotal * 100) / 100;
+    afterPromoSubtotal = Math.round(afterPromoSubtotal * 100) / 100;
+    const promoSavings = Math.round((listSubtotal - afterPromoSubtotal) * 100) / 100;
+
     const cartWithDiscounts = cart.map((item) => ({
       ...item,
       price: getDiscountedUnitPrice(item.productId, parseFloat(item.price)),
     }));
 
-    // Use shared calculation function
     const calculation = calculateSaleTotals(
       cartWithDiscounts,
       appliedCoupon ? "percentage" : null,
@@ -256,12 +266,14 @@ export function useBilling() {
     );
 
     return {
+      listSubtotal,
+      promoSavings,
       subtotal: calculation.subtotal,
       couponDiscount: calculation.discountAmount,
       afterCoupon: calculation.subtotal - calculation.discountAmount,
-      tax: 0, // GST removed
+      tax: 0,
       total: calculation.total,
-      taxPercent: 0, // GST removed
+      taxPercent: 0,
     };
   };
 
@@ -481,5 +493,6 @@ export function useBilling() {
     applyCoupon,
     removeCoupon,
     isFavorite: (id: string) => favoritesStorage.isFavorite(id),
+    getDiscountedUnitPrice,
   };
 }
