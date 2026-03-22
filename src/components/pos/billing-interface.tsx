@@ -63,6 +63,7 @@ export function BillingInterface() {
     applyCoupon,
     removeCoupon,
     isFavorite,
+    getDiscountedUnitPrice,
   } = useBilling();
 
   const addFavoriteIdToCart = (favoriteId: string) => {
@@ -78,7 +79,14 @@ export function BillingInterface() {
   // all handlers implemented inside useBilling hook
 
   const totals = calculateTotals();
-  const { subtotal, couponDiscount, tax, total } = totals;
+  const {
+    listSubtotal,
+    promoSavings,
+    subtotal,
+    couponDiscount,
+    tax,
+    total,
+  } = totals;
 
   return (
     <div className="grid grid-cols-1 xl:grid-cols-3 gap-4 md:gap-6 pb-6">
@@ -183,6 +191,7 @@ export function BillingInterface() {
           <CardContent>
             <CartTable
               items={cart as any}
+              getDiscountedUnitPrice={getDiscountedUnitPrice}
               onDecrease={(productId) => {
                 const item = cart.find((i) => i.productId === productId);
                 if (!item) return;
@@ -207,6 +216,8 @@ export function BillingInterface() {
           </CardHeader>
           <CardContent className="space-y-4">
             <TotalsPanel
+              listSubtotal={listSubtotal}
+              promoSavings={promoSavings}
               subtotal={subtotal}
               couponDiscount={couponDiscount}
               tax={tax}

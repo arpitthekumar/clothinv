@@ -20,9 +20,9 @@ export async function GET(req: NextRequest) {
   const end = url.searchParams.get("end");
   const category = url.searchParams.get("category");
 
-  const userId = auth.user.role === "admin" ? null : auth.user.id;
+  // ✅ FIX: Everyone sees all sales
+  const userId = null;
 
-  // 🚀 Call filtered storage method
   const { data, nextCursor } = await storage.getSalesFiltered({
     userId,
     limit,
@@ -34,7 +34,7 @@ export async function GET(req: NextRequest) {
     start,
     end,
     search,
-    searchBy, // ← add this
+    searchBy,
   });
 
   return NextResponse.json({
