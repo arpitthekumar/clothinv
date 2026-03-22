@@ -20,9 +20,9 @@ import {
 } from "@shared/schema";
 
 export class SupabaseStorage implements IStorage {
-  private get client() {
-    const sb = getSupabaseServer();
-    if (!sb) {
+  private async sb() {
+    const client = await getSupabaseServer();
+    if (!client) {
       throw new Error(
         "Supabase not configured. Please check your environment variables:\n" +
           "- SUPABASE_URL should be https://your-project-id.supabase.co\n" +
@@ -30,12 +30,12 @@ export class SupabaseStorage implements IStorage {
           "Check your .env.local file and restart your development server."
       );
     }
-    return sb;
+    return client;
   }
 
   // Users
   async getUser(id: string): Promise<User | undefined> {
-    const { data, error } = await this.client
+    const { data, error } = await (await this.sb())
       .from("users")
       .select("*")
       .eq("id", id)
@@ -44,7 +44,7 @@ export class SupabaseStorage implements IStorage {
     return (data ?? undefined) as User | undefined;
   }
   async getUserByUsername(username: string): Promise<User | undefined> {
-    const { data, error } = await this.client
+    const { data, error } = await (await this.sb())
       .from("users")
       .select("*")
       .eq("username", username)
@@ -53,7 +53,7 @@ export class SupabaseStorage implements IStorage {
     return (data ?? undefined) as User | undefined;
   }
   async createUser(user: InsertUser): Promise<User> {
-    const { data, error } = await this.client
+    const { data, error } = await (await this.sb())
       .from("users")
       .insert(user)
       .select("*")
@@ -65,7 +65,7 @@ export class SupabaseStorage implements IStorage {
     id: string,
     user: Partial<InsertUser>
   ): Promise<User | undefined> {
-    const { data, error } = await this.client
+    const { data, error } = await (await this.sb())
       .from("users")
       .update(user)
       .eq("id", id)
@@ -75,19 +75,19 @@ export class SupabaseStorage implements IStorage {
     return (data ?? undefined) as User | undefined;
   }
   async deleteUser(id: string): Promise<boolean> {
-    const { error } = await this.client.from("users").delete().eq("id", id);
+    const { error } = await (await this.sb()).from("users").delete().eq("id", id);
     if (error) throw error;
     return true;
   }
   async getUsers(): Promise<User[]> {
-    const { data, error } = await this.client.from("users").select("*");
+    const { data, error } = await (await this.sb()).from("users").select("*");
     if (error) throw error;
     return data as User[];
   }
 
   // Categories
   async getCategories(): Promise<Category[]> {
-    const { data, error } = await this.client.from("categories").select("*");
+    const { data, error } = await (await this.sb()).from("categories").select("*");
     if (error) throw error;
     return data as Category[];
   }
@@ -99,7 +99,7 @@ export class SupabaseStorage implements IStorage {
       color: category.color ?? "white",
     };
 
-    const { data, error } = await this.client
+    const { data, error } = await (await this.sb())
       .from("categories")
       .insert(payload)
       .select("*")
@@ -119,7 +119,7 @@ export class SupabaseStorage implements IStorage {
 
     if (category.color === undefined) delete payload.color;
 
-    const { data, error } = await this.client
+    const { data, error } = await (await this.sb())
       .from("categories")
       .update(payload)
       .eq("id", id)
@@ -131,7 +131,7 @@ export class SupabaseStorage implements IStorage {
   }
 
   async deleteCategory(id: string): Promise<boolean> {
-    const { error } = await this.client
+    const { error } = await (await this.sb())
       .from("categories")
       .delete()
       .eq("id", id);
@@ -141,7 +141,7 @@ export class SupabaseStorage implements IStorage {
 
   // Products
   async getProducts(includeDeleted?: boolean): Promise<Product[]> {
-    let query = this.client.from("products").select("*");
+    let query = (await this.sb()).from("products").select("*");
 
     if (!includeDeleted) {
       query = query.eq("deleted", false);
@@ -152,7 +152,7 @@ export class SupabaseStorage implements IStorage {
     return data as Product[];
   }
   async getProduct(id: string): Promise<Product | undefined> {
-    const { data, error } = await this.client
+    const { data, error } = await (await this.sb())
       .from("products")
       .select("*")
       .eq("id", id)
@@ -161,7 +161,7 @@ export class SupabaseStorage implements IStorage {
     return (data ?? undefined) as Product | undefined;
   }
   async getProductBySku(sku: string): Promise<Product | undefined> {
-    const { data, error } = await this.client
+    const { data, error } = await (await this.sb())
       .from("products")
       .select("*")
       .eq("sku", sku)
@@ -170,7 +170,7 @@ export class SupabaseStorage implements IStorage {
     return (data ?? undefined) as Product | undefined;
   }
   async getProductByBarcode(barcode: string): Promise<Product | undefined> {
-    const { data, error } = await this.client
+    const { data, error } = await (await this.sb())
       .from("products")
       .select("*")
       .eq("barcode", barcode)
@@ -179,7 +179,7 @@ export class SupabaseStorage implements IStorage {
     return (data ?? undefined) as Product | undefined;
   }
   async createProduct(product: InsertProduct): Promise<Product> {
-    const { data, error } = await this.client
+    const { data, error } = await (await this.sb())
       .from("products")
       .insert(product)
       .select("*")
@@ -191,7 +191,7 @@ export class SupabaseStorage implements IStorage {
     id: string,
     product: Partial<InsertProduct>
   ): Promise<Product | undefined> {
-    const { data, error } = await this.client
+    const { data, error } = await (await this.sb())
       .from("products")
       .update(product)
       .eq("id", id)
@@ -201,7 +201,7 @@ export class SupabaseStorage implements IStorage {
     return (data ?? undefined) as Product | undefined;
   }
   async deleteProduct(id: string): Promise<boolean> {
-    const sb = this.client;
+    const sb = (await this.sb());
 
     // 1) Remove dependent rows that reference this product
     // 1a) Sales return items -> may reference sale_items and product
@@ -267,7 +267,7 @@ export class SupabaseStorage implements IStorage {
   }
   async softDeleteProduct(id: string): Promise<boolean> {
     // Use snake_case column name to match Supabase schema cache
-    const { error } = await this.client
+    const { error } = await (await this.sb())
       .from("products")
       .update({ deleted: true, deleted_at: new Date().toISOString() as any })
       .eq("id", id);
@@ -276,7 +276,7 @@ export class SupabaseStorage implements IStorage {
   }
   async restoreProduct(id: string): Promise<boolean> {
     // Use snake_case for deleted_at when restoring as well
-    const { error } = await this.client
+    const { error } = await (await this.sb())
       .from("products")
       .update({ deleted: false, deleted_at: null as any })
       .eq("id", id);
@@ -287,7 +287,7 @@ export class SupabaseStorage implements IStorage {
     id: string,
     quantity: number
   ): Promise<Product | undefined> {
-    const { data, error } = await this.client
+    const { data, error } = await (await this.sb())
       .from("products")
       .update({ stock: quantity })
       .eq("id", id)
@@ -299,7 +299,7 @@ export class SupabaseStorage implements IStorage {
 
   // Sales
   async getSales(includeDeleted: boolean = false): Promise<Sale[]> {
-    let query = this.client.from("sales").select("*");
+    let query = (await this.sb()).from("sales").select("*");
     if (!includeDeleted) {
       query = query.eq("deleted", false);
     }
@@ -337,7 +337,7 @@ export class SupabaseStorage implements IStorage {
       searchBy,
     } = params;
 
-    let query = this.client.from("sales").select("*");
+    let query = (await this.sb()).from("sales").select("*");
 
     if (userId) query = query.eq("user_id", userId);
 
@@ -414,15 +414,15 @@ export class SupabaseStorage implements IStorage {
     };
   }
 
-  public querySalesTable() {
-    return this.client.from("sales");
+  public async querySalesTable() {
+    return (await this.sb()).from("sales");
   }
 
   async getSalesByUser(
     userId: string,
     includeDeleted: boolean = false
   ): Promise<Sale[]> {
-    let query = this.client.from("sales").select("*").eq("user_id", userId);
+    let query = (await this.sb()).from("sales").select("*").eq("user_id", userId);
     if (!includeDeleted) {
       query = query.eq("deleted", false);
     }
@@ -435,7 +435,7 @@ export class SupabaseStorage implements IStorage {
   async getSalesToday(): Promise<Sale[]> {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
-    const { data, error } = await this.client
+    const { data, error } = await (await this.sb())
       .from("sales")
       .select("*")
       .gte("created_at", today.toISOString())
@@ -460,7 +460,7 @@ export class SupabaseStorage implements IStorage {
       total_amount: parseFloat(sale.total_amount || "0").toFixed(2),
       payment_method: sale.payment_method || "cash",
     };
-    const { data, error } = await this.client
+    const { data, error } = await (await this.sb())
       .from("sales")
       .insert(payload)
       .select("*")
@@ -469,7 +469,7 @@ export class SupabaseStorage implements IStorage {
     return data as Sale;
   }
   async softDeleteSale(saleId: string): Promise<boolean> {
-    const { error } = await this.client
+    const { error } = await (await this.sb())
       .from("sales")
       .update({ deleted: true, deleted_at: new Date().toISOString() as any })
       .eq("id", saleId);
@@ -477,7 +477,7 @@ export class SupabaseStorage implements IStorage {
     return true;
   }
   async restoreSale(saleId: string): Promise<boolean> {
-    const { error } = await this.client
+    const { error } = await (await this.sb())
       .from("sales")
       .update({ deleted: false, deleted_at: null as any })
       .eq("id", saleId);
@@ -485,7 +485,7 @@ export class SupabaseStorage implements IStorage {
     return true;
   }
   async deleteSale(saleId: string): Promise<boolean> {
-    const sb = this.client;
+    const sb = (await this.sb());
 
     // Clean up dependent records before deleting the sale row to avoid FK constraints
     // 1) Load any sales returns linked to this sale so we can cascade delete their items
@@ -552,7 +552,7 @@ export class SupabaseStorage implements IStorage {
 
   // Stock Movements
   async getStockMovements(): Promise<StockMovement[]> {
-    const { data, error } = await this.client
+    const { data, error } = await (await this.sb())
       .from("stock_movements")
       .select("*");
     if (error) throw error;
@@ -561,7 +561,7 @@ export class SupabaseStorage implements IStorage {
   async getStockMovementsByProduct(
     productId: string
   ): Promise<StockMovement[]> {
-    const { data, error } = await this.client
+    const { data, error } = await (await this.sb())
       .from("stock_movements")
       .select("*")
       .eq("product_id", productId);
@@ -580,7 +580,7 @@ export class SupabaseStorage implements IStorage {
       ref_table: (movement as any).refTable,
       ref_id: (movement as any).refId,
     };
-    const { data, error } = await this.client
+    const { data, error } = await (await this.sb())
       .from("stock_movements")
       .insert(payload)
       .select("*")
@@ -591,12 +591,12 @@ export class SupabaseStorage implements IStorage {
 
   // Suppliers
   async getSuppliers(): Promise<Supplier[]> {
-    const { data, error } = await this.client.from("suppliers").select("*");
+    const { data, error } = await (await this.sb()).from("suppliers").select("*");
     if (error) throw error;
     return data as Supplier[];
   }
   async createSupplier(supplier: InsertSupplier): Promise<Supplier> {
-    const { data, error } = await this.client
+    const { data, error } = await (await this.sb())
       .from("suppliers")
       .insert(supplier)
       .select("*")
@@ -607,14 +607,14 @@ export class SupabaseStorage implements IStorage {
 
   // Purchase Orders
   async getPurchaseOrders(): Promise<PurchaseOrder[]> {
-    const { data, error } = await this.client
+    const { data, error } = await (await this.sb())
       .from("purchase_orders")
       .select("*");
     if (error) throw error;
     return data as PurchaseOrder[];
   }
   async createPurchaseOrder(po: InsertPurchaseOrder): Promise<PurchaseOrder> {
-    const { data, error } = await this.client
+    const { data, error } = await (await this.sb())
       .from("purchase_orders")
       .insert(po)
       .select("*")
@@ -625,7 +625,7 @@ export class SupabaseStorage implements IStorage {
   async addPurchaseOrderItem(
     item: InsertPurchaseOrderItem
   ): Promise<PurchaseOrderItem> {
-    const { data, error } = await this.client
+    const { data, error } = await (await this.sb())
       .from("purchase_order_items")
       .insert(item)
       .select("*")
@@ -638,7 +638,7 @@ export class SupabaseStorage implements IStorage {
     userId: string;
   }): Promise<void> {
     const { items, userId } = params;
-    const sb = this.client;
+    const sb = (await this.sb());
     const txn = sb; // Supabase PostgREST cannot do multi-step tx in one call; perform sequentially.
 
     for (const item of items) {
@@ -710,7 +710,7 @@ export class SupabaseStorage implements IStorage {
     }>
   ): Promise<void> {
     for (const it of items) {
-      const { error } = await this.client.from("sale_items").insert({
+      const { error } = await (await this.sb()).from("sale_items").insert({
         sale_id: saleId,
         product_id: it.productId,
         quantity: it.quantity as any,
@@ -743,7 +743,7 @@ export class SupabaseStorage implements IStorage {
     // ---------------------------------------------
     // 1️⃣ Create sales return header row
     // ---------------------------------------------
-    const { data: sr, error: srErr } = await this.client
+    const { data: sr, error: srErr } = await (await this.sb())
       .from("sales_returns")
       .insert({ sale_id: saleId, customer_id: customerId || null, reason })
       .select("id")
@@ -762,7 +762,7 @@ export class SupabaseStorage implements IStorage {
 
       // STEP A — Find sale_item_id
       if (!saleItemId) {
-        const { data: saleItem, error: findErr } = await this.client
+        const { data: saleItem, error: findErr } = await (await this.sb())
           .from("sale_items")
           .select("id")
           .eq("sale_id", saleId)
@@ -775,7 +775,7 @@ export class SupabaseStorage implements IStorage {
 
         // STEP B — If missing in sale_items table → create from original sale JSON
         if (!saleItemId) {
-          const { data: saleData, error: saleErr } = await this.client
+          const { data: saleData, error: saleErr } = await (await this.sb())
             .from("sales")
             .select("items")
             .eq("id", saleId)
@@ -793,7 +793,7 @@ export class SupabaseStorage implements IStorage {
           if (!original)
             throw new Error(`Product ${it.productId} not in sale.`);
 
-          const { data: newSaleItem, error: createErr } = await this.client
+          const { data: newSaleItem, error: createErr } = await (await this.sb())
             .from("sale_items")
             .insert({
               sale_id: saleId,
@@ -812,7 +812,7 @@ export class SupabaseStorage implements IStorage {
       }
 
       // STEP C — Insert into sales_return_items
-      const { error: sriErr } = await this.client
+      const { error: sriErr } = await (await this.sb())
         .from("sales_return_items")
         .insert({
           sales_return_id: returnId,
@@ -825,7 +825,7 @@ export class SupabaseStorage implements IStorage {
       if (sriErr) throw sriErr;
 
       // STEP D — Restock
-      const { data: prod, error: prodErr } = await this.client
+      const { data: prod, error: prodErr } = await (await this.sb())
         .from("products")
         .select("stock")
         .eq("id", it.productId)
@@ -835,7 +835,7 @@ export class SupabaseStorage implements IStorage {
 
       const newStock = Number(prod?.stock || 0) + it.quantity;
 
-      const { error: updErr } = await this.client
+      const { error: updErr } = await (await this.sb())
         .from("products")
         .update({ stock: newStock })
         .eq("id", it.productId);
@@ -843,7 +843,7 @@ export class SupabaseStorage implements IStorage {
       if (updErr) throw updErr;
 
       // STEP E — Log stock movement
-      const { error: moveErr } = await this.client
+      const { error: moveErr } = await (await this.sb())
         .from("stock_movements")
         .insert({
           product_id: it.productId,
@@ -863,7 +863,7 @@ export class SupabaseStorage implements IStorage {
     // ---------------------------------------------
     // console.log("Recalculating totals…");
 
-    const { data: saleMeta, error: saleMetaErr } = await this.client
+    const { data: saleMeta, error: saleMetaErr } = await (await this.sb())
       .from("sales")
       .select("items, discount_type, discount_value, tax_percent")
       .eq("id", saleId)
@@ -920,7 +920,7 @@ export class SupabaseStorage implements IStorage {
     // ---------------------------------------------
     // 4️⃣ Update sale record
     // ---------------------------------------------
-    const { error: finalErr } = await this.client
+    const { error: finalErr } = await (await this.sb())
       .from("sales")
       .update({
         items: updatedItems,
@@ -947,7 +947,7 @@ export class SupabaseStorage implements IStorage {
 
   // Promotions
   async getPromotions() {
-    const { data, error } = await this.client
+    const { data, error } = await (await this.sb())
       .from("promotions")
       .select("*")
       .eq("active", true);
@@ -955,7 +955,7 @@ export class SupabaseStorage implements IStorage {
     return data as any;
   }
   async createPromotion(promo: any) {
-    const { data, error } = await this.client
+    const { data, error } = await (await this.sb())
       .from("promotions")
       .insert(promo)
       .select("*")
@@ -964,7 +964,7 @@ export class SupabaseStorage implements IStorage {
     return data as any;
   }
   async addPromotionTarget(target: any) {
-    const { data, error } = await this.client
+    const { data, error } = await (await this.sb())
       .from("promotion_targets")
       .insert(target)
       .select("*")
@@ -973,7 +973,7 @@ export class SupabaseStorage implements IStorage {
     return data as any;
   }
   async getPromotionTargets() {
-    const { data, error } = await this.client
+    const { data, error } = await (await this.sb())
       .from("promotion_targets")
       .select("*");
     if (error) throw error;
@@ -1000,7 +1000,7 @@ export class SupabaseStorage implements IStorage {
     }
 
     // 1️⃣ Fetch all products (including delete flags)
-    const { data: products, error: productsError } = await this.client
+    const { data: products, error: productsError } = await (await this.sb())
       .from("products")
       .select("id, name, sku, stock, deleted_at, deleted")
       .order("name", { ascending: true });
@@ -1011,7 +1011,7 @@ export class SupabaseStorage implements IStorage {
     // For date range queries, we need to check if products were sold IN the range
     // So we fetch sales within the range to see which products were sold
     // For sinceDays queries, we just need sales after cutoffDate
-    let salesQuery = this.client
+    let salesQuery = (await this.sb())
       .from("sales")
       .select("created_at, items, deleted")
       .eq("deleted", false);
@@ -1051,7 +1051,7 @@ export class SupabaseStorage implements IStorage {
     }
 
     // 4️⃣ Also get last sold date for each product (from all sales) for display
-    const { data: allSales, error: allSalesError } = await this.client
+    const { data: allSales, error: allSalesError } = await (await this.sb())
       .from("sales")
       .select("created_at, items, deleted")
       .eq("deleted", false);
@@ -1105,7 +1105,7 @@ export class SupabaseStorage implements IStorage {
   }
 
   async getStockValuation() {
-    const { data: products, error } = await this.client
+    const { data: products, error } = await (await this.sb())
       .from("products")
       .select("id, name, stock, price, buying_price, deleted");
 
@@ -1162,7 +1162,7 @@ export class SupabaseStorage implements IStorage {
       since.setDate(since.getDate() - params.sinceDays);
     }
 
-    const { data, error } = await this.client.rpc("profit_margins", {
+    const { data, error } = await (await this.sb()).rpc("profit_margins", {
       since_ts: since.toISOString(),
     });
     if (error) throw error;
@@ -1182,7 +1182,7 @@ export class SupabaseStorage implements IStorage {
       // So we'll fetch sales directly and calculate profit if both dates are provided
       if (params.fromDate && params.toDate) {
         // Fetch sales in the date range and calculate profit
-        const { data: sales, error: salesError } = await this.client
+        const { data: sales, error: salesError } = await (await this.sb())
           .from("sales")
           .select("items, created_at, total_amount, discount_amount")
           .eq("deleted", false)
@@ -1191,7 +1191,7 @@ export class SupabaseStorage implements IStorage {
 
         if (!salesError && sales) {
           // Calculate profit from sales
-          const { data: products } = await this.client
+          const { data: products } = await (await this.sb())
             .from("products")
             .select("id, name, price, buying_price");
 
@@ -1289,7 +1289,7 @@ export class SupabaseStorage implements IStorage {
 
   // Payments
   async createPayment(payment: any) {
-    const { data, error } = await this.client
+    const { data, error } = await (await this.sb())
       .from("payments")
       .insert(payment)
       .select("*")
@@ -1298,7 +1298,7 @@ export class SupabaseStorage implements IStorage {
     return data as any;
   }
   async updatePayment(id: string, dataPatch: any) {
-    const { data, error } = await this.client
+    const { data, error } = await (await this.sb())
       .from("payments")
       .update(dataPatch)
       .eq("id", id)
@@ -1312,7 +1312,7 @@ export class SupabaseStorage implements IStorage {
   async getDiscountCoupons(): Promise<
     import("@shared/schema").DiscountCoupon[]
   > {
-    const { data, error } = await this.client
+    const { data, error } = await (await this.sb())
       .from("discount_coupons")
       .select("*")
       .order("created_at", { ascending: false });
@@ -1330,7 +1330,7 @@ export class SupabaseStorage implements IStorage {
       active: (coupon as any).active,
       created_by: (coupon as any).createdBy,
     };
-    const { data, error } = await this.client
+    const { data, error } = await (await this.sb())
       .from("discount_coupons")
       .insert(payload)
       .select("*")
@@ -1342,7 +1342,7 @@ export class SupabaseStorage implements IStorage {
   async getDiscountCouponByName(
     name: string
   ): Promise<import("@shared/schema").DiscountCoupon | undefined> {
-    const { data, error } = await this.client
+    const { data, error } = await (await this.sb())
       .from("discount_coupons")
       .select("*")
       .eq("name", name)
@@ -1366,7 +1366,7 @@ export class SupabaseStorage implements IStorage {
       payload.active = (coupon as any).active;
     if ((coupon as any).createdBy !== undefined)
       payload.created_by = (coupon as any).createdBy;
-    const { data, error } = await this.client
+    const { data, error } = await (await this.sb())
       .from("discount_coupons")
       .update(payload)
       .eq("id", id)
@@ -1379,7 +1379,7 @@ export class SupabaseStorage implements IStorage {
   }
 
   async deleteDiscountCoupon(id: string): Promise<boolean> {
-    const { error } = await this.client
+    const { error } = await (await this.sb())
       .from("discount_coupons")
       .delete()
       .eq("id", id);

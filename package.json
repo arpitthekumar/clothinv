@@ -6,7 +6,11 @@
     "dev": "next dev --turbopack",
     "build": "next build --turbopack",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "backup": "tsx scripts/backup.ts",
+    "backup:canonical": "tsx scripts/backup.ts --canonical-only",
+    "restore": "tsx scripts/restore.ts",
+    "restore:secondary": "tsx scripts/restore.ts --target-secondary"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.2.2",
@@ -80,6 +84,7 @@
     "eslint": "^9",
     "eslint-config-next": "15.5.4",
     "tailwindcss": "^4",
+    "tsx": "^4.19.3",
     "typescript": "^5"
   }
 }

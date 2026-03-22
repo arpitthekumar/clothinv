@@ -1,31 +1,96 @@
-import { createClient } from "@supabase/supabase-js";
+import { createClient, type SupabaseClient } from "@supabase/supabase-js";
+import { headers } from "next/headers";
 
-const URL = (process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL) as string | undefined;
-const KEY = (
-  process.env.SUPABASE_SERVICE_ROLE_KEY ||
-  process.env.SUPABASE_ANON_KEY ||
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
-) as string | undefined;
+import {
+  getSecondarySupabaseKey,
+  getSecondarySupabaseUrl,
+} from "./supabase-env";
 
-export function getSupabaseServer() {
-  if (!URL || !KEY) {
-    console.error('❌ Supabase configuration missing');
-    return null;
-  }
-  
-  // Validate URL format
+/** Profile selected via cookie (middleware → header). Scripts / non-request contexts use primary. */
+export type SupabaseProfile = "primary" | "secondary";
+
+const HEADER_PROFILE = "x-clothinv-supabase-profile";
+
+function primaryUrl(): string | undefined {
+  return (
+    process.env.SUPABASE_URL?.trim() ||
+    process.env.NEXT_PUBLIC_SUPABASE_URL?.trim()
+  );
+}
+
+function primaryKey(): string | undefined {
+  return (
+    process.env.SUPABASE_SERVICE_ROLE_KEY?.trim() ||
+    process.env.SUPABASE_ANON_KEY?.trim() ||
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY?.trim()
+  );
+}
+
+function secondaryUrl(): string | undefined {
+  return getSecondarySupabaseUrl();
+}
+
+function secondaryKey(): string | undefined {
+  return getSecondarySupabaseKey();
+}
+
+function validateUrl(url: string): boolean {
   try {
-    new globalThis.URL(URL);
+    new globalThis.URL(url);
+    return true;
   } catch {
-    console.error('❌ Invalid Supabase URL format:', URL);
+    return false;
+  }
+}
+
+export async function resolveActiveProfile(): Promise<SupabaseProfile> {
+  try {
+    const h = await headers();
+    const v = h.get(HEADER_PROFILE);
+    if (v === "secondary") return "secondary";
+  } catch {
+    // Not in a request (e.g. standalone script) — default to primary
+  }
+  return "primary";
+}
+
+/**
+ * Server-side Supabase client for the active profile (cookie + env).
+ * Must be awaited. Outside a Next request, uses primary credentials.
+ */
+export async function getSupabaseServer(): Promise<SupabaseClient | null> {
+  const profile = await resolveActiveProfile();
+
+  const url =
+    profile === "secondary"
+      ? secondaryUrl() || primaryUrl()
+      : primaryUrl();
+  const key =
+    profile === "secondary"
+      ? secondaryKey() || primaryKey()
+      : primaryKey();
+
+  if (!url || !key) {
+    console.error("❌ Supabase configuration missing for profile:", profile);
     return null;
   }
-  
-  return createClient(URL, KEY, {
+
+  if (!validateUrl(url)) {
+    console.error("❌ Invalid Supabase URL format:", url);
+    return null;
+  }
+
+  if (profile === "secondary" && (!secondaryUrl() || !secondaryKey())) {
+    console.warn(
+      "⚠️ Secondary Supabase env not fully set; falling back to primary URL/key."
+    );
+  }
+
+  return createClient(url, key, {
     auth: { persistSession: false },
   });
 }
 
-export const hasSupabase = Boolean(URL && KEY);
-
+/** True when primary Supabase URL + key are set (required for the app). */
+export const hasSupabase = Boolean(primaryUrl() && primaryKey());
 

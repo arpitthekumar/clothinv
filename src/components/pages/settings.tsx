@@ -6,6 +6,7 @@ import { useAuth } from "@/hooks/use-auth";
 import { Settings as SettingsIcon, Shield, Percent, Folder, Monitor, Smartphone, Download } from "lucide-react";
 import { CouponsManagement } from "@/components/settings/coupons-management";
 import { CategoriesManagement } from "@/components/settings/categories-management";
+import { SupabaseProfileCard } from "@/components/settings/supabase-profile-card";
 import { Button } from "../ui/button";
 
 export default function Settings() {
@@ -116,6 +117,8 @@ export default function Settings() {
                 </div>
               </CardContent>
             </Card>
+
+            <SupabaseProfileCard />
 
             <Card>
               <CardHeader>
