@@ -18,6 +18,10 @@ const META: Record<string, { title: string; subtitle: string }> = {
     title: "Settings",
     subtitle: "Required Extensions",
   },
+  "/settings/pos": {
+    title: "Settings",
+    subtitle: "POS checkout automation",
+  },
 };
 
 export default function SettingsLayoutClient({

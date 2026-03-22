@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
-import { Monitor, Database, Download } from "lucide-react";
+import { Monitor, Database, Download, Zap } from "lucide-react";
 
 const tabs = [
   {
@@ -20,6 +20,11 @@ const tabs = [
     href: "/settings/extensions",
     label: "Required Extensions",
     icon: Download,
+  },
+  {
+    href: "/settings/pos",
+    label: "POS checkout",
+    icon: Zap,
   },
 ] as const;
 

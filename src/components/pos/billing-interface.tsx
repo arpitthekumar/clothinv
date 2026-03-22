@@ -11,6 +11,7 @@ import {
   TrendingUp,
 } from "lucide-react";
 import { useBilling } from "@/hooks/use-billing";
+import { usePosCheckoutPrefs } from "@/hooks/use-pos-checkout-prefs";
 import ProductSearch from "@/components/pos/ProductSearch";
 import { FavoriteProducts } from "@/components/pos/FavoriteProducts";
 import { CartTable } from "@/components/pos/CartTable";
@@ -35,6 +36,7 @@ export function BillingInterface() {
     customerPhone,
     customerName,
     isProcessing,
+    isConfirmingSale,
     favorites,
     couponCode,
     appliedCoupon,
@@ -58,6 +60,8 @@ export function BillingInterface() {
     handleScan,
     calculateTotals,
     handleCheckout,
+    confirmPaymentAndCreateSale,
+    dismissConfirmPayment,
     addRecentSaleToCart,
     addMostSoldToCart,
     applyCoupon,
@@ -66,6 +70,8 @@ export function BillingInterface() {
     getDiscountedUnitPrice,
     getFinalUnitPrice,
   } = useBilling();
+
+  const posCheckoutPrefs = usePosCheckoutPrefs();
 
   const addFavoriteIdToCart = (favoriteId: string) => {
     const product = products.find((p) => p.id === favoriteId);
@@ -279,13 +285,10 @@ export function BillingInterface() {
         onOpenChange={setShowConfirmPayment}
         total={total}
         paymentMethod={paymentMethod}
-        onConfirm={() => {
-          setShowConfirmPayment(false);
-          setShowThankYou(true);
-          clearCart();
-          setCustomerName("");
-          setCustomerPhone("");
-        }}
+        prefs={posCheckoutPrefs}
+        onPaymentDone={confirmPaymentAndCreateSale}
+        onCancel={dismissConfirmPayment}
+        isSubmitting={isConfirmingSale}
       />
 
       {/* Thank You Dialog */}
