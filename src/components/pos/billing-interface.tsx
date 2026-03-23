@@ -11,6 +11,7 @@ import {
   TrendingUp,
 } from "lucide-react";
 import { useBilling } from "@/hooks/use-billing";
+import { usePosCheckoutPrefs } from "@/hooks/use-pos-checkout-prefs";
 import ProductSearch from "@/components/pos/ProductSearch";
 import { FavoriteProducts } from "@/components/pos/FavoriteProducts";
 import { CartTable } from "@/components/pos/CartTable";
@@ -35,6 +36,7 @@ export function BillingInterface() {
     customerPhone,
     customerName,
     isProcessing,
+    isConfirmingSale,
     favorites,
     couponCode,
     appliedCoupon,
@@ -58,12 +60,18 @@ export function BillingInterface() {
     handleScan,
     calculateTotals,
     handleCheckout,
+    confirmPaymentAndCreateSale,
+    dismissConfirmPayment,
     addRecentSaleToCart,
     addMostSoldToCart,
     applyCoupon,
     removeCoupon,
     isFavorite,
+    getDiscountedUnitPrice,
+    getFinalUnitPrice,
   } = useBilling();
+
+  const posCheckoutPrefs = usePosCheckoutPrefs();
 
   const addFavoriteIdToCart = (favoriteId: string) => {
     const product = products.find((p) => p.id === favoriteId);
@@ -78,7 +86,14 @@ export function BillingInterface() {
   // all handlers implemented inside useBilling hook
 
   const totals = calculateTotals();
-  const { subtotal, couponDiscount, tax, total } = totals;
+  const {
+    listSubtotal,
+    promoSavings,
+    subtotal,
+    couponDiscount,
+    tax,
+    total,
+  } = totals;
 
   return (
     <div className="grid grid-cols-1 xl:grid-cols-3 gap-4 md:gap-6 pb-6">
@@ -183,6 +198,10 @@ export function BillingInterface() {
           <CardContent>
             <CartTable
               items={cart as any}
+              getDiscountedUnitPrice={getDiscountedUnitPrice}
+              getFinalUnitPrice={getFinalUnitPrice}   // ✅ ADD THIS
+              subtotal={subtotal}                    // ✅ ADD THIS
+              couponDiscount={couponDiscount}        // ✅ ADD THIS
               onDecrease={(productId) => {
                 const item = cart.find((i) => i.productId === productId);
                 if (!item) return;
@@ -207,6 +226,8 @@ export function BillingInterface() {
           </CardHeader>
           <CardContent className="space-y-4">
             <TotalsPanel
+              listSubtotal={listSubtotal}
+              promoSavings={promoSavings}
               subtotal={subtotal}
               couponDiscount={couponDiscount}
               tax={tax}
@@ -264,13 +285,10 @@ export function BillingInterface() {
         onOpenChange={setShowConfirmPayment}
         total={total}
         paymentMethod={paymentMethod}
-        onConfirm={() => {
-          setShowConfirmPayment(false);
-          setShowThankYou(true);
-          clearCart();
-          setCustomerName("");
-          setCustomerPhone("");
-        }}
+        prefs={posCheckoutPrefs}
+        onPaymentDone={confirmPaymentAndCreateSale}
+        onCancel={dismissConfirmPayment}
+        isSubmitting={isConfirmingSale}
       />
 
       {/* Thank You Dialog */}

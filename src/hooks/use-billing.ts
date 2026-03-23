@@ -10,6 +10,7 @@ import { invoicePrinter, type InvoiceData } from "@/lib/printer";
 import { Product, SaleItem } from "@shared/schema";
 import { favoritesStorage, type FavoriteProduct } from "@/lib/favorites";
 import { normalizeItems } from "@/lib/json";
+import { getPosCheckoutPrefs } from "@/lib/pos-checkout-prefs";
 
 export interface CartItem extends SaleItem {
   id: string;
@@ -25,12 +26,13 @@ export function useBilling() {
   const [showConfirmPayment, setShowConfirmPayment] = useState(false);
   const [showThankYou, setShowThankYou] = useState(false);
   const [lastInvoiceData, setLastInvoiceData] = useState<InvoiceData | null>(
-    null
+    null,
   );
   const [lastCustomerPhone, setLastCustomerPhone] = useState<string>("");
   const [customerPhone, setCustomerPhone] = useState("");
   const [customerName, setCustomerName] = useState("");
   const [isProcessing, setIsProcessing] = useState(false);
+  const [isConfirmingSale, setIsConfirmingSale] = useState(false);
   const [favorites, setFavorites] = useState<FavoriteProduct[]>([]);
   const [couponCode, setCouponCode] = useState("");
   const [appliedCoupon, setAppliedCoupon] = useState<any>(null);
@@ -104,8 +106,8 @@ export function useBilling() {
       }
       setCart((prev) =>
         prev.map((i) =>
-          i.productId === product.id ? { ...i, quantity: newQty } : i
-        )
+          i.productId === product.id ? { ...i, quantity: newQty } : i,
+        ),
       );
       return;
     }
@@ -146,8 +148,10 @@ export function useBilling() {
     }
     setCart((prev) =>
       prev.map((item) =>
-        item.productId === productId ? { ...item, quantity: newQuantity } : item
-      )
+        item.productId === productId
+          ? { ...item, quantity: newQuantity }
+          : item,
+      ),
     );
   };
 
@@ -175,7 +179,7 @@ export function useBilling() {
     const filtered = products.filter(
       (p) =>
         p.name.toLowerCase().includes(query.toLowerCase()) ||
-        p.sku?.toLowerCase().includes(query.toLowerCase())
+        p.sku?.toLowerCase().includes(query.toLowerCase()),
     );
 
     // Pagination
@@ -211,7 +215,7 @@ export function useBilling() {
     const applicable = (promoTargets as any[])
       .map((t: any) => {
         const promo = promotions.find(
-          (p: any) => p.id === t.promotionId || p.id === t.promotion_id
+          (p: any) => p.id === t.promotionId || p.id === t.promotion_id,
         );
         if (!promo || promo.active === false) return null;
         const now = Date.now();
@@ -240,30 +244,69 @@ export function useBilling() {
     }
     return best;
   };
+  const getFinalUnitPrice = (
+    productId: string,
+    basePrice: number,
+    quantity: number,
+    subtotal: number,
+    couponDiscount: number,
+  ) => {
+    const productPrice = getDiscountedUnitPrice(productId, basePrice);
 
+    if (!couponDiscount || subtotal <= 0) {
+      return productPrice;
+    }
+
+    const itemTotal = productPrice * quantity;
+    const ratio = itemTotal / subtotal;
+
+    const itemCouponShare = couponDiscount * ratio;
+    const couponPerUnit = itemCouponShare / quantity;
+
+    return Math.max(0, Math.round(productPrice - couponPerUnit));
+  };
   const calculateTotals = () => {
-    // Calculate subtotal with any product-specific discounts
+    let listSubtotal = 0;
+    let afterPromoSubtotal = 0;
+    for (const item of cart) {
+      const base = parseFloat(item.price);
+      const unitPromo = getDiscountedUnitPrice(item.productId, base);
+      listSubtotal += base * item.quantity;
+      afterPromoSubtotal += unitPromo * item.quantity;
+    }
+    listSubtotal = Math.round(listSubtotal * 100) / 100;
+    afterPromoSubtotal = Math.round(afterPromoSubtotal * 100) / 100;
+    const promoSavings =
+      Math.round((listSubtotal - afterPromoSubtotal) * 100) / 100;
+
     const cartWithDiscounts = cart.map((item) => ({
       ...item,
       price: getDiscountedUnitPrice(item.productId, parseFloat(item.price)),
     }));
 
-    // Use shared calculation function
     const calculation = calculateSaleTotals(
       cartWithDiscounts,
       appliedCoupon ? "percentage" : null,
-      appliedCoupon ? parseFloat(appliedCoupon.percentage) : 0
+      appliedCoupon ? parseFloat(appliedCoupon.percentage) : 0,
     );
 
     return {
+      listSubtotal,
+      promoSavings,
       subtotal: calculation.subtotal,
       couponDiscount: calculation.discountAmount,
       afterCoupon: calculation.subtotal - calculation.discountAmount,
-      tax: 0, // GST removed
+      tax: 0,
       total: calculation.total,
-      taxPercent: 0, // GST removed
+      taxPercent: 0,
     };
   };
+
+  const resetAfterSuccessfulSale = useCallback(() => {
+    setCart([]);
+    setCustomerPhone("");
+    setCustomerName("");
+  }, []);
 
   const createSaleMutation = useMutation({
     mutationFn: async (saleData: any) => {
@@ -291,6 +334,107 @@ export function useBilling() {
     },
   });
 
+  const submitSaleFromCart = useCallback(async () => {
+    if (!user?.id) {
+      throw new Error("Not signed in");
+    }
+    const finalCustomerName = customerName.trim() || "Walk-in Customer";
+    const finalCustomerPhone = customerPhone.trim() || "0000000000";
+    const calculation = calculateSaleTotals(
+      cart.map((item) => ({
+        ...item,
+        price: getDiscountedUnitPrice(item.productId, parseFloat(item.price)),
+      })),
+      appliedCoupon ? "percentage" : null,
+      appliedCoupon ? parseFloat(appliedCoupon.percentage) : 0,
+    );
+
+    const saleData = {
+      user_id: user.id,
+      customer_name: finalCustomerName,
+      customer_phone: finalCustomerPhone,
+      items: cart.map((item) => ({
+        productId: item.productId,
+        quantity: item.quantity,
+        price: getDiscountedUnitPrice(
+          item.productId,
+          parseFloat(item.price),
+        ).toFixed(2),
+        name: item.name,
+        sku: item.sku,
+      })),
+      subtotal: calculation.subtotal.toFixed(2),
+      tax_percent: calculation.taxPercent.toFixed(2),
+      tax_amount: calculation.taxAmount.toFixed(2),
+      discount_type: calculation.discountType,
+      discount_value: calculation.discountValue.toFixed(2),
+      discount_amount: calculation.discountAmount.toFixed(2),
+      total_amount: calculation.total.toFixed(2),
+      payment_method: paymentMethod,
+      invoice_number: `INV-${Date.now()}`,
+    } as any;
+
+    const sale = await createSaleMutation.mutateAsync(saleData);
+
+    const invoiceData: InvoiceData = {
+      invoiceNumber:
+        sale.invoiceNumber || sale.invoice_number || `INV-${Date.now()}`,
+      date: new Date(),
+      customerName: finalCustomerName,
+      customerPhone: finalCustomerPhone,
+      items: cart.map((item) => {
+        const price =
+          Math.round(
+            getDiscountedUnitPrice(item.productId, parseFloat(item.price)) *
+              100,
+          ) / 100;
+        return {
+          name: item.name,
+          quantity: item.quantity,
+          price: price,
+          total: Math.round(price * item.quantity * 100) / 100,
+        };
+      }),
+      subtotal: Math.round(calculation.subtotal * 100) / 100,
+      tax: Math.round(calculation.taxAmount * 100) / 100,
+      taxPercent: calculation.taxPercent,
+      discountType: calculation.discountType || undefined,
+      discountValue: Math.round(calculation.discountValue * 100) / 100,
+      discountAmount: Math.round(calculation.discountAmount * 100) / 100,
+      total: Math.round(calculation.total * 100) / 100,
+      paymentMethod,
+    };
+    setLastInvoiceData(invoiceData);
+    setLastCustomerPhone(customerPhone);
+  }, [
+    user,
+    cart,
+    customerName,
+    customerPhone,
+    paymentMethod,
+    appliedCoupon,
+    getDiscountedUnitPrice,
+    createSaleMutation,
+  ]);
+
+  const confirmPaymentAndCreateSale = useCallback(async () => {
+    setIsConfirmingSale(true);
+    try {
+      await submitSaleFromCart();
+      setShowConfirmPayment(false);
+      setShowThankYou(true);
+      resetAfterSuccessfulSale();
+    } catch {
+      // createSaleMutation / submitSaleFromCart surfaces toast
+    } finally {
+      setIsConfirmingSale(false);
+    }
+  }, [submitSaleFromCart, resetAfterSuccessfulSale]);
+
+  const dismissConfirmPayment = useCallback(() => {
+    setShowConfirmPayment(false);
+  }, []);
+
   const handleCheckout = async () => {
     if (cart.length === 0) {
       toast({
@@ -300,86 +444,25 @@ export function useBilling() {
       });
       return;
     }
-    // Use defaults if not provided
-    const finalCustomerName = customerName.trim() || "Walk-in Customer";
-    const finalCustomerPhone = customerPhone.trim() || "0000000000";
-    setIsProcessing(true);
-    try {
-      const calculation = calculateSaleTotals(
-        cart.map((item) => ({
-          ...item,
-          price: getDiscountedUnitPrice(item.productId, parseFloat(item.price)),
-        })),
-        appliedCoupon ? "percentage" : null,
-        appliedCoupon ? parseFloat(appliedCoupon.percentage) : 0
-      );
-
-      const saleData = {
-        user_id: user!.id,
-        customer_name: finalCustomerName,
-        customer_phone: finalCustomerPhone,
-        items: cart.map((item) => ({
-          productId: item.productId,
-          quantity: item.quantity,
-          price: getDiscountedUnitPrice(
-            item.productId,
-            parseFloat(item.price)
-          ).toFixed(2),
-          name: item.name,
-          sku: item.sku,
-        })),
-        subtotal: calculation.subtotal.toFixed(2),
-        tax_percent: calculation.taxPercent.toFixed(2),
-        tax_amount: calculation.taxAmount.toFixed(2),
-        discount_type: calculation.discountType,
-        discount_value: calculation.discountValue.toFixed(2),
-        discount_amount: calculation.discountAmount.toFixed(2),
-        total_amount: calculation.total.toFixed(2),
-        payment_method: paymentMethod,
-        invoice_number: `INV-${Date.now()}`,
-      } as any;
-      const sale = await createSaleMutation.mutateAsync(saleData);
-      // Round all values
-      const invoiceData: InvoiceData = {
-        invoiceNumber:
-          sale.invoiceNumber || sale.invoice_number || `INV-${Date.now()}`,
-        date: new Date(),
-        customerName: finalCustomerName,
-        customerPhone: finalCustomerPhone,
-        items: cart.map((item) => {
-          const price =
-            Math.round(
-              getDiscountedUnitPrice(item.productId, parseFloat(item.price)) *
-                100
-            ) / 100;
-          return {
-            name: item.name,
-            quantity: item.quantity,
-            price: price,
-            total: Math.round(price * item.quantity * 100) / 100,
-          };
-        }),
-        subtotal: Math.round(calculation.subtotal * 100) / 100,
-        tax: Math.round(calculation.taxAmount * 100) / 100,
-        taxPercent: calculation.taxPercent,
-        discountType: calculation.discountType || undefined,
-        discountValue: Math.round(calculation.discountValue * 100) / 100,
-        discountAmount: Math.round(calculation.discountAmount * 100) / 100,
-        total: Math.round(calculation.total * 100) / 100,
-        paymentMethod,
-      };
-      setLastInvoiceData(invoiceData);
-      setLastCustomerPhone(customerPhone);
-      setShowConfirmPayment(true);
-    } catch (error) {
-      toast({
-        title: "Checkout Failed",
-        description: (error as Error).message,
-        variant: "destructive",
-      });
-    } finally {
-      setIsProcessing(false);
+    const prefs = getPosCheckoutPrefs();
+    if (prefs.paymentConfirmMode === "none") {
+      setIsProcessing(true);
+      try {
+        await submitSaleFromCart();
+        setShowThankYou(true);
+        resetAfterSuccessfulSale();
+      } catch (error) {
+        toast({
+          title: "Checkout Failed",
+          description: (error as Error).message,
+          variant: "destructive",
+        });
+      } finally {
+        setIsProcessing(false);
+      }
+      return;
     }
+    setShowConfirmPayment(true);
   };
 
   const addRecentSaleToCart = (sale: any) => {
@@ -414,7 +497,7 @@ export function useBilling() {
   const applyCoupon = () => {
     if (!couponCode.trim()) return;
     const coupon = (coupons as any[]).find(
-      (c) => c.name.toLowerCase() === couponCode.toLowerCase()
+      (c) => c.name.toLowerCase() === couponCode.toLowerCase(),
     );
     if (coupon) {
       setAppliedCoupon(coupon);
@@ -450,6 +533,7 @@ export function useBilling() {
     customerPhone,
     customerName,
     isProcessing,
+    isConfirmingSale,
     favorites,
     couponCode,
     appliedCoupon,
@@ -476,10 +560,14 @@ export function useBilling() {
     handleScan,
     calculateTotals,
     handleCheckout,
+    confirmPaymentAndCreateSale,
+    dismissConfirmPayment,
     addRecentSaleToCart,
     addMostSoldToCart,
     applyCoupon,
     removeCoupon,
     isFavorite: (id: string) => favoritesStorage.isFavorite(id),
+    getDiscountedUnitPrice,
+    getFinalUnitPrice,
   };
 }

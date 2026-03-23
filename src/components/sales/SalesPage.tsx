@@ -332,6 +332,7 @@ export default function SalesPage() {
         onOpenChange={setThankYouOpen}
         invoiceData={invoiceData}
         customerPhone={customerPhone}
+        disableAutomation
       />
     </RequireAuth>
   );

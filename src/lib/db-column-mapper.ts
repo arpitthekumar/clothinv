@@ -85,3 +85,21 @@ export function mapProductFromDb(product: any): any {
   return mapped;
 }
 
+/** Supabase/Postgres returns snake_case; app + session expect camelCase User fields. */
+export function mapUserFromDb(user: any): any {
+  if (!user || typeof user !== "object") {
+    return user;
+  }
+  const u = { ...user };
+  if (u.full_name !== undefined && u.fullName === undefined) {
+    u.fullName = u.full_name;
+    delete u.full_name;
+  }
+  if (u.created_at !== undefined && u.createdAt === undefined) {
+    u.createdAt =
+      typeof u.created_at === "string" ? new Date(u.created_at) : u.created_at;
+    delete u.created_at;
+  }
+  return u;
+}
+

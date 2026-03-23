@@ -1,12 +1,5 @@
-"use client";
+import { redirect } from "next/navigation";
 
-import Settings from "@/components/pages/settings";
-
-export default function Page() {
-  return<>
-  <Settings />
-   </> 
-  ;
+export default function SettingsIndexPage() {
+  redirect("/settings/system");
 }
-
-

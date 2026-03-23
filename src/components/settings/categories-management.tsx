@@ -110,9 +110,10 @@ export function CategoriesManagement() {
   }
 
   return (
-    <div className="space-y-4">
-      {/* Search and Add */}
-      <div className="flex gap-3 items-center">
+    <div className="space-y-4 px-2 sm:px-0">
+
+      {/* SEARCH + BUTTON */}
+      <div className="flex flex-col sm:flex-row gap-2 sm:gap-3">
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground h-4 w-4" />
           <Input
@@ -122,13 +123,17 @@ export function CategoriesManagement() {
             className="pl-10"
           />
         </div>
-        <Button onClick={() => setShowAddModal(true)}>
+
+        <Button
+          onClick={() => setShowAddModal(true)}
+          className="w-full sm:w-auto"
+        >
           <Plus className="mr-2 h-4 w-4" />
           Add Category
         </Button>
       </div>
 
-      {/* Categories List */}
+      {/* LIST */}
       {filteredCategories.length === 0 ? (
         <div className="text-center py-8 text-muted-foreground">
           {searchTerm
@@ -136,7 +141,7 @@ export function CategoriesManagement() {
             : "No categories found. Add your first category!"}
         </div>
       ) : (
-        <div className="space-y-2">
+        <div className="space-y-3">
           {filteredCategories.map((category) => {
             const productCount = getProductCount(category.id);
             const canDelete = productCount === 0;
@@ -144,39 +149,58 @@ export function CategoriesManagement() {
             return (
               <Card
                 key={category.id}
-                className={`${
-                  tailwindBorderMap[category.color]
-                } `}
+                className={`${tailwindBorderMap[category.color]}`}
               >
-                <CardContent className="p-4">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-3">
-                      <Folder className="h-5 w-5 text-primary" />
-                      <div>
-                        <h3 className="font-semibold ">{category.name}</h3>
+                <CardContent className="p-3 sm:p-4">
+
+                  {/* MAIN FLEX */}
+                  <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+
+                    {/* LEFT */}
+                    <div className="flex items-start gap-3 min-w-0 flex-1">
+
+                      <Folder className="h-5 w-5 text-primary flex-shrink-0" />
+
+                      <div className="min-w-0 flex-1">
+
+                        {/* 🔥 NAME FIX */}
+                        <h3 className="font-semibold text-sm sm:text-base break-words leading-tight">
+                          {category.name}
+                        </h3>
+
                         {category.description && (
-                          <p className="text-sm text-muted-foreground">
+                          <p className="text-xs sm:text-sm text-muted-foreground break-words">
                             {category.description}
                           </p>
                         )}
-                        <div className="flex items-center gap-2 mt-1">
+
+                        {/* BADGES */}
+                        <div className="flex flex-wrap gap-2 mt-2">
                           <Badge variant={canDelete ? "secondary" : "outline"}>
                             {productCount}{" "}
                             {productCount === 1 ? "product" : "products"}
                           </Badge>
+
                           {!canDelete && (
-                            <Badge variant="destructive" className="text-xs">
-                              <AlertCircle className="h-3 w-3 mr-1" />
+                            <Badge
+                              variant="destructive"
+                              className="text-xs flex items-center gap-1"
+                            >
+                              <AlertCircle className="h-3 w-3" />
                               In use
                             </Badge>
                           )}
                         </div>
                       </div>
                     </div>
-                    <div className="space-x-2">
+
+                    {/* ACTIONS */}
+                    <div className="flex gap-2 w-full sm:w-auto flex-shrink-0">
+
                       <Button
                         variant="outline"
                         size="sm"
+                        className="flex-1 sm:flex-none"
                         onClick={() => {
                           setEditCategory(category);
                           setEditModalOpen(true);
@@ -184,9 +208,11 @@ export function CategoriesManagement() {
                       >
                         <Edit className="h-4 w-4" />
                       </Button>
+
                       <Button
                         variant="destructive"
                         size="sm"
+                        className="flex-1 sm:flex-none"
                         onClick={() => handleDeleteClick(category)}
                         disabled={
                           !canDelete || deleteCategoryMutation.isPending
@@ -195,6 +221,7 @@ export function CategoriesManagement() {
                         <Trash2 className="h-4 w-4" />
                       </Button>
                     </div>
+
                   </div>
                 </CardContent>
               </Card>
@@ -203,42 +230,31 @@ export function CategoriesManagement() {
         </div>
       )}
 
-      {/* Add Category Modal */}
+      {/* MODALS (unchanged) */}
       <AddCategoryModal
         isOpen={showAddModal}
         onClose={() => setShowAddModal(false)}
       />
+
       <EditCategoryModal
         open={editModalOpen}
         onClose={() => setEditModalOpen(false)}
         category={editCategory}
       />
 
-      {/* Delete Confirmation Dialog */}
       <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Delete Category?</AlertDialogTitle>
             <AlertDialogDescription>
-              Are you sure you want to delete "{categoryToDelete?.name}"? This
-              action cannot be undone.
-              {categoryToDelete && getProductCount(categoryToDelete.id) > 0 && (
-                <div className="mt-2 p-2 bg-destructive/10 border border-destructive/20 rounded text-destructive">
-                  <AlertCircle className="h-4 w-4 inline mr-1" />
-                  This category is being used by{" "}
-                  {getProductCount(categoryToDelete.id)} product(s).
-                </div>
-              )}
+              Are you sure you want to delete "{categoryToDelete?.name}"?
             </AlertDialogDescription>
           </AlertDialogHeader>
+
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction
-              onClick={handleDeleteConfirm}
-              disabled={deleteCategoryMutation.isPending}
-              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-            >
-              {deleteCategoryMutation.isPending ? "Deleting..." : "Delete"}
+            <AlertDialogAction onClick={handleDeleteConfirm}>
+              Delete
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

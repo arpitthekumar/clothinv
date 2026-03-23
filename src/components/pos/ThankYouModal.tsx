@@ -7,24 +7,33 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { Printer, Share2, Send, ImageDown, RotateCcw } from "lucide-react";
+import { Printer, Share2, Send, ImageDown, RotateCcw, Loader2 } from "lucide-react";
+import { cn } from "@/lib/utils";
 import { useState, useRef, useEffect } from "react";
 import html2canvas from "html2canvas";
 import { jsPDF } from "jspdf";
 import LabelBill from "./LabelBill";
 import { SaleData } from "@/lib/type";
 import { InvoiceData } from "@/lib/printer";
+import {
+  getPosCheckoutPrefs,
+  type ThankYouButtonId,
+} from "@/lib/pos-checkout-prefs";
+import { playAutomationSound } from "@/lib/sound";
 
 export function ThankYouModal({
   open,
   onOpenChange,
   invoiceData,
   customerPhone,
+  disableAutomation = false,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   invoiceData: InvoiceData | null;
   customerPhone: string;
+  /** e.g. Sales screen reprint — skip POS receipt automation. */
+  disableAutomation?: boolean;
 }) {
   const invoiceRef = useRef<HTMLDivElement>(null);
 
@@ -41,6 +50,10 @@ export function ThankYouModal({
   const [selectedType, setSelectedType] = useState<
     "TEXT" | "IMAGE" | "PDF" | null
   >(null);
+  const [autoCountdown, setAutoCountdown] = useState(0);
+  const [automationRunning, setAutomationRunning] = useState(false);
+  const autoFiredRef = useRef(false);
+
   useEffect(() => {
     isActive.current = open;
 
@@ -51,6 +64,9 @@ export function ThankYouModal({
       setLoading(false);
       setSelectedType(null);
       setStep(1);
+      setAutoCountdown(0);
+      autoFiredRef.current = false;
+      setAutomationRunning(false);
     }
   }, [open]);
 
@@ -97,7 +113,7 @@ export function ThankYouModal({
 
 
   // ---- IMAGE selected → generate PNG ----
-  const handleSelectImage = async () => {
+  const handleSelectImage = async (): Promise<void> => {
     if (loading) return;
 
     setSelectedType("IMAGE");
@@ -107,12 +123,10 @@ export function ThankYouModal({
 
     setLoading(true);
 
-    // Force UI repaint before html2canvas
     await new Promise((res) =>
-      requestAnimationFrame(() => requestAnimationFrame(res))
+      requestAnimationFrame(() => requestAnimationFrame(res)),
     );
 
-    // If modal closed during the frame → cancel
     if (!isActive.current || !invoiceRef.current) {
       setLoading(false);
       return;
@@ -128,8 +142,8 @@ export function ThankYouModal({
   };
 
   // ---- PDF selected → generate PDF ----
-  const handleSelectPDF = async () => {
-    if (loading) return; // blocks double clicks
+  const handleSelectPDF = async (): Promise<void> => {
+    if (loading) return;
 
     setSelectedType("PDF");
     setStep(2);
@@ -139,8 +153,13 @@ export function ThankYouModal({
     setLoading(true);
 
     await new Promise((res) =>
-      requestAnimationFrame(() => requestAnimationFrame(res))
+      requestAnimationFrame(() => requestAnimationFrame(res)),
     );
+
+    if (!isActive.current || !invoiceRef.current) {
+      setLoading(false);
+      return;
+    }
 
     const canvas = await html2canvas(invoiceRef.current, { scale: 3 });
     const imgData = canvas.toDataURL("image/png");
@@ -357,10 +376,7 @@ export function ThankYouModal({
     const base64 = btoa(unescape(encodeURIComponent(json)));
     const deepLink = `wts://receipt?json=${encodeURIComponent(base64)}`;
 
-    console.log("Fast Print Data:", fastData);
-    console.log("Fast Print Deep Link:", deepLink);
-
-    // 🚀 Trigger Android app
+    // Trigger Android app
     window.location.href = deepLink;
   };
 
@@ -398,6 +414,85 @@ export function ThankYouModal({
 
 
   };
+
+  /* Automation: reads latest prefs when receipt opens; handlers close over initial render — OK for one-shot actions. */
+  useEffect(() => {
+    if (!open || disableAutomation || !invoiceData) return;
+
+    const p = getPosCheckoutPrefs();
+    if (p.thankYouMode !== "automated") return;
+
+    const btn = p.thankYouAutoButton;
+    const secs = Math.max(0, p.thankYouAutoSeconds);
+
+    let cancelled = false;
+
+    const execute = async () => {
+      if (cancelled) return;
+      if (autoFiredRef.current) return; // user acted manually or already ran
+      autoFiredRef.current = true;
+      setAutomationRunning(true);
+
+      // Play sound before automation if enabled
+      if (p.soundEnabled) {
+        playAutomationSound();
+        // Small delay to let sound play before action
+        await new Promise(resolve => setTimeout(resolve, 150));
+      }
+
+      try {
+        if (btn === "close") onOpenChange(false);
+        else if (btn === "whatsapp") sendWhatsApp();
+        else if (btn === "fast_print") printFast();
+        else if (btn === "image") await handleSelectImage();
+        else if (btn === "pdf") await handleSelectPDF();
+      } finally {
+        setAutomationRunning(false);
+      }
+    };
+
+    if (secs === 0) {
+      const raf = requestAnimationFrame(() => {
+        if (cancelled) return;
+        void execute();
+      });
+      return () => {
+        cancelled = true;
+        cancelAnimationFrame(raf);
+      };
+    }
+
+    setAutoCountdown(secs);
+    let left = secs;
+    const id = window.setInterval(() => {
+      left -= 1;
+      setAutoCountdown(left);
+      if (left <= 0) {
+        window.clearInterval(id);
+        void execute();
+      }
+    }, 1000);
+
+    return () => {
+      cancelled = true;
+      window.clearInterval(id);
+    };
+  }, [open, disableAutomation, invoiceData?.invoiceNumber, onOpenChange]);
+
+  const tyPrefs =
+    open && !disableAutomation ? getPosCheckoutPrefs() : null;
+  const thankYouAutomated = tyPrefs?.thankYouMode === "automated";
+  const autoThankBtn: ThankYouButtonId | null = thankYouAutomated
+    ? tyPrefs!.thankYouAutoButton
+    : null;
+  const thankYouSecs = tyPrefs?.thankYouAutoSeconds ?? 0;
+
+  const autoSuffix = (id: ThankYouButtonId) =>
+    thankYouAutomated &&
+    autoThankBtn === id &&
+    thankYouSecs > 0
+      ? ` (${autoCountdown}s)`
+      : "";
 
   // ============================================================
   // UI
@@ -443,19 +538,80 @@ export function ThankYouModal({
         )}
 
         <div className="flex flex-col gap-3 mt-6">
-          <Button onClick={sendWhatsApp}>
-            <Send className="mr-1 h-4 w-4" /> WhatsApp
+          <Button
+            onClick={() => {
+              autoFiredRef.current = true;
+              sendWhatsApp();
+            }}
+            disabled={automationRunning}
+            className={cn(
+              thankYouAutomated &&
+                autoThankBtn === "whatsapp" &&
+                "ring-2 ring-primary",
+            )}
+          >
+            {automationRunning && autoThankBtn === "whatsapp" ? (
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+            ) : (
+              <Send className="mr-1 h-4 w-4" />
+            )}
+            WhatsApp{autoSuffix("whatsapp")}
           </Button>
-          <Button onClick={printFast} className="bg-green-600 text-white">
-            Fast Print
+          <Button
+            onClick={() => {
+              autoFiredRef.current = true;
+              printFast();
+            }}
+            disabled={automationRunning}
+            className={cn(
+              "bg-green-600 text-white",
+              thankYouAutomated &&
+                autoThankBtn === "fast_print" &&
+                "ring-2 ring-yellow-300",
+            )}
+          >
+            {automationRunning && autoThankBtn === "fast_print" ? (
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+            ) : (
+              <Printer className="mr-1 h-4 w-4" />
+            )}
+            Fast Print{autoSuffix("fast_print")}
           </Button>
-
         </div>
         {/* STEP 1 — SELECT MODE */}
         {step === 1 && (
           <div className="flex flex-col gap-3 mt-6">
-            <Button onClick={handleSelectImage}>Image</Button>
-            <Button onClick={handleSelectPDF}>PDF</Button>
+            <Button
+              onClick={() => void handleSelectImage()}
+              disabled={automationRunning}
+              className={cn(
+                thankYouAutomated &&
+                  autoThankBtn === "image" &&
+                  "ring-2 ring-primary",
+              )}
+            >
+              {automationRunning && autoThankBtn === "image" ? (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              ) : null}
+              Image{autoSuffix("image")}
+            </Button>
+            <Button
+              onClick={() => {
+                autoFiredRef.current = true;
+                void handleSelectPDF();
+              }}
+              disabled={automationRunning}
+              className={cn(
+                thankYouAutomated &&
+                  autoThankBtn === "pdf" &&
+                  "ring-2 ring-primary",
+              )}
+            >
+              {automationRunning && autoThankBtn === "pdf" ? (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              ) : null}
+              PDF{autoSuffix("pdf")}
+            </Button>
           </div>
         )}
 
