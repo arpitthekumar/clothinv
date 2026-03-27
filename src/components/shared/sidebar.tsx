@@ -77,7 +77,7 @@ export function Sidebar({ isOpen }: SidebarProps) {
   ];
 
   const employeeMenuItems = [
-    { href: "/", icon: BarChart3, label: "Dashboard" },
+    { href: "/dashboard", icon: BarChart3, label: "Dashboard" },
     { href: "/inventory", icon: Package, label: "Inventory" },
     { href: "/sales", icon: Receipt, label: "Sales Management" },
   ];

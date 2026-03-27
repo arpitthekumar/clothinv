@@ -122,7 +122,9 @@ export function BillingInterface() {
             />
           </CardContent>
         </Card>
-
+        <div className=" pt-0">
+            <ManualScanner onScan={handleScan} />
+          </div>
         {/* Quick Access Sections */}
         <div className=" gap-4 ">
           {/* Favorites */}
@@ -174,7 +176,7 @@ export function BillingInterface() {
             </CardContent>
           </Card> */}
         </div>
-
+       
         {/* Shopping Cart */}
         <Card>
           <CardHeader>
@@ -266,9 +268,7 @@ export function BillingInterface() {
               {isProcessing ? "Processing..." : `Pay ₹${Math.round(total)}`}
             </Button>
           </CardContent>
-          <div className="p-6 pt-0">
-            <ManualScanner onScan={handleScan} />
-          </div>
+          
         </Card>
       </div>
 

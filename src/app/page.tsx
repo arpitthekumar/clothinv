@@ -5,7 +5,7 @@ import RequireAuth from "./_components/require-auth";
 import POS from "@/components/pages/pos";
 
 
-export default function Page() {
+export default function Home() {
 
   return (
     <RequireAuth>
