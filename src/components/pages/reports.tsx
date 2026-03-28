@@ -10,9 +10,12 @@ import KPIWidgets from "@/components/reports/KPIWidgets";
 import NotSellingTable from "@/components/reports/NotSellingTable";
 import SalesTable from "@/components/reports/SalesTable";
 import { normalizeItems } from "@/lib/json";
-import { startOfDay, endOfDay, subDays, subMonths } from "date-fns";
+import { aggregateSalesByPaymentMethod } from "@/lib/payment-breakdown";
+import { getReportDateRangeLabel } from "@/lib/report-date-range";
+import { startOfDay, endOfDay, subDays } from "date-fns";
 import { Sale } from "@shared/schema";
 import AnalyticsCharts from "../reports/AnalyticsCharts";
+import PaymentMethodBreakdown from "@/components/reports/PaymentMethodBreakdown";
 
 export default function Reports() {
   const [sidebarOpen, setSidebarOpen] = useState(true);
@@ -114,6 +117,16 @@ export default function Reports() {
     });
   }, [sales, dateRangeParams]);
 
+  const dateRangeLabel = useMemo(
+    () => getReportDateRangeLabel(dateRange, customDateRange),
+    [dateRange, customDateRange]
+  );
+
+  const paymentMethodTotals = useMemo(
+    () => aggregateSalesByPaymentMethod(filteredSales),
+    [filteredSales]
+  );
+
   // Summary Calculations
   const totalSales = filteredSales.reduce(
     (sum: number, sale: any) => sum + parseFloat(sale.total_amount || "0"),
@@ -171,14 +184,17 @@ export default function Reports() {
             onCustomDateRangeChange={setCustomDateRange}
           />
 
-          <ReportSummary
-            totalSales={totalSales}
-            totalTransactions={totalTransactions}
-            averageTicket={averageTicket}
-          />
 
+<ReportSummary
+  totalSales={totalSales}
+  totalTransactions={totalTransactions}
+  averageTicket={averageTicket}
+/>
 
-
+<PaymentMethodBreakdown
+  totals={paymentMethodTotals}
+  dateRangeLabel={dateRangeLabel}
+/>
           <SalesTable
             sales={filteredSales}
             loading={isLoading}
