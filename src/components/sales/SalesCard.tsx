@@ -5,6 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { Button } from "@/components/ui/button";
 import { RotateCcw, Trash2, XCircle, User, Package } from "lucide-react";
+import { getPaymentMethodTextClass } from "@/lib/payment-breakdown";
 import { normalizeItems } from "@/lib/json";
 import { formatDistanceToNow } from "date-fns";
 import { toZonedTime } from "date-fns-tz";
@@ -28,23 +29,6 @@ export default function SalesCard({
       return "Invalid date";
     }
   })();
-  function getPaymentColor(method: string = "") {
-    switch (method.toLowerCase()) {
-      case "upi":
-        return "text-green-600";
-      case "cash":
-        return "text-yellow-600";
-      case "card":
-        return "text-blue-600";
-      case "credit":
-        return "text-purple-600";
-      case "bank":
-        return "text-orange-600";
-      default:
-        return "text-gray-600";
-    }
-  }
-
   return (
     <div className="border rounded-lg p-4">
       {/* Header */}
@@ -66,7 +50,7 @@ export default function SalesCard({
             })}
           </p>
           <p
-            className={`text-sm font-medium capitalize ${getPaymentColor(
+            className={`text-sm font-medium capitalize ${getPaymentMethodTextClass(
               sale.payment_method
             )}`}
           >

@@ -8,6 +8,8 @@ interface InventoryPaginationProps {
   totalPages: number;
   totalItems: number;
   itemsPerPage: number;
+  /** Plural noun for the footer, e.g. "products" or "transactions". */
+  itemLabel?: string;
 }
 
 export function InventoryPagination({
@@ -16,6 +18,7 @@ export function InventoryPagination({
   totalPages,
   totalItems,
   itemsPerPage,
+  itemLabel = "products",
 }: InventoryPaginationProps) {
   const startIndex = (currentPage - 1) * itemsPerPage;
 
@@ -39,8 +42,7 @@ export function InventoryPagination({
       {/* Info text */}
       <p className="text-sm text-muted-foreground">
         Showing {startIndex + 1}–
-        {Math.min(startIndex + itemsPerPage, totalItems)} of {totalItems}{" "}
-        products
+        {Math.min(startIndex + itemsPerPage, totalItems)}         of {totalItems} {itemLabel}
       </p>
 
       {/* Pagination Controls */}

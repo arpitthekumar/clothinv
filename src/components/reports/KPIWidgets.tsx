@@ -1,7 +1,7 @@
 "use client";
 
 import { Card, CardHeader, CardContent, CardTitle } from "@/components/ui/card";
-import { format } from "date-fns";
+import { getReportDateRangeLabel } from "@/lib/report-date-range";
 
 interface KPIWidgetsProps {
   profit: number;
@@ -27,31 +27,7 @@ export default function KPIWidgets({
       maximumFractionDigits: 0,
     });
 
-  // ✅ Date range label logic
-  const getDateRangeLabel = () => {
-    if (dateRange === "custom" && customDateRange?.from && customDateRange?.to) {
-      const fromStr = format(customDateRange.from, "MMM dd");
-      const toStr = format(customDateRange.to, "MMM dd, yyyy");
-      if (fromStr === toStr) {
-        return format(customDateRange.from, "MMM dd, yyyy");
-      }
-      return `${fromStr} - ${toStr}`;
-    }
-    switch (dateRange) {
-      case "today":
-        return "Today";
-      case "week":
-        return "Last 7 days";
-      case "month":
-        return "Last 30 days";
-      case "all":
-        return "All time";
-      default:
-        return "Selected period";
-    }
-  };
-
-  const dateRangeLabel = getDateRangeLabel();
+  const dateRangeLabel = getReportDateRangeLabel(dateRange, customDateRange);
 
   return (
     <div className="grid grid-cols-1 md:grid-cols-4 gap-6">

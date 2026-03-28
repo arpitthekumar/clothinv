@@ -10,15 +10,21 @@ import KPIWidgets from "@/components/reports/KPIWidgets";
 import NotSellingTable from "@/components/reports/NotSellingTable";
 import SalesTable from "@/components/reports/SalesTable";
 import { normalizeItems } from "@/lib/json";
-import { startOfDay, endOfDay, subDays, subMonths } from "date-fns";
+import { aggregateSalesByPaymentMethod } from "@/lib/payment-breakdown";
+import { getReportDateRangeLabel } from "@/lib/report-date-range";
+import { startOfDay, endOfDay, subDays } from "date-fns";
 import { Sale } from "@shared/schema";
 import AnalyticsCharts from "../reports/AnalyticsCharts";
+import PaymentMethodBreakdown from "@/components/reports/PaymentMethodBreakdown";
 
 export default function Reports() {
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [reportType, setReportType] = useState("daily");
   const [dateRange, setDateRange] = useState("today");
-  const [customDateRange, setCustomDateRange] = useState<{ from?: Date; to?: Date } | null>(null);
+  const [customDateRange, setCustomDateRange] = useState<{
+    from?: Date;
+    to?: Date;
+  } | null>(null);
   useEffect(() => {
     const isMobile = window.innerWidth < 768; // md breakpoint
     if (isMobile) {
@@ -39,7 +45,11 @@ export default function Reports() {
     let fromDate: Date;
     let toDate: Date = endOfDay(now);
 
-    if (dateRange === "custom" && customDateRange?.from && customDateRange?.to) {
+    if (
+      dateRange === "custom" &&
+      customDateRange?.from &&
+      customDateRange?.to
+    ) {
       fromDate = startOfDay(customDateRange.from);
       toDate = endOfDay(customDateRange.to);
     } else {
@@ -67,7 +77,9 @@ export default function Reports() {
     }
 
     // Calculate sinceDays for backward compatibility (days from now)
-    const daysDiff = Math.ceil((now.getTime() - fromDate.getTime()) / (1000 * 60 * 60 * 24));
+    const daysDiff = Math.ceil(
+      (now.getTime() - fromDate.getTime()) / (1000 * 60 * 60 * 24),
+    );
     const sinceDays = daysDiff > 36500 ? 36500 : daysDiff;
 
     return {
@@ -114,10 +126,20 @@ export default function Reports() {
     });
   }, [sales, dateRangeParams]);
 
+  const dateRangeLabel = useMemo(
+    () => getReportDateRangeLabel(dateRange, customDateRange),
+    [dateRange, customDateRange],
+  );
+
+  const paymentMethodTotals = useMemo(
+    () => aggregateSalesByPaymentMethod(filteredSales),
+    [filteredSales],
+  );
+
   // Summary Calculations
   const totalSales = filteredSales.reduce(
     (sum: number, sale: any) => sum + parseFloat(sale.total_amount || "0"),
-    0
+    0,
   );
   const totalTransactions = filteredSales.length;
   const averageTicket =
@@ -177,8 +199,10 @@ export default function Reports() {
             averageTicket={averageTicket}
           />
 
-
-
+          <PaymentMethodBreakdown
+            totals={paymentMethodTotals}
+            dateRangeLabel={dateRangeLabel}
+          />
           <SalesTable
             sales={filteredSales}
             loading={isLoading}
