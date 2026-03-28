@@ -177,6 +177,14 @@ export default function Reports() {
             averageTicket={averageTicket}
           />
 
+
+
+          <SalesTable
+            sales={filteredSales}
+            loading={isLoading}
+            products={products}
+          />
+
           <KPIWidgets
             profit={Number(analytics.totalProfit || 0)}
             valuation={Number(stockValuation.totalValuation || 0)}
@@ -185,24 +193,16 @@ export default function Reports() {
             dateRange={dateRange}
             customDateRange={customDateRange}
           />
-
           <AnalyticsCharts
             salesData={analytics.salesData}
             categoryData={analytics.categoryData}
             topProducts={analytics.topProducts}
             profitData={analytics.profitData}
           />
-
           <NotSellingTable
             products={analytics.notSelling || []}
             dateRange={dateRange}
             customDateRange={customDateRange}
-          />
-
-          <SalesTable
-            sales={filteredSales}
-            loading={isLoading}
-            products={products}
           />
         </main>
       </div>
