@@ -62,10 +62,10 @@ export default function PaymentMethodBreakdown({
     <Card>
       <CardHeader>
         <CardTitle>Sales by payment method ({dateRangeLabel})</CardTitle>
-        <p className="text-sm text-muted-foreground font-normal">
+        {/* <p className="text-sm text-muted-foreground font-normal">
           Totals match the date range above; each sale is counted once by its
           payment type.
-        </p>
+        </p> */}
       </CardHeader>
       <CardContent>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">

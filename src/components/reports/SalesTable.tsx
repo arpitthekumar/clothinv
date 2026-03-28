@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo } from "react";
+import { useMemo, useState, useEffect } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import {
@@ -12,9 +12,21 @@ import {
   TableCell,
 } from "@/components/ui/table";
 import { Skeleton } from "@/components/ui/skeleton";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { InventoryPagination } from "@/components/inventory/inventory-pagination";
 import { formatDistanceToNow } from "date-fns";
+import { getPaymentMethodBadgeProps } from "@/lib/payment-breakdown";
+import { cn } from "@/lib/utils";
 import { normalizeItems } from "@/lib/json";
 import { toZonedTime, format } from "date-fns-tz";
+
+const PAGE_SIZE_OPTIONS = [10, 25, 50, 100] as const;
 
 interface SalesTableProps {
   sales: any[];
@@ -27,6 +39,37 @@ export default function SalesTable({
   loading,
   products,
 }: SalesTableProps) {
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
+
+  const sortedSales = useMemo(() => {
+    return [...(sales || [])].sort((a, b) => {
+      const ta = new Date(a.created_at ?? 0).getTime();
+      const tb = new Date(b.created_at ?? 0).getTime();
+      return tb - ta;
+    });
+  }, [sales]);
+
+  const totalItems = sortedSales.length;
+  const totalPages = Math.max(1, Math.ceil(totalItems / pageSize) || 1);
+
+  useEffect(() => {
+    setPage(1);
+  }, [sales]);
+
+  useEffect(() => {
+    setPage(1);
+  }, [pageSize]);
+
+  useEffect(() => {
+    setPage((p) => Math.min(p, totalPages));
+  }, [totalPages]);
+
+  const paginatedSales = useMemo(() => {
+    const start = (page - 1) * pageSize;
+    return sortedSales.slice(start, start + pageSize);
+  }, [sortedSales, page, pageSize]);
+
   // ✅ Map for quick product lookup
   const productMap = useMemo(() => {
     const map: Record<string, any> = {};
@@ -71,18 +114,38 @@ export default function SalesTable({
 
   return (
     <Card>
-      <CardHeader>
+      <CardHeader className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between space-y-0">
         <CardTitle>Sales Transactions</CardTitle>
+        <div className="flex items-center gap-2 text-sm shrink-0">
+          <span className="text-muted-foreground whitespace-nowrap">
+            Rows per page
+          </span>
+          <Select
+            value={String(pageSize)}
+            onValueChange={(v) => setPageSize(Number(v))}
+          >
+            <SelectTrigger className="w-[100px]">
+              <SelectValue placeholder="10" />
+            </SelectTrigger>
+            <SelectContent>
+              {PAGE_SIZE_OPTIONS.map((n) => (
+                <SelectItem key={n} value={String(n)}>
+                  {n}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
       </CardHeader>
-      <CardContent>
+      <CardContent className="p-0">
         {loading ? (
-          <div className="space-y-3">
+          <div className="space-y-3 p-6">
             {Array.from({ length: 5 }).map((_, i) => (
               <Skeleton key={i} className="h-16 w-full" />
             ))}
           </div>
         ) : (
-          <div className="overflow-x-auto">
+          <div className="overflow-x-auto px-6 pt-2">
             <Table>
               <TableHeader>
                 <TableRow>
@@ -97,7 +160,7 @@ export default function SalesTable({
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {sales.length === 0 ? (
+                {totalItems === 0 ? (
                   <TableRow>
                     <TableCell
                       colSpan={8}
@@ -107,7 +170,7 @@ export default function SalesTable({
                     </TableCell>
                   </TableRow>
                 ) : (
-                  sales.map((sale) => {
+                  paginatedSales.map((sale) => {
                     const items = normalizeItems(sale.items);
                     const itemCount = items.reduce(
                       (sum: number, item: any) =>
@@ -133,6 +196,9 @@ export default function SalesTable({
                       .join(", ");
 
                     const profit = revenue - cost;
+                    const paymentBadge = getPaymentMethodBadgeProps(
+                      sale.payment_method
+                    );
 
                     // ✅ Use correct IST date & time formatting
                     const { formattedDate, formattedTime } = formatISTDateTime(
@@ -209,8 +275,11 @@ export default function SalesTable({
 
                         {/* Payment */}
                         <TableCell>
-                          <Badge variant="outline">
-                            {sale.payment_method || "Other"}
+                          <Badge
+                            variant="outline"
+                            className={cn(paymentBadge.className)}
+                          >
+                            {paymentBadge.label}
                           </Badge>
                         </TableCell>
 
@@ -230,6 +299,16 @@ export default function SalesTable({
               </TableBody>
             </Table>
           </div>
+        )}
+        {!loading && totalItems > 0 && (
+          <InventoryPagination
+            currentPage={page}
+            setCurrentPage={setPage}
+            totalPages={totalPages}
+            totalItems={totalItems}
+            itemsPerPage={pageSize}
+            itemLabel="transactions"
+          />
         )}
       </CardContent>
     </Card>
