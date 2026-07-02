@@ -300,15 +300,29 @@ export class SupabaseStorage implements IStorage {
 
   // Sales
   async getSales(includeDeleted: boolean = false): Promise<Sale[]> {
-    let query = (await this.sb()).from("sales").select("*");
-    if (!includeDeleted) {
-      query = query.eq("deleted", false);
+    const pageSize = 1000;
+    let offset = 0;
+    const allRows: Sale[] = [];
+
+    while (true) {
+      let query = (await this.sb()).from("sales").select("*");
+      if (!includeDeleted) {
+        query = query.eq("deleted", false);
+      }
+
+      const { data, error } = await query
+        .order("created_at", { ascending: false })
+        .range(offset, offset + pageSize - 1);
+
+      if (error) throw error;
+      if (!data || data.length === 0) break;
+
+      allRows.push(...(data as Sale[]));
+      if (data.length < pageSize) break;
+      offset += pageSize;
     }
-    const { data, error } = await query.order("created_at", {
-      ascending: false,
-    });
-    if (error) throw error;
-    return data as Sale[];
+
+    return allRows;
   }
   // storage.ts (update this method)
   async getSalesFiltered(params: {
@@ -423,15 +437,32 @@ export class SupabaseStorage implements IStorage {
     userId: string,
     includeDeleted: boolean = false
   ): Promise<Sale[]> {
-    let query = (await this.sb()).from("sales").select("*").eq("user_id", userId);
-    if (!includeDeleted) {
-      query = query.eq("deleted", false);
+    const pageSize = 1000;
+    let offset = 0;
+    const allRows: Sale[] = [];
+
+    while (true) {
+      let query = (await this.sb())
+        .from("sales")
+        .select("*")
+        .eq("user_id", userId);
+      if (!includeDeleted) {
+        query = query.eq("deleted", false);
+      }
+
+      const { data, error } = await query
+        .order("created_at", { ascending: false })
+        .range(offset, offset + pageSize - 1);
+
+      if (error) throw error;
+      if (!data || data.length === 0) break;
+
+      allRows.push(...(data as Sale[]));
+      if (data.length < pageSize) break;
+      offset += pageSize;
     }
-    const { data, error } = await query.order("created_at", {
-      ascending: false,
-    });
-    if (error) throw error;
-    return data as Sale[];
+
+    return allRows;
   }
   async getSalesToday(): Promise<Sale[]> {
     const today = new Date();

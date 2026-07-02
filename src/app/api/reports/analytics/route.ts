@@ -61,16 +61,9 @@ export async function GET(request: NextRequest) {
   if (fromDate && toDate) {
     salesStart = new Date(fromDate);
     salesEnd = new Date(toDate);
-    // Calculate days between dates
+    // Calculate days between dates without truncating historical ranges.
     const diffTime = Math.abs(salesEnd.getTime() - salesStart.getTime());
     daysToShow = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1;
-    // Limit to reasonable number for chart display
-    if (daysToShow > 90) {
-      daysToShow = 90;
-      // Adjust start date to show last 90 days
-      salesStart = new Date(salesEnd);
-      salesStart.setDate(salesEnd.getDate() - 89);
-    }
   } else {
     salesStart = new Date(now);
     salesStart.setDate(now.getDate() - (salesWindow - 1));
@@ -219,11 +212,35 @@ export async function GET(request: NextRequest) {
   const profitStart = fromDate ? new Date(fromDate) : undefined;
   const profitEnd = toDate ? new Date(toDate) : undefined;
 
-  const monthsBack = 4;
+  // Find the oldest active sale in the database
+  let oldestSaleDate = now;
+  for (const s of sales || []) {
+    if (s.created_at) {
+      const d = new Date(s.created_at);
+      if (d < oldestSaleDate) oldestSaleDate = d;
+    }
+  }
+
+  // Determine month buckets range
+  const rangeEnd = toDate ? new Date(toDate) : new Date();
+  let rangeStart = fromDate ? new Date(fromDate) : new Date();
+
+  // Cap rangeStart to oldestSaleDate if it's earlier than oldestSaleDate
+  if (rangeStart < oldestSaleDate) {
+    rangeStart = new Date(oldestSaleDate);
+  }
+
+  // Calculate difference in months
+  const yearDiff = rangeEnd.getFullYear() - rangeStart.getFullYear();
+  const monthDiff = rangeEnd.getMonth() - rangeStart.getMonth();
+  const totalMonths = yearDiff * 12 + monthDiff + 1;
+
+  // We want to show at least 4 months
+  const monthsToShow = Math.max(4, totalMonths);
+
   const monthBuckets: Record<string, { profit: number; expense: number }> = {};
-  for (let i = monthsBack - 1; i >= 0; i--) {
-    const d = new Date();
-    d.setMonth(now.getMonth() - i);
+  for (let i = monthsToShow - 1; i >= 0; i--) {
+    const d = new Date(rangeEnd.getFullYear(), rangeEnd.getMonth() - i, 1);
     const key = `${d.getFullYear()}-${d.getMonth()}`;
     monthBuckets[key] = { profit: 0, expense: 0 };
   }
@@ -237,7 +254,6 @@ export async function GET(request: NextRequest) {
       if (saleDate < profitStart || saleDate > profitEnd) continue;
     }
     const key = `${saleDate.getFullYear()}-${saleDate.getMonth()}`;
-    if (!monthBuckets[key]) continue;
     let items: any[] = [];
     try {
       items = Array.isArray(s.items) ? s.items : JSON.parse(s.items || "[]");
@@ -269,8 +285,10 @@ export async function GET(request: NextRequest) {
     const saleRevenueNet = Number((s as any).total_amount || 0);
     const saleProfit = saleRevenueNet - costSum;
 
-    monthBuckets[key].profit += saleProfit;
-    monthBuckets[key].expense += costSum;
+    if (monthBuckets[key]) {
+      monthBuckets[key].profit += saleProfit;
+      monthBuckets[key].expense += costSum;
+    }
     totalProfitCalc += saleProfit;
   }
 
