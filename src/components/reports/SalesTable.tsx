@@ -195,7 +195,7 @@ export default function SalesTable({
                       })
                       .join(", ");
 
-                    const profit = revenue - cost;
+                    const profit = (revenue - Number(sale.tax_amount || 0)) - cost;
                     const paymentBadge = getPaymentMethodBadgeProps(
                       sale.payment_method
                     );

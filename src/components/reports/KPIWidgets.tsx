@@ -10,6 +10,7 @@ interface KPIWidgetsProps {
   notSellingCount: number;
   dateRange: string;
   customDateRange?: { from?: Date; to?: Date } | null;
+  allTimeRange?: { from?: Date; to?: Date } | null;
 }
 
 export default function KPIWidgets({
@@ -19,6 +20,7 @@ export default function KPIWidgets({
   notSellingCount,
   dateRange,
   customDateRange,
+  allTimeRange,
 }: KPIWidgetsProps) {
   // ✅ Format numbers using Indian comma style (no decimals)
   const formatIN = (num: number) =>
@@ -27,7 +29,7 @@ export default function KPIWidgets({
       maximumFractionDigits: 0,
     });
 
-  const dateRangeLabel = getReportDateRangeLabel(dateRange, customDateRange);
+  const dateRangeLabel = getReportDateRangeLabel(dateRange, customDateRange, allTimeRange);
 
   return (
     <div className="grid grid-cols-1 md:grid-cols-4 gap-6">

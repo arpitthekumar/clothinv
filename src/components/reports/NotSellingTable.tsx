@@ -8,6 +8,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { format } from "date-fns";
+import { getReportDateRangeLabel } from "@/lib/report-date-range";
 
 interface NotSellingProduct {
   productId: string;
@@ -21,37 +22,16 @@ interface NotSellingTableProps {
   products: NotSellingProduct[];
   dateRange: string;
   customDateRange?: { from?: Date; to?: Date } | null;
+  allTimeRange?: { from?: Date; to?: Date } | null;
 }
 
 export default function NotSellingTable({
   products,
   dateRange,
   customDateRange,
+  allTimeRange,
 }: NotSellingTableProps) {
-  const getDateRangeLabel = () => {
-    if (dateRange === "custom" && customDateRange?.from && customDateRange?.to) {
-      const fromStr = format(customDateRange.from, "MMM dd");
-      const toStr = format(customDateRange.to, "MMM dd, yyyy");
-      if (fromStr === toStr) {
-        return format(customDateRange.from, "MMM dd, yyyy");
-      }
-      return `${fromStr} - ${toStr}`;
-    }
-    switch (dateRange) {
-      case "today":
-        return "Today";
-      case "week":
-        return "Last 7 days";
-      case "month":
-        return "Last 30 days";
-      case "all":
-        return "All time";
-      default:
-        return "Selected period";
-    }
-  };
-
-  const dateRangeLabel = getDateRangeLabel();
+  const dateRangeLabel = getReportDateRangeLabel(dateRange, customDateRange, allTimeRange);
 
   return (
     <Card>

@@ -39,6 +39,18 @@ export default function Reports() {
     queryKey: ["/api/products"],
   });
 
+  const allTimeRange = useMemo(() => {
+    if (!sales || sales.length === 0) return null;
+    const dates = sales
+      .map((s: any) => s.created_at ? new Date(s.created_at).getTime() : 0)
+      .filter((t) => t > 0);
+    if (dates.length === 0) return null;
+    return {
+      from: new Date(Math.min(...dates)),
+      to: new Date(Math.max(...dates)),
+    };
+  }, [sales]);
+
   // Calculate date range based on selection
   const dateRangeParams = useMemo(() => {
     const now = new Date();
@@ -127,8 +139,8 @@ export default function Reports() {
   }, [sales, dateRangeParams]);
 
   const dateRangeLabel = useMemo(
-    () => getReportDateRangeLabel(dateRange, customDateRange),
-    [dateRange, customDateRange],
+    () => getReportDateRangeLabel(dateRange, customDateRange, allTimeRange),
+    [dateRange, customDateRange, allTimeRange],
   );
 
   const paymentMethodTotals = useMemo(
@@ -191,6 +203,7 @@ export default function Reports() {
             onExport={handleExportReport}
             customDateRange={customDateRange}
             onCustomDateRangeChange={setCustomDateRange}
+            allTimeRange={allTimeRange}
           />
 
           <ReportSummary
@@ -216,6 +229,7 @@ export default function Reports() {
             notSellingCount={Number(analytics.notSellingCount || 0)}
             dateRange={dateRange}
             customDateRange={customDateRange}
+            allTimeRange={allTimeRange}
           />
           <AnalyticsCharts
             salesData={analytics.salesData}
@@ -227,6 +241,7 @@ export default function Reports() {
             products={analytics.notSelling || []}
             dateRange={dateRange}
             customDateRange={customDateRange}
+            allTimeRange={allTimeRange}
           />
         </main>
       </div>

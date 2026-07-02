@@ -282,7 +282,7 @@ export async function GET(request: NextRequest) {
       0,
       Number((s as any).discount_amount ?? 0) || 0
     );
-    const saleRevenueNet = Number((s as any).total_amount || 0);
+    const saleRevenueNet = Number((s as any).total_amount || 0) - Number((s as any).tax_amount || 0);
     const saleProfit = saleRevenueNet - costSum;
 
     if (monthBuckets[key]) {

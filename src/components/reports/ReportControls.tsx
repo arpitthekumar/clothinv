@@ -21,6 +21,7 @@ interface ReportControlsProps {
   onExport: () => void;
   customDateRange?: { from?: Date; to?: Date } | null;
   onCustomDateRangeChange?: (range: { from?: Date; to?: Date } | null) => void;
+  allTimeRange?: { from?: Date; to?: Date } | null;
 }
 
 export default function ReportControls({
@@ -31,6 +32,7 @@ export default function ReportControls({
   onExport,
   customDateRange,
   onCustomDateRangeChange,
+  allTimeRange,
 }: ReportControlsProps) {
   const [datePickerOpen, setDatePickerOpen] = useState(false);
 
@@ -81,6 +83,15 @@ export default function ReportControls({
     }
   };
 
+  const getAllTimeRangeDisplay = () => {
+    if (allTimeRange?.from && allTimeRange?.to) {
+      const fromStr = format(allTimeRange.from, "MMM dd, yyyy");
+      const toStr = format(allTimeRange.to, "MMM dd, yyyy");
+      return `${fromStr} - ${toStr}`;
+    }
+    return "All time";
+  };
+
   return (
     <>
       <Card>
@@ -125,6 +136,12 @@ export default function ReportControls({
                 <div className="mt-2 text-sm text-muted-foreground flex items-center gap-2">
                   <Calendar className="h-4 w-4" />
                   <span>{getDateRangeDisplay()}</span>
+                </div>
+              )}
+              {dateRange === "all" && allTimeRange && (
+                <div className="mt-2 text-sm text-muted-foreground flex items-center gap-2">
+                  <Calendar className="h-4 w-4" />
+                  <span>{getAllTimeRangeDisplay()}</span>
                 </div>
               )}
             </div>
