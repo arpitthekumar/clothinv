@@ -10,7 +10,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
-import { FileText, Download, Calendar } from "lucide-react";
+import { FileText, Download, Calendar, Calculator, Loader2 } from "lucide-react";
 import DateRangePicker from "./DateRangePicker";
 
 interface ReportControlsProps {
@@ -21,6 +21,9 @@ interface ReportControlsProps {
   onExport: () => void;
   customDateRange?: { from?: Date; to?: Date } | null;
   onCustomDateRangeChange?: (range: { from?: Date; to?: Date } | null) => void;
+  allTimeRange?: { from?: Date; to?: Date } | null;
+  onAuditClick?: () => void;
+  isLoading?: boolean;
 }
 
 export default function ReportControls({
@@ -31,6 +34,9 @@ export default function ReportControls({
   onExport,
   customDateRange,
   onCustomDateRangeChange,
+  allTimeRange,
+  onAuditClick,
+  isLoading,
 }: ReportControlsProps) {
   const [datePickerOpen, setDatePickerOpen] = useState(false);
 
@@ -81,6 +87,15 @@ export default function ReportControls({
     }
   };
 
+  const getAllTimeRangeDisplay = () => {
+    if (allTimeRange?.from && allTimeRange?.to) {
+      const fromStr = format(allTimeRange.from, "MMM dd, yyyy");
+      const toStr = format(allTimeRange.to, "MMM dd, yyyy");
+      return `${fromStr} - ${toStr}`;
+    }
+    return "All time";
+  };
+
   return (
     <>
       <Card>
@@ -127,12 +142,30 @@ export default function ReportControls({
                   <span>{getDateRangeDisplay()}</span>
                 </div>
               )}
+              {dateRange === "all" && allTimeRange && (
+                <div className="mt-2 text-sm text-muted-foreground flex items-center gap-2">
+                  <Calendar className="h-4 w-4" />
+                  <span>{getAllTimeRangeDisplay()}</span>
+                </div>
+              )}
             </div>
 
-            <Button onClick={onExport}>
-              <Download className="mr-2 h-4 w-4" />
-              Export CSV
-            </Button>
+            <div className="flex flex-wrap gap-2">
+              {onAuditClick && (
+                <Button variant="outline" onClick={onAuditClick} disabled={isLoading}>
+                  {isLoading ? (
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin text-primary" />
+                  ) : (
+                    <Calculator className="mr-2 h-4 w-4" />
+                  )}
+                  Audit Calculations
+                </Button>
+              )}
+              <Button onClick={onExport} disabled={isLoading}>
+                <Download className="mr-2 h-4 w-4" />
+                Export CSV
+              </Button>
+            </div>
           </div>
         </CardContent>
       </Card>

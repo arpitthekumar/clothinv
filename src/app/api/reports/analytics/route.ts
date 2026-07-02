@@ -53,6 +53,15 @@ export async function GET(request: NextRequest) {
 
   const now = new Date();
 
+  // Find the oldest active sale in the database
+  let oldestSaleDate = now;
+  for (const s of sales || []) {
+    if (s.created_at) {
+      const d = new Date(s.created_at);
+      if (d < oldestSaleDate) oldestSaleDate = d;
+    }
+  }
+
   // Sales over time - use date range if provided, otherwise use salesWindow
   let salesStart: Date;
   let salesEnd: Date = now;
@@ -60,17 +69,12 @@ export async function GET(request: NextRequest) {
 
   if (fromDate && toDate) {
     salesStart = new Date(fromDate);
+    if (salesStart < oldestSaleDate) {
+      salesStart = new Date(oldestSaleDate);
+    }
     salesEnd = new Date(toDate);
-    // Calculate days between dates
     const diffTime = Math.abs(salesEnd.getTime() - salesStart.getTime());
     daysToShow = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1;
-    // Limit to reasonable number for chart display
-    if (daysToShow > 90) {
-      daysToShow = 90;
-      // Adjust start date to show last 90 days
-      salesStart = new Date(salesEnd);
-      salesStart.setDate(salesEnd.getDate() - 89);
-    }
   } else {
     salesStart = new Date(now);
     salesStart.setDate(now.getDate() - (salesWindow - 1));
@@ -79,27 +83,79 @@ export async function GET(request: NextRequest) {
   salesStart.setHours(0, 0, 0, 0);
   salesEnd.setHours(23, 59, 59, 999);
 
+  // Grouping mode based on range
+  let groupMode: "day" | "week" | "month" = "day";
+  if (daysToShow > 365) {
+    groupMode = "month";
+  } else if (daysToShow > 90) {
+    groupMode = "week";
+  }
+
+  const getBucketKey = (d: Date): string => {
+    if (groupMode === "month") {
+      return new Date(d.getFullYear(), d.getMonth(), 1).toDateString();
+    } else if (groupMode === "week") {
+      // Get start of week (Monday)
+      const day = d.getDay();
+      const diff = d.getDate() - day + (day === 0 ? -6 : 1);
+      const start = new Date(d);
+      start.setDate(diff);
+      start.setHours(0, 0, 0, 0);
+      return start.toDateString();
+    } else {
+      return d.toDateString();
+    }
+  };
+
   const dayBuckets: Record<string, number> = {};
-  for (let i = 0; i < daysToShow; i++) {
-    const d = new Date(salesStart);
-    d.setDate(salesStart.getDate() + i);
-    if (d > salesEnd) break;
-    dayBuckets[d.toDateString()] = 0;
+  
+  // Initialize buckets without gaps
+  let current = new Date(salesStart);
+  while (current <= salesEnd) {
+    dayBuckets[getBucketKey(current)] = 0;
+    if (groupMode === "month") {
+      current = new Date(current.getFullYear(), current.getMonth() + 1, 1);
+    } else if (groupMode === "week") {
+      current.setDate(current.getDate() + 7);
+    } else {
+      current.setDate(current.getDate() + 1);
+    }
   }
 
   for (const s of sales || []) {
     if (!s.created_at) continue;
     const saleDate = new Date(s.created_at);
     if (saleDate < salesStart || saleDate > salesEnd) continue;
-    const key = saleDate.toDateString();
+    const key = getBucketKey(saleDate);
     const amt = parseFloat((s.total_amount as any) || "0");
-    dayBuckets[key] = (dayBuckets[key] || 0) + amt;
+    if (dayBuckets[key] !== undefined) {
+      dayBuckets[key] += amt;
+    } else {
+      dayBuckets[key] = amt;
+    }
   }
 
-  const salesData = Object.keys(dayBuckets).map((k) => ({
-    date: formatDayShort(new Date(k)),
-    sales: Math.round((dayBuckets[k] + Number.EPSILON) * 100) / 100,
-  }));
+  // Format label helper
+  const formatLabel = (dateStr: string): string => {
+    const d = new Date(dateStr);
+    if (groupMode === "month") {
+      const monthStr = d.toLocaleDateString("en-US", { month: "short" });
+      const yearStr = d.getFullYear().toString().slice(-2);
+      return `${monthStr} '${yearStr}`;
+    } else if (groupMode === "week") {
+      const monthStr = d.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+      return `Wk ${monthStr}`;
+    } else {
+      return formatDayShort(d);
+    }
+  };
+
+  const salesData = Object.keys(dayBuckets)
+    .sort((a, b) => new Date(a).getTime() - new Date(b).getTime())
+    .map((k) => ({
+      date: formatLabel(k),
+      sales: Math.round((dayBuckets[k] + Number.EPSILON) * 100) / 100,
+    }));
 
   // Category-wise sales - filter by date range if provided
   const categoryMap: Record<string, { name: string; value: number }> = {};
@@ -219,16 +275,34 @@ export async function GET(request: NextRequest) {
   const profitStart = fromDate ? new Date(fromDate) : undefined;
   const profitEnd = toDate ? new Date(toDate) : undefined;
 
-  const monthsBack = 4;
+  // Determine month buckets range
+  const rangeEnd = toDate ? new Date(toDate) : new Date();
+  let rangeStart = fromDate ? new Date(fromDate) : new Date();
+
+  // Cap rangeStart to oldestSaleDate if it's earlier than oldestSaleDate
+  if (rangeStart < oldestSaleDate) {
+    rangeStart = new Date(oldestSaleDate);
+  }
+
+  // Calculate difference in months
+  const yearDiff = rangeEnd.getFullYear() - rangeStart.getFullYear();
+  const monthDiff = rangeEnd.getMonth() - rangeStart.getMonth();
+  const totalMonths = yearDiff * 12 + monthDiff + 1;
+
+  // We want to show at least 4 months
+  const monthsToShow = Math.max(4, totalMonths);
+
   const monthBuckets: Record<string, { profit: number; expense: number }> = {};
-  for (let i = monthsBack - 1; i >= 0; i--) {
-    const d = new Date();
-    d.setMonth(now.getMonth() - i);
+  for (let i = monthsToShow - 1; i >= 0; i--) {
+    const d = new Date(rangeEnd.getFullYear(), rangeEnd.getMonth() - i, 1);
     const key = `${d.getFullYear()}-${d.getMonth()}`;
     monthBuckets[key] = { profit: 0, expense: 0 };
   }
 
   let totalProfitCalc = 0;
+  let totalSalesCostCalc = 0;
+  let totalGrossSalesCalc = 0;
+  let totalTaxCalc = 0;
   for (const s of sales || []) {
     if (!s.created_at || !s.items) continue;
     const saleDate = new Date(s.created_at);
@@ -237,7 +311,6 @@ export async function GET(request: NextRequest) {
       if (saleDate < profitStart || saleDate > profitEnd) continue;
     }
     const key = `${saleDate.getFullYear()}-${saleDate.getMonth()}`;
-    if (!monthBuckets[key]) continue;
     let items: any[] = [];
     try {
       items = Array.isArray(s.items) ? s.items : JSON.parse(s.items || "[]");
@@ -266,12 +339,17 @@ export async function GET(request: NextRequest) {
       0,
       Number((s as any).discount_amount ?? 0) || 0
     );
-    const saleRevenueNet = Number((s as any).total_amount || 0);
+    const saleRevenueNet = Number((s as any).total_amount || 0) - Number((s as any).tax_amount || 0);
     const saleProfit = saleRevenueNet - costSum;
 
-    monthBuckets[key].profit += saleProfit;
-    monthBuckets[key].expense += costSum;
+    if (monthBuckets[key]) {
+      monthBuckets[key].profit += saleProfit;
+      monthBuckets[key].expense += costSum;
+    }
     totalProfitCalc += saleProfit;
+    totalSalesCostCalc += costSum;
+    totalGrossSalesCalc += Number(s.total_amount || 0);
+    totalTaxCalc += Number(s.tax_amount || 0);
   }
 
   const profitData = Object.keys(monthBuckets).map((k) => {
@@ -305,8 +383,19 @@ export async function GET(request: NextRequest) {
     topProducts,
     profitData,
     totalProfit,
+    totalSalesCost: totalSalesCostCalc,
     totalValuation,
     notSellingCount,
     notSelling: notSelling || [],
+    calculationAudit: {
+      grossSales: totalGrossSalesCalc,
+      taxAmount: totalTaxCalc,
+      netRevenue: totalGrossSalesCalc - totalTaxCalc,
+      costOfSales: totalSalesCostCalc,
+      netProfit: totalProfitCalc,
+      profitMarginPercent: (totalGrossSalesCalc - totalTaxCalc) > 0 
+        ? (totalProfitCalc / (totalGrossSalesCalc - totalTaxCalc)) * 100 
+        : 0
+    }
   });
 }
