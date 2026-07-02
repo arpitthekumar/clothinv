@@ -16,6 +16,18 @@ import { startOfDay, endOfDay, subDays } from "date-fns";
 import { Sale } from "@shared/schema";
 import AnalyticsCharts from "../reports/AnalyticsCharts";
 import PaymentMethodBreakdown from "@/components/reports/PaymentMethodBreakdown";
+import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
+import { AlertTriangle, Loader2 } from "lucide-react";
+import {
+  AlertDialog,
+  AlertDialogContent,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogAction,
+  AlertDialogCancel,
+} from "@/components/ui/alert-dialog";
 
 export default function Reports() {
   const [sidebarOpen, setSidebarOpen] = useState(true);
@@ -25,6 +37,54 @@ export default function Reports() {
     from?: Date;
     to?: Date;
   } | null>(null);
+
+  const [showWarningModal, setShowWarningModal] = useState(false);
+  const [isConfirming, setIsConfirming] = useState(false);
+  const [pendingRange, setPendingRange] = useState<{
+    type: "preset" | "custom";
+    value: string;
+    customRange?: { from?: Date; to?: Date } | null;
+  } | null>(null);
+
+  const handleDateRangeChange = (value: string) => {
+    if (value === "all") {
+      setPendingRange({ type: "preset", value });
+      setShowWarningModal(true);
+    } else {
+      setDateRange(value);
+      setCustomDateRange(null);
+    }
+  };
+
+  const handleCustomDateRangeChange = (range: { from?: Date; to?: Date } | null) => {
+    if (range?.from && range?.to) {
+      const daysDiff = Math.ceil(
+        (range.to.getTime() - range.from.getTime()) / (1000 * 60 * 60 * 24),
+      );
+      if (daysDiff >= 60) {
+        setPendingRange({ type: "custom", value: "custom", customRange: range });
+        setShowWarningModal(true);
+        return;
+      }
+    }
+    setCustomDateRange(range);
+    if (range) {
+      setDateRange("custom");
+    }
+  };
+
+  const handleConfirmRange = () => {
+    if (!pendingRange) return;
+    setIsConfirming(true);
+    if (pendingRange.type === "preset") {
+      setDateRange(pendingRange.value);
+      setCustomDateRange(null);
+    } else if (pendingRange.type === "custom") {
+      setCustomDateRange(pendingRange.customRange || null);
+      setDateRange("custom");
+    }
+  };
+
   useEffect(() => {
     const isMobile = window.innerWidth < 768; // md breakpoint
     if (isMobile) {
@@ -114,6 +174,15 @@ export default function Reports() {
       },
     ],
   });
+
+  useEffect(() => {
+    if (isConfirming && !analyticsQuery.isFetching) {
+      setIsConfirming(false);
+      setShowWarningModal(false);
+      setPendingRange(null);
+    }
+  }, [analyticsQuery.isFetching, isConfirming]);
+
   const stockValuationQuery = useQuery({
     queryKey: ["/api/reports/stock-valuation"],
   });
@@ -193,18 +262,27 @@ export default function Reports() {
           subtitle="View sales performance and generate reports"
           onSidebarToggle={toggleSidebar}
         />
-
         <main className="flex-1 overflow-auto p-6 space-y-6">
           <ReportControls
             reportType={reportType}
             dateRange={dateRange}
             setReportType={setReportType}
-            setDateRange={setDateRange}
+            setDateRange={handleDateRangeChange}
             onExport={handleExportReport}
             customDateRange={customDateRange}
-            onCustomDateRangeChange={setCustomDateRange}
+            onCustomDateRangeChange={handleCustomDateRangeChange}
             allTimeRange={allTimeRange}
           />
+
+          {(dateRangeParams.sinceDays >= 60 || dateRange === "all") && (
+            <Alert className="bg-amber-50 border-amber-200 text-amber-900 dark:bg-amber-950/20 dark:border-amber-900/50 dark:text-amber-200">
+              <AlertTriangle className="h-4 w-4 text-amber-600 dark:text-amber-400" />
+              <AlertTitle className="text-amber-800 dark:text-amber-300 font-semibold">Large Date Range Selected</AlertTitle>
+              <AlertDescription className="text-amber-700 dark:text-amber-400">
+                You are loading a large range of historical data ({dateRange === "all" ? "All time" : `${dateRangeParams.sinceDays} days`}). This might take a few seconds to retrieve and process.
+              </AlertDescription>
+            </Alert>
+          )}
 
           <ReportSummary
             totalSales={totalSales}
@@ -222,29 +300,85 @@ export default function Reports() {
             products={products}
           />
 
-          <KPIWidgets
-            profit={Number(analytics.totalProfit || 0)}
-            valuation={Number(stockValuation.totalValuation || 0)}
-            totalCost={Number(stockValuation.totalCost || 0)}
-            notSellingCount={Number(analytics.notSellingCount || 0)}
-            dateRange={dateRange}
-            customDateRange={customDateRange}
-            allTimeRange={allTimeRange}
-          />
-          <AnalyticsCharts
-            salesData={analytics.salesData}
-            categoryData={analytics.categoryData}
-            topProducts={analytics.topProducts}
-            profitData={analytics.profitData}
-          />
-          <NotSellingTable
-            products={analytics.notSelling || []}
-            dateRange={dateRange}
-            customDateRange={customDateRange}
-            allTimeRange={allTimeRange}
-          />
+          <div className="relative space-y-6">
+            {analyticsQuery.isFetching && (
+              <div className="absolute inset-0 bg-background/50 backdrop-blur-[1px] flex flex-col items-center justify-center z-50 rounded-lg min-h-[300px]">
+                <div className="flex items-center gap-3 bg-card p-4 rounded-xl shadow-lg border">
+                  <Loader2 className="h-6 w-6 animate-spin text-primary" />
+                  <span className="font-medium text-sm">Loading analytics data...</span>
+                </div>
+              </div>
+            )}
+
+            <KPIWidgets
+              profit={Number(analytics.totalProfit || 0)}
+              valuation={Number(stockValuation.totalValuation || 0)}
+              totalCost={Number(stockValuation.totalCost || 0)}
+              totalSalesCost={Number(analytics.totalSalesCost || 0)}
+              notSellingCount={Number(analytics.notSellingCount || 0)}
+              dateRange={dateRange}
+              customDateRange={customDateRange}
+              allTimeRange={allTimeRange}
+            />
+            <AnalyticsCharts
+              salesData={analytics.salesData}
+              categoryData={analytics.categoryData}
+              topProducts={analytics.topProducts}
+              profitData={analytics.profitData}
+            />
+            <NotSellingTable
+              products={analytics.notSelling || []}
+              dateRange={dateRange}
+              customDateRange={customDateRange}
+              allTimeRange={allTimeRange}
+            />
+          </div>
         </main>
       </div>
+
+      <AlertDialog open={showWarningModal} onOpenChange={(open) => {
+        if (!isConfirming) {
+          setShowWarningModal(open);
+          if (!open) setPendingRange(null);
+        }
+      }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2">
+              <AlertTriangle className="h-5 w-5 text-amber-500" />
+              Load Large Report Data?
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              {pendingRange?.type === "preset"
+                ? "You are about to load the entire history of sales ('All Time')."
+                : `You are about to load a large range of ${pendingRange?.customRange?.from && pendingRange?.customRange?.to ? Math.ceil((pendingRange.customRange.to.getTime() - pendingRange.customRange.from.getTime()) / (1000 * 60 * 60 * 24)) : "more than 60"} days of sales reports.`}
+              {" This requires significant database queries, which could slow down the system and increase resource costs. Do you want to proceed?"}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isConfirming}>
+              Cancel
+            </AlertDialogCancel>
+            <AlertDialogAction
+              onClick={(e) => {
+                e.preventDefault();
+                handleConfirmRange();
+              }}
+              disabled={isConfirming}
+              className="bg-amber-600 hover:bg-amber-700 text-white"
+            >
+              {isConfirming ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Loading...
+                </>
+              ) : (
+                "Proceed"
+              )}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

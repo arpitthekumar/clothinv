@@ -7,6 +7,7 @@ interface KPIWidgetsProps {
   profit: number;
   valuation: number;
   totalCost: number;
+  totalSalesCost: number;
   notSellingCount: number;
   dateRange: string;
   customDateRange?: { from?: Date; to?: Date } | null;
@@ -17,6 +18,7 @@ export default function KPIWidgets({
   profit,
   valuation,
   totalCost,
+  totalSalesCost,
   notSellingCount,
   dateRange,
   customDateRange,
@@ -32,7 +34,7 @@ export default function KPIWidgets({
   const dateRangeLabel = getReportDateRangeLabel(dateRange, customDateRange, allTimeRange);
 
   return (
-    <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-6">
       {/* 💰 Profit */}
       <Card>
         <CardHeader>
@@ -43,6 +45,19 @@ export default function KPIWidgets({
             ₹{formatIN(profit)}
           </p>
           <p className="text-sm text-gray-500">Calculated after costs</p>
+        </CardContent>
+      </Card>
+
+      {/* 💸 Cost of Sales */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Cost of Sales ({dateRangeLabel})</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <p className="text-2xl font-bold text-purple-600">
+            ₹{formatIN(totalSalesCost)}
+          </p>
+          <p className="text-sm text-gray-500">Cost of goods sold (COGS)</p>
         </CardContent>
       </Card>
 
