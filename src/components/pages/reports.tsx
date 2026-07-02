@@ -17,7 +17,7 @@ import { Sale } from "@shared/schema";
 import AnalyticsCharts from "../reports/AnalyticsCharts";
 import PaymentMethodBreakdown from "@/components/reports/PaymentMethodBreakdown";
 import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
-import { AlertTriangle, Loader2 } from "lucide-react";
+import { AlertTriangle, Loader2, Calculator } from "lucide-react";
 import {
   AlertDialog,
   AlertDialogContent,
@@ -28,6 +28,73 @@ import {
   AlertDialogAction,
   AlertDialogCancel,
 } from "@/components/ui/alert-dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+  DialogClose,
+} from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
+
+function ReportsSkeleton() {
+  return (
+    <div className="space-y-6">
+      {/* KPI Widgets Skeleton */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
+        {[...Array(5)].map((_, i) => (
+          <div key={i} className="p-6 border rounded-xl bg-card space-y-3">
+            <div className="flex justify-between items-center">
+              <div className="h-4 w-24 bg-muted animate-pulse rounded" />
+              <div className="h-5 w-5 bg-muted animate-pulse rounded-full" />
+            </div>
+            <div className="h-8 w-20 bg-muted animate-pulse rounded" />
+            <div className="h-3 w-32 bg-muted animate-pulse rounded" />
+          </div>
+        ))}
+      </div>
+
+      {/* Summary Cards Skeleton */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 animate-pulse">
+        {[...Array(3)].map((_, i) => (
+          <div key={i} className="p-6 border rounded-xl bg-card space-y-3">
+            <div className="h-4 w-28 bg-muted rounded" />
+            <div className="h-7 w-24 bg-muted rounded" />
+          </div>
+        ))}
+      </div>
+
+      {/* Payment Breakdown Skeleton */}
+      <div className="border rounded-xl p-6 bg-card space-y-4 animate-pulse">
+        <div className="h-5 w-40 bg-muted rounded" />
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          {[...Array(4)].map((_, i) => (
+            <div key={i} className="p-4 border rounded-lg space-y-2 bg-muted/10">
+              <div className="h-4 w-20 bg-muted rounded" />
+              <div className="h-6 w-24 bg-muted rounded" />
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Table Skeleton */}
+      <div className="border rounded-xl p-6 bg-card space-y-4 animate-pulse">
+        <div className="h-5 w-32 bg-muted rounded" />
+        <div className="space-y-3">
+          {[...Array(5)].map((_, i) => (
+            <div key={i} className="flex gap-4 items-center">
+              <div className="h-6 flex-1 bg-muted rounded" />
+              <div className="h-6 w-24 bg-muted rounded" />
+              <div className="h-6 w-32 bg-muted rounded" />
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
 
 export default function Reports() {
   const [sidebarOpen, setSidebarOpen] = useState(true);
@@ -39,6 +106,7 @@ export default function Reports() {
   } | null>(null);
 
   const [showWarningModal, setShowWarningModal] = useState(false);
+  const [showAuditModal, setShowAuditModal] = useState(false);
   const [isConfirming, setIsConfirming] = useState(false);
   const [pendingRange, setPendingRange] = useState<{
     type: "preset" | "custom";
@@ -190,6 +258,15 @@ export default function Reports() {
 
   const analytics = analyticsQuery.data || ({} as any);
 
+  const audit = analytics.calculationAudit || {
+    grossSales: 0,
+    taxAmount: 0,
+    netRevenue: 0,
+    costOfSales: 0,
+    netProfit: 0,
+    profitMarginPercent: 0,
+  };
+
   // Sidebar toggle
   const toggleSidebar = () => setSidebarOpen(!sidebarOpen);
 
@@ -272,6 +349,8 @@ export default function Reports() {
             customDateRange={customDateRange}
             onCustomDateRangeChange={handleCustomDateRangeChange}
             allTimeRange={allTimeRange}
+            onAuditClick={() => setShowAuditModal(true)}
+            isLoading={analyticsQuery.isFetching || analyticsQuery.isLoading}
           />
 
           {(dateRangeParams.sinceDays >= 60 || dateRange === "all") && (
@@ -284,55 +363,61 @@ export default function Reports() {
             </Alert>
           )}
 
-          <ReportSummary
-            totalSales={totalSales}
-            totalTransactions={totalTransactions}
-            averageTicket={averageTicket}
-          />
+          {analyticsQuery.isLoading || stockValuationQuery.isLoading ? (
+            <ReportsSkeleton />
+          ) : (
+            <>
+              <ReportSummary
+                totalSales={totalSales}
+                totalTransactions={totalTransactions}
+                averageTicket={averageTicket}
+              />
 
-          <PaymentMethodBreakdown
-            totals={paymentMethodTotals}
-            dateRangeLabel={dateRangeLabel}
-          />
-          <SalesTable
-            sales={filteredSales}
-            loading={isLoading}
-            products={products}
-          />
+              <PaymentMethodBreakdown
+                totals={paymentMethodTotals}
+                dateRangeLabel={dateRangeLabel}
+              />
+              <SalesTable
+                sales={filteredSales}
+                loading={isLoading}
+                products={products}
+              />
 
-          <div className="relative space-y-6">
-            {analyticsQuery.isFetching && (
-              <div className="absolute inset-0 bg-background/50 backdrop-blur-[1px] flex flex-col items-center justify-center z-50 rounded-lg min-h-[300px]">
-                <div className="flex items-center gap-3 bg-card p-4 rounded-xl shadow-lg border">
-                  <Loader2 className="h-6 w-6 animate-spin text-primary" />
-                  <span className="font-medium text-sm">Loading analytics data...</span>
-                </div>
+              <div className="relative space-y-6">
+                {analyticsQuery.isFetching && (
+                  <div className="absolute inset-0 bg-background/50 backdrop-blur-[1px] flex flex-col items-center justify-center z-50 rounded-lg min-h-[300px]">
+                    <div className="flex items-center gap-3 bg-card p-4 rounded-xl shadow-lg border">
+                      <Loader2 className="h-6 w-6 animate-spin text-primary" />
+                      <span className="font-medium text-sm">Loading analytics data...</span>
+                    </div>
+                  </div>
+                )}
+
+                <KPIWidgets
+                  profit={Number(analytics.totalProfit || 0)}
+                  valuation={Number(stockValuation.totalValuation || 0)}
+                  totalCost={Number(stockValuation.totalCost || 0)}
+                  totalSalesCost={Number(analytics.totalSalesCost || 0)}
+                  notSellingCount={Number(analytics.notSellingCount || 0)}
+                  dateRange={dateRange}
+                  customDateRange={customDateRange}
+                  allTimeRange={allTimeRange}
+                />
+                <AnalyticsCharts
+                  salesData={analytics.salesData}
+                  categoryData={analytics.categoryData}
+                  topProducts={analytics.topProducts}
+                  profitData={analytics.profitData}
+                />
+                <NotSellingTable
+                  products={analytics.notSelling || []}
+                  dateRange={dateRange}
+                  customDateRange={customDateRange}
+                  allTimeRange={allTimeRange}
+                />
               </div>
-            )}
-
-            <KPIWidgets
-              profit={Number(analytics.totalProfit || 0)}
-              valuation={Number(stockValuation.totalValuation || 0)}
-              totalCost={Number(stockValuation.totalCost || 0)}
-              totalSalesCost={Number(analytics.totalSalesCost || 0)}
-              notSellingCount={Number(analytics.notSellingCount || 0)}
-              dateRange={dateRange}
-              customDateRange={customDateRange}
-              allTimeRange={allTimeRange}
-            />
-            <AnalyticsCharts
-              salesData={analytics.salesData}
-              categoryData={analytics.categoryData}
-              topProducts={analytics.topProducts}
-              profitData={analytics.profitData}
-            />
-            <NotSellingTable
-              products={analytics.notSelling || []}
-              dateRange={dateRange}
-              customDateRange={customDateRange}
-              allTimeRange={allTimeRange}
-            />
-          </div>
+            </>
+          )}
         </main>
       </div>
 
@@ -379,6 +464,90 @@ export default function Reports() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      <Dialog open={showAuditModal} onOpenChange={setShowAuditModal}>
+        <DialogContent className="max-w-xl">
+          <DialogHeader>
+            <DialogTitle className="text-xl font-bold flex items-center gap-2">
+              <Calculator className="h-5 w-5 text-primary" />
+              Calculation Audit Breakdown
+            </DialogTitle>
+            <DialogDescription>
+              Detailed accounting formula for the selected date range: <strong>{dateRangeLabel}</strong>
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-6 my-4">
+            <div className="bg-muted/50 rounded-xl p-4 border space-y-4">
+              <div className="space-y-3">
+                <div className="flex justify-between items-center text-sm">
+                  <span className="text-muted-foreground">Gross Sales Revenue (A)</span>
+                  <span className="font-semibold tabular-nums text-foreground">
+                    ₹{audit.grossSales.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                  </span>
+                </div>
+                <div className="flex justify-between items-center text-sm border-b pb-2">
+                  <span className="text-muted-foreground">Less: Sales Tax Collected (B)</span>
+                  <span className="font-semibold tabular-nums text-red-500">
+                    - ₹{audit.taxAmount.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                  </span>
+                </div>
+                <div className="flex justify-between items-center text-sm font-medium">
+                  <span className="text-foreground">Net Sales Revenue (C = A - B)</span>
+                  <span className="font-bold tabular-nums text-foreground">
+                    ₹{audit.netRevenue.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                  </span>
+                </div>
+                <div className="flex justify-between items-center text-sm border-b pb-2">
+                  <span className="text-muted-foreground">Less: Cost of Goods Sold / COGS (D)</span>
+                  <span className="font-semibold tabular-nums text-red-500">
+                    - ₹{audit.costOfSales.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                  </span>
+                </div>
+                <div className="flex justify-between items-center text-base font-semibold pt-1">
+                  <span className="text-primary font-bold">Net Margin / Profit (E = C - D)</span>
+                  <span className="font-extrabold tabular-nums text-emerald-600 dark:text-emerald-400 text-lg">
+                    ₹{audit.netProfit.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            <div className="border rounded-xl p-4 bg-emerald-50/30 dark:bg-emerald-950/10 border-emerald-100 dark:border-emerald-900/30 flex items-center justify-between">
+              <div>
+                <p className="text-sm font-semibold text-emerald-800 dark:text-emerald-300">
+                  Calculated Net Profit Margin
+                </p>
+                <p className="text-xs text-muted-foreground">
+                  Formula: (Net Margin E / Net Revenue C) × 100
+                </p>
+              </div>
+              <div className="text-right">
+                <span className="text-2xl font-black text-emerald-600 dark:text-emerald-400">
+                  {audit.profitMarginPercent.toFixed(2)}%
+                </span>
+              </div>
+            </div>
+
+            <div className="text-xs text-muted-foreground leading-relaxed bg-amber-50/20 dark:bg-amber-950/5 border border-amber-100/30 p-3 rounded-lg">
+              <p className="font-medium text-amber-800 dark:text-amber-300 mb-1">
+                ℹ️ Audit Integrity Notice:
+              </p>
+              <ul className="list-disc pl-4 space-y-1">
+                <li>Gross sales totals are summed directly from client-paid invoice amounts.</li>
+                <li>Product costs are calculated dynamically using the current unit buying price.</li>
+                <li>Tax amounts are excluded from profit margins to reflect true operational net income.</li>
+              </ul>
+            </div>
+          </div>
+
+          <DialogFooter>
+            <DialogClose asChild>
+              <Button className="w-full sm:w-auto">Close Audit</Button>
+            </DialogClose>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

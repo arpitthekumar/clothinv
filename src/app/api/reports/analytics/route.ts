@@ -301,6 +301,8 @@ export async function GET(request: NextRequest) {
 
   let totalProfitCalc = 0;
   let totalSalesCostCalc = 0;
+  let totalGrossSalesCalc = 0;
+  let totalTaxCalc = 0;
   for (const s of sales || []) {
     if (!s.created_at || !s.items) continue;
     const saleDate = new Date(s.created_at);
@@ -346,6 +348,8 @@ export async function GET(request: NextRequest) {
     }
     totalProfitCalc += saleProfit;
     totalSalesCostCalc += costSum;
+    totalGrossSalesCalc += Number(s.total_amount || 0);
+    totalTaxCalc += Number(s.tax_amount || 0);
   }
 
   const profitData = Object.keys(monthBuckets).map((k) => {
@@ -383,5 +387,15 @@ export async function GET(request: NextRequest) {
     totalValuation,
     notSellingCount,
     notSelling: notSelling || [],
+    calculationAudit: {
+      grossSales: totalGrossSalesCalc,
+      taxAmount: totalTaxCalc,
+      netRevenue: totalGrossSalesCalc - totalTaxCalc,
+      costOfSales: totalSalesCostCalc,
+      netProfit: totalProfitCalc,
+      profitMarginPercent: (totalGrossSalesCalc - totalTaxCalc) > 0 
+        ? (totalProfitCalc / (totalGrossSalesCalc - totalTaxCalc)) * 100 
+        : 0
+    }
   });
 }

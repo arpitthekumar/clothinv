@@ -10,7 +10,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
-import { FileText, Download, Calendar } from "lucide-react";
+import { FileText, Download, Calendar, Calculator, Loader2 } from "lucide-react";
 import DateRangePicker from "./DateRangePicker";
 
 interface ReportControlsProps {
@@ -22,6 +22,8 @@ interface ReportControlsProps {
   customDateRange?: { from?: Date; to?: Date } | null;
   onCustomDateRangeChange?: (range: { from?: Date; to?: Date } | null) => void;
   allTimeRange?: { from?: Date; to?: Date } | null;
+  onAuditClick?: () => void;
+  isLoading?: boolean;
 }
 
 export default function ReportControls({
@@ -33,6 +35,8 @@ export default function ReportControls({
   customDateRange,
   onCustomDateRangeChange,
   allTimeRange,
+  onAuditClick,
+  isLoading,
 }: ReportControlsProps) {
   const [datePickerOpen, setDatePickerOpen] = useState(false);
 
@@ -146,10 +150,22 @@ export default function ReportControls({
               )}
             </div>
 
-            <Button onClick={onExport}>
-              <Download className="mr-2 h-4 w-4" />
-              Export CSV
-            </Button>
+            <div className="flex flex-wrap gap-2">
+              {onAuditClick && (
+                <Button variant="outline" onClick={onAuditClick} disabled={isLoading}>
+                  {isLoading ? (
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin text-primary" />
+                  ) : (
+                    <Calculator className="mr-2 h-4 w-4" />
+                  )}
+                  Audit Calculations
+                </Button>
+              )}
+              <Button onClick={onExport} disabled={isLoading}>
+                <Download className="mr-2 h-4 w-4" />
+                Export CSV
+              </Button>
+            </div>
           </div>
         </CardContent>
       </Card>
