@@ -120,7 +120,9 @@ export default function Reports() {
       setShowWarningModal(true);
     } else {
       setDateRange(value);
-      setCustomDateRange(null);
+      if (value !== "custom") {
+        setCustomDateRange(null);
+      }
     }
   };
 
@@ -199,11 +201,11 @@ export default function Reports() {
           toDate = endOfDay(now);
           break;
         case "week":
-          fromDate = startOfDay(subDays(now, 7));
+          fromDate = startOfDay(subDays(now, 6)); // Last 7 days including today
           toDate = endOfDay(now);
           break;
         case "month":
-          fromDate = startOfDay(subDays(now, 30));
+          fromDate = startOfDay(subDays(now, 29)); // Last 30 days including today
           toDate = endOfDay(now);
           break;
         case "all":
@@ -211,7 +213,7 @@ export default function Reports() {
           toDate = endOfDay(now);
           break;
         default:
-          fromDate = startOfDay(subDays(now, 30));
+          fromDate = startOfDay(subDays(now, 29)); // Default to exactly 30 days
           toDate = endOfDay(now);
       }
     }
