@@ -146,6 +146,9 @@ export async function GET(request: NextRequest) {
       const monthStr = d.toLocaleDateString("en-US", { month: "short", day: "numeric" });
       return `Wk ${monthStr}`;
     } else {
+      if (daysToShow > 7) {
+        return d.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+      }
       return formatDayShort(d);
     }
   };
