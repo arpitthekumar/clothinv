@@ -14,7 +14,7 @@ import html2canvas from "html2canvas";
 import { jsPDF } from "jspdf";
 import LabelBill from "./LabelBill";
 import { SaleData } from "@/lib/type";
-import { InvoiceData } from "@/lib/printer";
+import { invoicePrinter, InvoiceData } from "@/lib/printer";
 import {
   getPosCheckoutPrefs,
   type ThankYouButtonId,
@@ -402,17 +402,39 @@ export function ThankYouModal({
 
     const phone = formatPhone(customerPhone);
 
-    const msg =
-      `Hello ${saleData?.customerName}!\n` +
-      `Thanks for shopping with us.\n` +
-      `Invoice: ${saleData?.invoiceNumber}\n` +
-      `Total: ₹${saleData?.totalAmount}`;
+    let msg = "";
+    if (invoiceData) {
+      msg = invoicePrinter.generateWhatsAppMessage({
+        ...invoiceData,
+        customerName: saleData?.customerName || invoiceData.customerName,
+        customerPhone: customerPhone,
+      });
+    } else if (saleData) {
+      const itemsList = (saleData.items || [])
+        .map(
+          (item) =>
+            `• ${item.name} (x${item.quantity}) - ₹${item.total}`
+        )
+        .join("\n");
 
-    const encodedMsg = encodeURIComponent(msg).replace(/%0A/g, "%0A");
+      msg =
+        `🏪 *Bhootiya Fabric Collection*\n` +
+        `📍 Moti Ganj, Bakebar Road, Bharthana\n` +
+        `📞 Ph: +91 82736 89065\n\n` +
+        `Hello ${saleData.customerName || "Customer"}! 👋\n` +
+        `Thanks for shopping with us.\n\n` +
+        `🧾 *Invoice:* ${saleData.invoiceNumber}\n` +
+        (itemsList ? `\n🛍️ *Items:*\n${itemsList}\n\n` : "") +
+        `💰 *Total Amount:* ₹${saleData.totalAmount}\n` +
+        `💳 *Payment Mode:* ${saleData.paymentMethod}\n\n` +
+        `Thank you for shopping with us! 🙏`;
+    } else {
+      msg = "Hello! Thanks for shopping with us.";
+    }
+
+    const encodedMsg = encodeURIComponent(msg);
 
     window.open(`https://wa.me/${phone}?text=${encodedMsg}`, "_blank");
-
-
   };
 
   /* Automation: reads latest prefs when receipt opens; handlers close over initial render — OK for one-shot actions. */

@@ -107,7 +107,9 @@ class InvoicePrinter {
       </head>
       <body>
         <div class="header">
-          <h1>ShopFlow</h1>
+          <h1>Bhootiya Fabric Collection</h1>
+          <p style="margin: 2px 0; font-size: 14px;">Moti Ganj, Bakebar Road, Bharthana</p>
+          <p style="margin: 2px 0; font-size: 14px;">Ph: +91 82736 89065</p>
           <h2>Invoice</h2>
         </div>
 
@@ -186,37 +188,56 @@ class InvoicePrinter {
   }
 
   // 🧾 Generate WhatsApp message text
-  private generateWhatsAppMessage(invoice: InvoiceData): string {
-    const { formattedDate, formattedTime } = this.formatIndianDateTime(
-      invoice.date
-    );
-    const itemsList = invoice.items
+  public generateWhatsAppMessage(invoice: InvoiceData): string {
+    const dateToUse = invoice.date ? new Date(invoice.date) : new Date();
+    const { formattedDate, formattedTime } = this.formatIndianDateTime(dateToUse);
+
+    const customerName =
+      invoice.customerName && invoice.customerName.trim() !== ""
+        ? invoice.customerName
+        : "Valued Customer";
+
+    const itemsList = (invoice.items || [])
       .map(
         (item) =>
-          `• ${item.name} x${this.formatCurrency(item.quantity, false)} - ₹${this.formatCurrency(
+          `• ${item.name} (x${this.formatCurrency(item.quantity, false)}) - ₹${this.formatCurrency(
             item.total
           )}`
       )
       .join("\n");
 
-    return `
-🧾 *Invoice: ${invoice.invoiceNumber}*
-📅 Date: ${formattedDate} | ${formattedTime}
+    const lines: string[] = [
+      `🏪 *Bhootiya Fabric Collection*`,
+      `📍 Moti Ganj, Bakebar Road, Bharthana`,
+      `📞 Ph: +91 82736 89065\n`,
+      `Hello ${customerName}! 👋`,
+      `Thanks for shopping with us.\n`,
+      `🧾 *Invoice:* ${invoice.invoiceNumber}`,
+      `📅 *Date:* ${formattedDate} | ${formattedTime}`,
+    ];
 
-*Items:*
-${itemsList}
+    if (itemsList) {
+      lines.push(`\n🛍️ *Items:*`, itemsList);
+    }
 
-💰 *Subtotal:* ₹${this.formatCurrency(invoice.subtotal)}
-${
-  invoice.discountAmount && invoice.discountAmount > 0
-    ? `💰 *Discount:* -₹${this.formatCurrency(invoice.discountAmount)}\n`
-    : ""
-}💰 *Total:* ₹${this.formatCurrency(invoice.total)}
+    lines.push("");
 
-💳 Payment: ${invoice.paymentMethod}
+    if (invoice.subtotal && invoice.discountAmount && invoice.discountAmount > 0) {
+      lines.push(`💵 *Subtotal:* ₹${this.formatCurrency(invoice.subtotal)}`);
+      lines.push(`🏷️ *Discount:* -₹${this.formatCurrency(invoice.discountAmount)}`);
+    } else if (invoice.subtotal && invoice.subtotal !== invoice.total) {
+      lines.push(`💵 *Subtotal:* ₹${this.formatCurrency(invoice.subtotal)}`);
+    }
 
-Thank you for shopping with us! 🙏
-    `.trim();
+    lines.push(`💰 *Total Amount:* ₹${this.formatCurrency(invoice.total)}`);
+
+    if (invoice.paymentMethod) {
+      lines.push(`💳 *Payment Mode:* ${invoice.paymentMethod}`);
+    }
+
+    lines.push(`\nThank you for shopping with us! 🙏`);
+
+    return lines.join("\n").trim();
   }
 
   // 🖨 Thermal printer output
@@ -254,7 +275,9 @@ Thank you for shopping with us! 🙏
     const CUT = ESC + "i";
 
     let printData = INIT;
-    printData += CENTER + BOLD_ON + "ShopFlow\n" + BOLD_OFF;
+    printData += CENTER + BOLD_ON + "Bhootiya Fabric Collection\n" + BOLD_OFF;
+    printData += "Moti Ganj, Bakebar Road, Bharthana\n";
+    printData += "Ph: +91 82736 89065\n\n";
     printData += "Invoice\n\n";
     printData += LEFT;
     printData += `Invoice: ${invoice.invoiceNumber}\n`;
