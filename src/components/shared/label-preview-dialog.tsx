@@ -192,11 +192,35 @@ export function LabelPreviewDialog({
       const base64 = await blobToBase64(blob);
       const cleanB64 = base64.replace(/^data:image\/png;base64,/, "");
 
-      const deepLink = `wts://print?image=${encodeURIComponent(
-        cleanB64
-      )}&copies=${copies}`;
+      const isMobile = /Android|iPhone|iPad|iPod|Mobile/i.test(
+        navigator.userAgent
+      );
 
-      window.location.href = deepLink;
+      if (isMobile) {
+        const deepLink = `wts://print?image=${encodeURIComponent(
+          cleanB64
+        )}&copies=${copies}`;
+        window.location.href = deepLink;
+      } else {
+        const res = await fetch("/api/print/job", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            image: cleanB64,
+            copies: copies,
+          }),
+        });
+
+        const data = await res.json();
+
+        if (res.ok && data.deepLink) {
+          window.location.href = data.deepLink;
+        } else {
+          throw new Error(data.error || "Failed to create print job");
+        }
+      }
 
       // fallback after 1.5 sec
 
