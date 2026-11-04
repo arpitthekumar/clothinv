@@ -1,4 +1,5 @@
 "use client";
+import { formatISTDateTime } from "@/lib/date-utils";
 
 import {
   Dialog,
@@ -294,20 +295,7 @@ export function ThankYouModal({
     if (!saleData) return;
 
     /* ───────────────── IST DATE & TIME ───────────────── */
-    const ist = parseToIST(saleData.createdAt);
-
-    const formattedDate = ist.toLocaleDateString("en-IN", {
-      day: "2-digit",
-      month: "2-digit",
-      year: "numeric",
-    });
-
-    let hour = ist.getHours();
-    const minute = ist.getMinutes().toString().padStart(2, "0");
-    if (hour > 12) hour -= 12;
-    if (hour === 0) hour = 12;
-
-    const formattedTime = `${hour}:${minute}`;
+    const { formattedDate, formattedTime } = formatISTDateTime(saleData.createdAt);
 
     /* ───────────────── CALCULATIONS ───────────────── */
 

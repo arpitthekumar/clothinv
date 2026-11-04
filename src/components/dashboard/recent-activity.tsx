@@ -6,7 +6,7 @@ import { Clock } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { formatDistanceToNow } from "date-fns";
 import { normalizeItems } from "@/lib/json";
-import { toZonedTime } from "date-fns-tz";
+import { parseDateSafe } from "@/lib/date-utils";
 
 export function RecentActivity() {
   const { data: sales, isLoading } = useQuery<
@@ -30,8 +30,7 @@ export function RecentActivity() {
 
   // ✅ Convert UTC → IST for date-time consistency
   const convertToIST = (utcDateString: string) => {
-    const utcDate = new Date(utcDateString?.replace(" ", "T") + "Z");
-    return toZonedTime(utcDate, "Asia/Kolkata");
+    return parseDateSafe(utcDateString);
   };
 
   if (isLoading) {

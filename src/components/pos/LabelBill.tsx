@@ -3,7 +3,7 @@
 import React from "react";
 import { SaleData } from "@/lib/type";
 import BarcodeGenerator from "@/components/shared/barcode-generator";
-import { toZonedTime, format } from "date-fns-tz"; // ✅ correct import
+import { formatISTDateTime } from "@/lib/date-utils";
 import { useStoreSettings } from "@/hooks/use-store-settings";
 import { type StoreSettings } from "@/types/store-settings";
 
@@ -19,27 +19,8 @@ const LabelBill = React.forwardRef<HTMLDivElement, LabelBillProps>(
   ({ data, discountAmount = 0, onBarcode, storeSettings: customStoreSettings }, ref) => {
     const { settings: fetchedSettings } = useStoreSettings();
     const activeSettings = customStoreSettings || fetchedSettings;
-    // ✅ Convert UTC → IST safely using date-fns-tz
-    const createdAtRaw =
-      typeof data.createdAt === "string"
-        ? data.createdAt.replace(" ", "T")
-        : data.createdAt || new Date();
-
-    // Parse as UTC explicitly
-    const utcDate = new Date(createdAtRaw + "Z"); // ensure it's UTC
-    const istDate = toZonedTime(utcDate, "Asia/Kolkata");
-
-    // Format for IST (no AM/PM)
-    const formattedDate = format(istDate, "dd/MM/yyyy", {
-      timeZone: "Asia/Kolkata",
-    });
-
-    // 12-hour format without AM/PM
-    let hour = istDate.getHours();
-    const minute = istDate.getMinutes().toString().padStart(2, "0");
-    if (hour > 12) hour -= 12;
-    if (hour === 0) hour = 12;
-    const formattedTime = `${hour}:${minute}`;
+    // Format IST date and time safely
+    const { formattedDate, formattedTime } = formatISTDateTime(data.createdAt);
 
     // 🧮 Calculate totals
 

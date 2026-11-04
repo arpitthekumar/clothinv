@@ -8,7 +8,7 @@ import { RotateCcw, Trash2, XCircle, User, Package } from "lucide-react";
 import { getPaymentMethodTextClass } from "@/lib/payment-breakdown";
 import { normalizeItems } from "@/lib/json";
 import { formatDistanceToNow } from "date-fns";
-import { toZonedTime } from "date-fns-tz";
+import { parseDateSafe } from "@/lib/date-utils";
 
 export default function SalesCard({
   sale,
@@ -21,8 +21,8 @@ export default function SalesCard({
 }: any) {
   const createdDate = (() => {
     try {
-      const utcDate = new Date((sale.created_at || "").replace(" ", "T") + "Z");
-      return formatDistanceToNow(toZonedTime(utcDate, "Asia/Kolkata"), {
+      const d = parseDateSafe(sale.created_at);
+      return formatDistanceToNow(d, {
         addSuffix: true,
       });
     } catch {
