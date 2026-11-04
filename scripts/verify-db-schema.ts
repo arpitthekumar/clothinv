@@ -94,3 +94,4 @@ verify().catch((err) => {
   console.error("Fatal error during verification:", err);
   process.exit(1);
 });
+
