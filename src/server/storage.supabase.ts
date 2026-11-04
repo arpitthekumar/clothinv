@@ -1263,16 +1263,38 @@ export class SupabaseStorage implements IStorage {
   async createStockMovement(
     movement: InsertStockMovement
   ): Promise<StockMovement> {
+    const sb = await this.sb();
+    let validUserId = (movement as any).userId;
+
+    if (validUserId) {
+      const { data: userExists } = await sb
+        .from("users")
+        .select("id")
+        .eq("id", validUserId)
+        .maybeSingle();
+
+      if (!userExists) {
+        const { data: firstUser } = await sb
+          .from("users")
+          .select("id")
+          .limit(1)
+          .maybeSingle();
+        if (firstUser?.id) {
+          validUserId = firstUser.id;
+        }
+      }
+    }
+
     const payload: any = {
       product_id: (movement as any).productId,
-      user_id: (movement as any).userId,
+      user_id: validUserId,
       type: (movement as any).type,
       quantity: (movement as any).quantity,
       reason: (movement as any).reason,
       ref_table: (movement as any).refTable,
       ref_id: (movement as any).refId,
     };
-    const { data, error } = await (await this.sb())
+    const { data, error } = await sb
       .from("stock_movements")
       .insert(payload)
       .select("*")

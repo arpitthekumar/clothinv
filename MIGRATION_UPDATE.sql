@@ -160,3 +160,8 @@ END $$;
 
 -- Completed successfully.
 
+
+-- 9. Ensure dev admin user exists for foreign keys
+INSERT INTO users (id, username, password, role, "fullName")
+VALUES ('admin-dev-001', 'admin_dev', 'admin123', 'admin', 'Administrator (Dev)')
+ON CONFLICT (id) DO NOTHING;
