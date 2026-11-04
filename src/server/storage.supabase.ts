@@ -1110,10 +1110,22 @@ export class SupabaseStorage implements IStorage {
       .insert(payload)
       .select("*")
       .single();
-    if (error && (error.code === "42703" || error.message?.includes("salesperson_id") || error.message?.includes("salesperson_name"))) {
-      console.warn("salesperson columns missing on sales table, retrying insert without salesperson fields:", error.message);
-      delete payload.salesperson_id;
-      delete payload.salesperson_name;
+    if (
+      error &&
+      (error.code === "42703" ||
+        error.code === "PGRST204" ||
+        error.message?.includes("salesperson_id") ||
+        error.message?.includes("salesperson_name") ||
+        error.message?.includes("customer_id"))
+    ) {
+      console.warn("Retrying sale insert without optional columns:", error.message);
+      if (error.message?.includes("salesperson_id") || error.message?.includes("salesperson_name")) {
+        delete payload.salesperson_id;
+        delete payload.salesperson_name;
+      }
+      if (error.message?.includes("customer_id")) {
+        delete payload.customer_id;
+      }
       const fallback = await sb
         .from("sales")
         .insert(payload)
