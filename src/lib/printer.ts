@@ -1,3 +1,4 @@
+import { formatISTDateTime } from "./date-utils";
 import { DEFAULT_WHATSAPP_TEMPLATE } from "@/types/store-settings";
 
 // Invoice printing and WhatsApp sharing functionality
@@ -43,43 +44,7 @@ export interface InvoiceData {
 class InvoicePrinter {
   // ✅ Unified IST formatter (handles Date, ISO string, timestamps safely)
   public formatIndianDateTime(dateInput?: Date | string | number) {
-    if (!dateInput) {
-      dateInput = new Date();
-    }
-    let d: Date;
-    if (dateInput instanceof Date) {
-      d = dateInput;
-    } else if (typeof dateInput === "number") {
-      d = new Date(dateInput);
-    } else if (typeof dateInput === "string") {
-      const isoStr = dateInput.trim().replace(" ", "T");
-      d = new Date(isoStr);
-      if (isNaN(d.getTime())) {
-        d = new Date(dateInput);
-      }
-    } else {
-      d = new Date();
-    }
-
-    if (isNaN(d.getTime())) {
-      d = new Date();
-    }
-
-    const formattedDate = d.toLocaleDateString("en-IN", {
-      day: "2-digit",
-      month: "2-digit",
-      year: "numeric",
-      timeZone: "Asia/Kolkata",
-    });
-
-    const formattedTime = d.toLocaleTimeString("en-IN", {
-      hour: "2-digit",
-      minute: "2-digit",
-      hour12: true,
-      timeZone: "Asia/Kolkata",
-    });
-
-    return { formattedDate, formattedTime };
+    return formatISTDateTime(dateInput);
   }
 
   // ✅ Helper: Format numbers as Indian currency

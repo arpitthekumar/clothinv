@@ -71,6 +71,7 @@ import {
 import { useToast } from "@/hooks/use-toast";
 import { invoicePrinter, type InvoiceData } from "@/lib/printer";
 import { useStoreSettings } from "@/hooks/use-store-settings";
+import { parseDateSafe } from "@/lib/date-utils";
 import { useAuth } from "@/hooks/use-auth";
 import { ThankYouModal } from "@/components/pos/ThankYouModal";
 
@@ -538,7 +539,7 @@ export default function CustomersPage() {
 
       setPrintInvoiceData({
         invoiceNumber: sale.invoice_number,
-        date: sale.created_at,
+        date: parseDateSafe(sale.created_at),
         customerName: customerHistory?.customer.name || "Customer",
         customerPhone: customerHistory?.customer.phone || "",
         salespersonName: (sale as any).salesperson_name || (sale as any).salespersonName || undefined,

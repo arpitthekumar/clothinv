@@ -161,7 +161,7 @@ export async function POST(request: NextRequest) {
 
       await storage.createStockMovement({
         productId: item.productId,
-        userId: auth.user.id,
+        userId: sale.user_id || auth.user.id,
         type: "sale_out",
         quantity: -item.quantity,
         reason: `Sale ${sale.invoice_number}`,

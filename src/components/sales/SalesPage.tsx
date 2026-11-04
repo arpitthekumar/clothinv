@@ -1,4 +1,5 @@
 "use client";
+import { parseDateSafe } from "@/lib/date-utils";
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
@@ -244,7 +245,7 @@ export default function SalesPage() {
 
     setInvoiceData({
       invoiceNumber: sale.invoice_number,
-      date: new Date(sale.created_at),
+      date: parseDateSafe(sale.created_at),
 
       discount_amount: Number(sale.discount_amount) ?? 0,
       discount_value: Number(sale.discount_value) ?? 0,

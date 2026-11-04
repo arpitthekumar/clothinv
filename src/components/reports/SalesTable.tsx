@@ -24,7 +24,7 @@ import { formatDistanceToNow } from "date-fns";
 import { getPaymentMethodBadgeProps } from "@/lib/payment-breakdown";
 import { cn } from "@/lib/utils";
 import { normalizeItems } from "@/lib/json";
-import { toZonedTime, format } from "date-fns-tz";
+import { formatISTDateTime, parseDateSafe } from "@/lib/date-utils";
 
 const PAGE_SIZE_OPTIONS = [10, 25, 50, 100] as const;
 
@@ -87,30 +87,6 @@ export default function SalesTable({
     });
 
   // ✅ Convert UTC → IST and format time properly
-  const formatISTDateTime = (createdAt: string | Date) => {
-    const createdAtRaw =
-      typeof createdAt === "string"
-        ? createdAt.replace(" ", "T")
-        : createdAt || new Date();
-
-    // Parse as UTC explicitly
-    const utcDate = new Date(createdAtRaw + "Z");
-    const istDate = toZonedTime(utcDate, "Asia/Kolkata");
-
-    // Format for IST (dd/MM/yyyy)
-    const formattedDate = format(istDate, "dd/MM/yyyy", {
-      timeZone: "Asia/Kolkata",
-    });
-
-    // 12-hour format manually (no AM/PM)
-    let hour = istDate.getHours();
-    const minute = istDate.getMinutes().toString().padStart(2, "0");
-    if (hour > 12) hour -= 12;
-    if (hour === 0) hour = 12;
-    const formattedTime = `${hour}:${minute}`;
-
-    return { formattedDate, formattedTime };
-  };
 
   return (
     <Card>
@@ -219,18 +195,8 @@ export default function SalesTable({
                           <p className="text-sm text-muted-foreground">
                             {(() => {
                               try {
-                                const raw = sale.created_at || new Date();
-                                const utcDate = new Date(
-                                  typeof raw === "string"
-                                    ? raw.replace(" ", "T") + "Z"
-                                    : raw
-                                );
-                                const istDate = toZonedTime(
-                                  utcDate,
-                                  "Asia/Kolkata"
-                                );
-
-                                return formatDistanceToNow(istDate, {
+                                const d = parseDateSafe(sale.created_at);
+                                return formatDistanceToNow(d, {
                                   addSuffix: true,
                                 });
                               } catch {

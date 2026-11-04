@@ -72,12 +72,12 @@ async function verify() {
   }
 
   // 7. Check sales columns
-  const { error: errSales } = await supabase.from("sales").select("id, salesperson_id, salesperson_name").limit(1);
+  const { error: errSales } = await supabase.from("sales").select("id, customer_id, salesperson_id, salesperson_name").limit(1);
   if (errSales) {
     console.error(`❌ Sales table missing salesperson columns:`, errSales.message);
     allPassed = false;
   } else {
-    console.log(`✅ Sales columns (salesperson_id, salesperson_name) are READY`);
+    console.log(`✅ Sales columns (customer_id, salesperson_id, salesperson_name) are READY`);
   }
 
   console.log("\n--------------------------------------------------");

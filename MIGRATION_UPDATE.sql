@@ -139,8 +139,10 @@ CREATE INDEX IF NOT EXISTS idx_customers_phone ON customers(phone);
 CREATE INDEX IF NOT EXISTS idx_customers_name ON customers(name);
 
 -- 7. SALES: Add salesperson attribution
+ALTER TABLE sales ADD COLUMN IF NOT EXISTS customer_id VARCHAR(36);
 ALTER TABLE sales ADD COLUMN IF NOT EXISTS salesperson_id VARCHAR(36);
 ALTER TABLE sales ADD COLUMN IF NOT EXISTS salesperson_name TEXT;
+CREATE INDEX IF NOT EXISTS idx_sales_customer_id ON sales(customer_id);
 
 -- 8. CATEGORY FK SAFE BEHAVIOR (ON DELETE SET NULL)
 DO $$
@@ -158,3 +160,8 @@ END $$;
 
 -- Completed successfully.
 
+
+-- 9. Ensure dev admin user exists for foreign keys
+INSERT INTO users (id, username, password, role, "fullName")
+VALUES ('admin-dev-001', 'admin_dev', 'admin123', 'admin', 'Administrator (Dev)')
+ON CONFLICT (id) DO NOTHING;

@@ -1110,10 +1110,22 @@ export class SupabaseStorage implements IStorage {
       .insert(payload)
       .select("*")
       .single();
-    if (error && (error.code === "42703" || error.message?.includes("salesperson_id") || error.message?.includes("salesperson_name"))) {
-      console.warn("salesperson columns missing on sales table, retrying insert without salesperson fields:", error.message);
-      delete payload.salesperson_id;
-      delete payload.salesperson_name;
+    if (
+      error &&
+      (error.code === "42703" ||
+        error.code === "PGRST204" ||
+        error.message?.includes("salesperson_id") ||
+        error.message?.includes("salesperson_name") ||
+        error.message?.includes("customer_id"))
+    ) {
+      console.warn("Retrying sale insert without optional columns:", error.message);
+      if (error.message?.includes("salesperson_id") || error.message?.includes("salesperson_name")) {
+        delete payload.salesperson_id;
+        delete payload.salesperson_name;
+      }
+      if (error.message?.includes("customer_id")) {
+        delete payload.customer_id;
+      }
       const fallback = await sb
         .from("sales")
         .insert(payload)
@@ -1251,16 +1263,38 @@ export class SupabaseStorage implements IStorage {
   async createStockMovement(
     movement: InsertStockMovement
   ): Promise<StockMovement> {
+    const sb = await this.sb();
+    let validUserId = (movement as any).userId;
+
+    if (validUserId) {
+      const { data: userExists } = await sb
+        .from("users")
+        .select("id")
+        .eq("id", validUserId)
+        .maybeSingle();
+
+      if (!userExists) {
+        const { data: firstUser } = await sb
+          .from("users")
+          .select("id")
+          .limit(1)
+          .maybeSingle();
+        if (firstUser?.id) {
+          validUserId = firstUser.id;
+        }
+      }
+    }
+
     const payload: any = {
       product_id: (movement as any).productId,
-      user_id: (movement as any).userId,
+      user_id: validUserId,
       type: (movement as any).type,
       quantity: (movement as any).quantity,
       reason: (movement as any).reason,
       ref_table: (movement as any).refTable,
       ref_id: (movement as any).refId,
     };
-    const { data, error } = await (await this.sb())
+    const { data, error } = await sb
       .from("stock_movements")
       .insert(payload)
       .select("*")
