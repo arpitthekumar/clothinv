@@ -77,7 +77,9 @@ export function CategoriesManagement() {
   // Check how many products use each category
   const getProductCount = (categoryId: string) => {
     return products.filter(
-      (p: any) => p.categoryId === categoryId && !p.deleted
+      (p: any) =>
+        (p.categoryId === categoryId || p.category_id === categoryId) &&
+        !p.deleted
     ).length;
   };
 

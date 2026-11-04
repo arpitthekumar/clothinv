@@ -1,14 +1,18 @@
 import { getSupabaseServer } from "./supabase";
-import { type IStorage } from "./storage";
+import { type IStorage, type StoreSettings, DEFAULT_STORE_SETTINGS } from "./storage";
 import {
   type User,
   type InsertUser,
+  type UserSession,
   type Product,
+
   type InsertProduct,
   type Category,
   type InsertCategory,
   type Sale,
   type InsertSale,
+  type Salesperson,
+  type InsertSalesperson,
   type StockMovement,
   type InsertStockMovement,
   type Supplier,
@@ -17,8 +21,17 @@ import {
   type InsertPurchaseOrder,
   type PurchaseOrderItem,
   type InsertPurchaseOrderItem,
+  type Customer,
+  type InsertCustomer,
 } from "@shared/schema";
-import { mapUserFromDb } from "@/lib/db-column-mapper";
+import { mapUserFromDb, mapUserToDb, mapProductFromDb, mapProductToDb } from "@/lib/db-column-mapper";
+
+let memorySubscriptionExpiryDate: string | null = null;
+let memorySubscriptionRate6Months: number | null = null;
+let memoryLastPaymentAmount: number | null = null;
+let memoryLastPaymentDate: string | null = null;
+let memoryLastPaymentMonths: number | null = null;
+let memorySubscriptionHistory: any[] | null = null;
 
 export class SupabaseStorage implements IStorage {
   private async sb() {
@@ -32,6 +45,108 @@ export class SupabaseStorage implements IStorage {
       );
     }
     return client;
+  }
+
+  // Salespersons
+  async getSalespersons(includeInactive = false): Promise<Salesperson[]> {
+    try {
+      let query = (await this.sb()).from("salespersons").select("*").order("name", { ascending: true });
+      if (!includeInactive) {
+        query = query.eq("active", true);
+      }
+      const { data, error } = await query;
+      if (error) {
+        console.warn("Salespersons table query error:", error.message);
+        return [];
+      }
+      return (data ?? []) as Salesperson[];
+    } catch (err: any) {
+      console.warn("Failed to fetch salespersons:", err?.message);
+      return [];
+    }
+  }
+
+  async getSalesperson(id: string): Promise<Salesperson | undefined> {
+    const { data, error } = await (await this.sb())
+      .from("salespersons")
+      .select("*")
+      .eq("id", id)
+      .maybeSingle();
+    if (error) throw error;
+    return (data ?? undefined) as Salesperson | undefined;
+  }
+
+  async createSalesperson(salesperson: InsertSalesperson): Promise<Salesperson> {
+    const { data, error } = await (await this.sb())
+      .from("salespersons")
+      .insert(salesperson)
+      .select("*")
+      .single();
+    if (error) throw error;
+    return data as Salesperson;
+  }
+
+  async updateSalesperson(
+    id: string,
+    salesperson: Partial<InsertSalesperson>
+  ): Promise<Salesperson | undefined> {
+    const { data, error } = await (await this.sb())
+      .from("salespersons")
+      .update(salesperson)
+      .eq("id", id)
+      .select("*")
+      .maybeSingle();
+    if (error) throw error;
+    return (data ?? undefined) as Salesperson | undefined;
+  }
+
+  async getSalespersonSalesCount(id: string): Promise<number> {
+    try {
+      const sb = await this.sb();
+      const { count, error } = await sb
+        .from("sales")
+        .select("*", { count: "exact", head: true })
+        .eq("salesperson_id", id);
+      if (error) {
+        console.warn("Failed to count sales for salesperson:", error.message);
+        return 0;
+      }
+      return count ?? 0;
+    } catch (err: any) {
+      console.warn("Error in getSalespersonSalesCount:", err?.message);
+      return 0;
+    }
+  }
+
+  async getSalespersonRecentSales(id: string, limit = 5): Promise<Sale[]> {
+    try {
+      const sb = await this.sb();
+      const { data, error } = await sb
+        .from("sales")
+        .select("id, invoice_number, total_amount, created_at, customer_name")
+        .eq("salesperson_id", id)
+        .order("created_at", { ascending: false })
+        .limit(limit);
+      if (error) return [];
+      return (data ?? []) as any[];
+    } catch {
+      return [];
+    }
+  }
+
+  async deleteSalesperson(id: string): Promise<boolean> {
+    const salesCount = await this.getSalespersonSalesCount(id);
+    if (salesCount > 0) {
+      throw new Error(
+        `Cannot delete salesperson: this staff member is linked to ${salesCount} sales transaction(s). Please deactivate them instead.`
+      );
+    }
+    const { error } = await (await this.sb())
+      .from("salespersons")
+      .delete()
+      .eq("id", id);
+    if (error) throw error;
+    return true;
   }
 
   // Users
@@ -54,9 +169,10 @@ export class SupabaseStorage implements IStorage {
     return data ? (mapUserFromDb(data) as User) : undefined;
   }
   async createUser(user: InsertUser): Promise<User> {
+    const payload = mapUserToDb(user);
     const { data, error } = await (await this.sb())
       .from("users")
-      .insert(user)
+      .insert(payload)
       .select("*")
       .single();
     if (error) throw error;
@@ -66,16 +182,53 @@ export class SupabaseStorage implements IStorage {
     id: string,
     user: Partial<InsertUser>
   ): Promise<User | undefined> {
+    const payload = mapUserToDb(user);
     const { data, error } = await (await this.sb())
       .from("users")
-      .update(user)
+      .update(payload)
       .eq("id", id)
       .select("*")
       .maybeSingle();
     if (error) throw error;
     return data ? (mapUserFromDb(data) as User) : undefined;
   }
+  async getUserSalesCount(userId: string): Promise<number> {
+    try {
+      const sb = await this.sb();
+      const { count, error } = await sb
+        .from("sales")
+        .select("id", { count: "exact", head: true })
+        .eq("user_id", userId);
+      if (error) return 0;
+      return count ?? 0;
+    } catch {
+      return 0;
+    }
+  }
+
+  async getUserRecentSales(userId: string, limit = 6): Promise<Sale[]> {
+    try {
+      const sb = await this.sb();
+      const { data, error } = await sb
+        .from("sales")
+        .select("id, invoice_number, total_amount, created_at, customer_name")
+        .eq("user_id", userId)
+        .order("created_at", { ascending: false })
+        .limit(limit);
+      if (error) return [];
+      return (data ?? []) as any[];
+    } catch {
+      return [];
+    }
+  }
+
   async deleteUser(id: string): Promise<boolean> {
+    const salesCount = await this.getUserSalesCount(id);
+    if (salesCount > 0) {
+      throw new Error(
+        `Cannot delete user: this user recorded ${salesCount} sales transaction(s). Deactivate or change their role instead.`
+      );
+    }
     const { error } = await (await this.sb()).from("users").delete().eq("id", id);
     if (error) throw error;
     return true;
@@ -85,6 +238,317 @@ export class SupabaseStorage implements IStorage {
     if (error) throw error;
     return (data ?? []).map((row) => mapUserFromDb(row) as User);
   }
+
+  // User Sessions & Active Devices
+  private memorySessions: Map<string, UserSession> = new Map();
+  private lastDbSyncMap: Map<string, number> = new Map();
+
+
+  async getUserSessions(userId: string): Promise<UserSession[]> {
+    try {
+      const sb = await this.sb();
+      const { data, error } = await sb
+        .from("user_sessions")
+        .select("*")
+        .eq("user_id", userId)
+        .order("last_active_at", { ascending: false });
+
+      if (error) {
+        console.warn("user_sessions query warning (using in-memory fallback):", error.message);
+        return Array.from(this.memorySessions.values()).filter((s) => s.userId === userId && !s.revokedAt);
+      }
+
+      const dbSessions: UserSession[] = (data ?? []).map((row: any) => ({
+        id: row.id,
+        userId: row.user_id,
+        sessionToken: row.session_token,
+        deviceName: row.device_name,
+        ipAddress: row.ip_address,
+        userAgent: row.user_agent,
+        createdAt: row.created_at ? new Date(row.created_at) : null,
+        lastActiveAt: row.last_active_at ? new Date(row.last_active_at) : null,
+        lastApiActivityAt: row.last_api_activity_at ? new Date(row.last_api_activity_at) : null,
+        lastHeartbeatAt: row.last_heartbeat_at ? new Date(row.last_heartbeat_at) : null,
+        revokedAt: row.revoked_at ? new Date(row.revoked_at) : null,
+        revocationReason: row.revocation_reason || null,
+        posStatus: row.pos_status || "ONLINE",
+        currentPosOperation: row.current_pos_operation || null,
+      }));
+
+      const sessionMap = new Map<string, UserSession>();
+      for (const s of dbSessions) {
+        sessionMap.set(s.sessionToken, s);
+      }
+      for (const [token, memSess] of Array.from(this.memorySessions.entries())) {
+        if (memSess.userId === userId && !sessionMap.has(token)) {
+          sessionMap.set(token, memSess);
+        }
+      }
+
+      return Array.from(sessionMap.values()).sort(
+        (a, b) => (b.lastActiveAt?.getTime() ?? 0) - (a.lastActiveAt?.getTime() ?? 0)
+      );
+    } catch (err: any) {
+      console.warn("Failed to get user sessions from DB, returning memory sessions:", err?.message);
+      return Array.from(this.memorySessions.values()).filter((s) => s.userId === userId && !s.revokedAt);
+    }
+  }
+
+  async createUserSession(params: {
+    userId: string;
+    sessionToken: string;
+    deviceName: string;
+    ipAddress?: string;
+    userAgent?: string;
+  }): Promise<UserSession> {
+    const now = new Date();
+    const newSession: UserSession = {
+      id: crypto.randomUUID(),
+      userId: params.userId,
+      sessionToken: params.sessionToken,
+      deviceName: params.deviceName,
+      ipAddress: params.ipAddress || null,
+      userAgent: params.userAgent || null,
+      createdAt: now,
+      lastActiveAt: now,
+      lastApiActivityAt: now,
+      lastHeartbeatAt: now,
+      revokedAt: null,
+      revocationReason: null,
+      posStatus: "ONLINE",
+      currentPosOperation: null,
+    };
+
+    this.memorySessions.set(newSession.sessionToken, newSession);
+
+    try {
+      const sb = await this.sb();
+      const { data, error } = await sb
+        .from("user_sessions")
+        .insert({
+          id: newSession.id,
+          user_id: params.userId,
+          session_token: params.sessionToken,
+          device_name: params.deviceName,
+          ip_address: params.ipAddress || null,
+          user_agent: params.userAgent || null,
+          created_at: newSession.createdAt,
+          last_active_at: newSession.lastActiveAt,
+          last_api_activity_at: newSession.lastApiActivityAt,
+          last_heartbeat_at: newSession.lastHeartbeatAt,
+          pos_status: "ONLINE",
+        })
+        .select("*")
+        .maybeSingle();
+
+      if (error) {
+        console.warn("user_sessions insert warning (stored in memory fallback):", error.message);
+        return newSession;
+      }
+
+      if (data) {
+        return {
+          id: data.id,
+          userId: data.user_id,
+          sessionToken: data.session_token,
+          deviceName: data.device_name,
+          ipAddress: data.ip_address,
+          userAgent: data.user_agent,
+          createdAt: data.created_at ? new Date(data.created_at) : null,
+          lastActiveAt: data.last_active_at ? new Date(data.last_active_at) : null,
+          lastApiActivityAt: data.last_api_activity_at ? new Date(data.last_api_activity_at) : null,
+          lastHeartbeatAt: data.last_heartbeat_at ? new Date(data.last_heartbeat_at) : null,
+          revokedAt: data.revoked_at ? new Date(data.revoked_at) : null,
+          revocationReason: data.revocation_reason || null,
+          posStatus: data.pos_status || "ONLINE",
+          currentPosOperation: data.current_pos_operation || null,
+        };
+      }
+    } catch (err: any) {
+      console.warn("Failed to create user session in Supabase, stored in memory:", err?.message);
+    }
+
+    return newSession;
+  }
+
+  async touchUserSession(sessionToken: string): Promise<void> {
+    return this.updateApiActivity(sessionToken);
+  }
+
+  async updateHeartbeat(
+    sessionToken: string,
+    isBusy?: boolean,
+    currentOperation?: string
+  ): Promise<boolean> {
+    const now = new Date();
+    const nowMs = now.getTime();
+    const mem = this.memorySessions.get(sessionToken);
+
+    let status = "ONLINE";
+    let operation: string | null = null;
+
+    if (isBusy !== undefined) {
+      status = isBusy ? "BUSY" : "ONLINE";
+      operation = isBusy ? (currentOperation || "POS Operation in Progress") : null;
+    } else if (mem) {
+      status = mem.posStatus || "ONLINE";
+      operation = mem.currentPosOperation || null;
+    }
+
+    if (mem) {
+      mem.lastHeartbeatAt = now;
+      mem.lastActiveAt = now;
+      mem.posStatus = status;
+      mem.currentPosOperation = operation;
+    }
+
+    const lastSyncMs = this.lastDbSyncMap.get(sessionToken) || 0;
+    const isStateChange = isBusy !== undefined;
+    const isPeriodicDbSyncNeeded = nowMs - lastSyncMs > 3 * 60 * 1000; // 3 mins
+
+    // Only query Supabase DB if POS state changed (BUSY/ONLINE) or 3 minutes passed
+    if (isStateChange || isPeriodicDbSyncNeeded) {
+      this.lastDbSyncMap.set(sessionToken, nowMs);
+      try {
+        const sb = await this.sb();
+        await sb
+          .from("user_sessions")
+          .update({
+            last_heartbeat_at: now,
+            last_active_at: now,
+            pos_status: status,
+            current_pos_operation: operation,
+          })
+          .eq("session_token", sessionToken);
+      } catch (err: any) {
+        console.warn("Failed to update heartbeat in DB:", err?.message);
+      }
+    }
+
+    return true;
+  }
+
+  async updateApiActivity(sessionToken: string): Promise<void> {
+    const now = new Date();
+    const nowMs = now.getTime();
+    const mem = this.memorySessions.get(sessionToken);
+    if (mem) {
+      mem.lastActiveAt = now;
+      mem.lastApiActivityAt = now;
+    }
+
+    const lastSyncMs = this.lastDbSyncMap.get(sessionToken) || 0;
+    if (nowMs - lastSyncMs > 3 * 60 * 1000) {
+      this.lastDbSyncMap.set(sessionToken, nowMs);
+      try {
+        const sb = await this.sb();
+        await sb
+          .from("user_sessions")
+          .update({ last_active_at: now, last_api_activity_at: now })
+          .eq("session_token", sessionToken);
+      } catch {
+        // Ignore background write error
+      }
+    }
+  }
+
+  async cleanupOldRevokedSessions(days = 30): Promise<void> {
+    try {
+      const threshold = new Date(Date.now() - days * 24 * 60 * 60 * 1000);
+      const sb = await this.sb();
+      await sb
+        .from("user_sessions")
+        .delete()
+        .lt("revoked_at", threshold.toISOString());
+    } catch {
+      // Ignore cleanup error
+    }
+  }
+
+
+  async revokeSession(sessionIdOrToken: string, reason?: string, userId?: string): Promise<boolean> {
+    const now = new Date();
+    const defaultReason = reason || "Revoked by user request";
+
+    for (const [token, sess] of Array.from(this.memorySessions.entries())) {
+      if (sess.id === sessionIdOrToken || token === sessionIdOrToken) {
+        sess.revokedAt = now;
+        sess.revocationReason = defaultReason;
+        sess.posStatus = "REVOKED";
+        this.memorySessions.delete(token);
+      }
+    }
+
+    try {
+      const sb = await this.sb();
+      let query = sb
+        .from("user_sessions")
+        .update({
+          revoked_at: now,
+          revocation_reason: defaultReason,
+          pos_status: "REVOKED",
+        });
+
+      if (sessionIdOrToken.includes("-") && sessionIdOrToken.length >= 32) {
+        query = query.or(`id.eq.${sessionIdOrToken},session_token.eq.${sessionIdOrToken}`);
+      } else {
+        query = query.eq("session_token", sessionIdOrToken);
+      }
+      if (userId) {
+        query = query.eq("user_id", userId);
+      }
+      await query;
+      return true;
+    } catch (err: any) {
+      console.warn("Failed to revoke user session in DB:", err?.message);
+      return true;
+    }
+  }
+
+  async revokeAllUserSessions(userId: string, reason?: string, exceptToken?: string): Promise<boolean> {
+    const now = new Date();
+    const defaultReason = reason || "All user sessions revoked";
+
+    for (const [token, sess] of Array.from(this.memorySessions.entries())) {
+      if (sess.userId === userId && token !== exceptToken) {
+        sess.revokedAt = now;
+        sess.revocationReason = defaultReason;
+        sess.posStatus = "REVOKED";
+        this.memorySessions.delete(token);
+      }
+    }
+
+    try {
+      const sb = await this.sb();
+      let query = sb
+        .from("user_sessions")
+        .update({
+          revoked_at: now,
+          revocation_reason: defaultReason,
+          pos_status: "REVOKED",
+        })
+        .eq("user_id", userId);
+
+      if (exceptToken) {
+        query = query.neq("session_token", exceptToken);
+      }
+      await query;
+      return true;
+    } catch (err: any) {
+      console.warn("Failed to revoke all user sessions:", err?.message);
+      return true;
+    }
+  }
+
+  async deleteUserSession(sessionIdOrToken: string, userId?: string): Promise<boolean> {
+    return this.revokeSession(sessionIdOrToken, "Logged out", userId);
+  }
+
+  async deleteAllOtherUserSessions(userId: string, currentSessionToken: string): Promise<boolean> {
+    return this.revokeAllUserSessions(userId, "Logged out all other devices", currentSessionToken);
+  }
+
+
 
   // Categories
   async getCategories(): Promise<Category[]> {
@@ -132,7 +596,31 @@ export class SupabaseStorage implements IStorage {
   }
 
   async deleteCategory(id: string): Promise<boolean> {
-    const { error } = await (await this.sb())
+    const sb = await this.sb();
+
+    // 1) Disassociate soft-deleted products so they don't block deletion
+    try {
+      await sb
+        .from("products")
+        .update({ category_id: null })
+        .eq("category_id", id);
+    } catch (err: any) {
+      console.warn("Could not unassign category from products:", err?.message);
+    }
+
+    // 2) Remove any promotion targets linked to this category
+    try {
+      await sb
+        .from("promotion_targets")
+        .delete()
+        .eq("target_type", "category")
+        .eq("target_id", id);
+    } catch (err: any) {
+      // Ignore if table/constraint not present
+    }
+
+    // 3) Delete category record
+    const { error } = await sb
       .from("categories")
       .delete()
       .eq("id", id);
@@ -150,7 +638,7 @@ export class SupabaseStorage implements IStorage {
 
     const { data, error } = await query;
     if (error) throw error;
-    return data as Product[];
+    return (data ?? []).map(mapProductFromDb) as Product[];
   }
   async getProduct(id: string): Promise<Product | undefined> {
     const { data, error } = await (await this.sb())
@@ -159,7 +647,7 @@ export class SupabaseStorage implements IStorage {
       .eq("id", id)
       .maybeSingle();
     if (error) throw error;
-    return (data ?? undefined) as Product | undefined;
+    return data ? (mapProductFromDb(data) as Product) : undefined;
   }
   async getProductBySku(sku: string): Promise<Product | undefined> {
     const { data, error } = await (await this.sb())
@@ -168,7 +656,7 @@ export class SupabaseStorage implements IStorage {
       .eq("sku", sku)
       .maybeSingle();
     if (error) throw error;
-    return (data ?? undefined) as Product | undefined;
+    return data ? (mapProductFromDb(data) as Product) : undefined;
   }
   async getProductByBarcode(barcode: string): Promise<Product | undefined> {
     const { data, error } = await (await this.sb())
@@ -177,70 +665,130 @@ export class SupabaseStorage implements IStorage {
       .eq("barcode", barcode)
       .maybeSingle();
     if (error) throw error;
-    return (data ?? undefined) as Product | undefined;
+    return data ? (mapProductFromDb(data) as Product) : undefined;
   }
   async createProduct(product: InsertProduct): Promise<Product> {
+    const payload = mapProductToDb(product);
     const { data, error } = await (await this.sb())
       .from("products")
-      .insert(product)
+      .insert(payload)
       .select("*")
       .single();
     if (error) throw error;
-    return data as Product;
+    return mapProductFromDb(data) as Product;
   }
   async updateProduct(
     id: string,
     product: Partial<InsertProduct>
   ): Promise<Product | undefined> {
+    const payload = mapProductToDb(product);
     const { data, error } = await (await this.sb())
       .from("products")
-      .update(product)
+      .update(payload)
       .eq("id", id)
       .select("*")
       .maybeSingle();
     if (error) throw error;
-    return (data ?? undefined) as Product | undefined;
+    return data ? (mapProductFromDb(data) as Product) : undefined;
   }
+  async getProductSalesCount(productId: string): Promise<number> {
+    try {
+      const sb = await this.sb();
+      const { count, error } = await sb
+        .from("sale_items")
+        .select("id", { count: "exact", head: true })
+        .eq("product_id", productId);
+      if (error) return 0;
+      return count ?? 0;
+    } catch {
+      return 0;
+    }
+  }
+
+  async getProductRecentSales(
+    productId: string,
+    limit = 6
+  ): Promise<
+    Array<{
+      id: string;
+      invoiceNumber: string;
+      amount: string;
+      quantity: number;
+      customerName?: string;
+      createdAt?: string;
+    }>
+  > {
+    try {
+      const sb = await this.sb();
+      const { data: items, error: itemsErr } = await sb
+        .from("sale_items")
+        .select("sale_id, quantity, created_at")
+        .eq("product_id", productId)
+        .order("created_at", { ascending: false })
+        .limit(limit);
+
+      if (itemsErr || !items || items.length === 0) return [];
+
+      const saleIds = Array.from(new Set(items.map((i) => i.sale_id).filter(Boolean)));
+      if (saleIds.length === 0) return [];
+
+      const { data: sales, error: salesErr } = await sb
+        .from("sales")
+        .select("id, invoice_number, total_amount, customer_name, created_at")
+        .in("id", saleIds);
+
+      if (salesErr || !sales) return [];
+
+      const salesMap = new Map(sales.map((s) => [s.id, s]));
+
+      return items
+        .map((item) => {
+          const sale = salesMap.get(item.sale_id);
+          if (!sale) return null;
+          return {
+            id: sale.id,
+            invoiceNumber: sale.invoice_number,
+            amount: sale.total_amount,
+            quantity: item.quantity,
+            customerName: sale.customer_name,
+            createdAt: item.created_at || sale.created_at,
+          };
+        })
+        .filter(Boolean) as any[];
+    } catch {
+      return [];
+    }
+  }
+
   async deleteProduct(id: string): Promise<boolean> {
-    const sb = (await this.sb());
+    const salesCount = await this.getProductSalesCount(id);
+    if (salesCount > 0) {
+      throw new Error(
+        `Cannot permanently delete product: this item is connected to ${salesCount} sales transaction(s). Keep it in trash to protect sales history.`
+      );
+    }
 
-    // 1) Remove dependent rows that reference this product
-    // 1a) Sales return items -> may reference sale_items and product
-    const { error: sriErr } = await sb
-      .from("sales_return_items")
-      .delete()
-      .eq("product_id", id);
-    if (sriErr) throw sriErr;
+    const sb = await this.sb();
 
-    // 1b) Sale items for this product
-    const { error: siErr } = await sb
-      .from("sale_items")
-      .delete()
-      .eq("product_id", id);
-    if (siErr) throw siErr;
-
-    // 1c) Stock movements for this product
+    // 1) Remove non-sales dependent rows that reference this product
     const { error: smErr } = await sb
       .from("stock_movements")
       .delete()
       .eq("product_id", id);
     if (smErr) throw smErr;
 
-    // 1d) Supplier product mappings
     const { error: spErr } = await sb
       .from("supplier_products")
       .delete()
       .eq("product_id", id);
     if (spErr) throw spErr;
 
-    // 1e) Purchase order items for this product
     const { error: poiErr } = await sb
       .from("purchase_order_items")
       .delete()
       .eq("product_id", id);
     if (poiErr) throw poiErr;
 
-    // 1f) Cost/price histories
     const { error: pchErr } = await sb
       .from("product_cost_history")
       .delete()
@@ -253,7 +801,6 @@ export class SupabaseStorage implements IStorage {
       .eq("product_id", id);
     if (pphErr) throw pphErr;
 
-    // 1g) Promotion targets pointing to this product (by convention)
     const { error: promoErr } = await sb
       .from("promotion_targets")
       .delete()
@@ -261,7 +808,7 @@ export class SupabaseStorage implements IStorage {
       .eq("target_id", id);
     if (promoErr) throw promoErr;
 
-    // 2) Finally delete the product
+    // 2) Finally delete the product row
     const { error: prodErr } = await sb.from("products").delete().eq("id", id);
     if (prodErr) throw prodErr;
     return true;
@@ -331,12 +878,13 @@ export class SupabaseStorage implements IStorage {
     cursor?: string | null;
     deleted?: boolean;
     payment?: string | null;
+    salesperson?: string | null;
     category?: string | null;
     product?: string | null;
     start?: string | null;
     end?: string | null;
     search?: string | null;
-    searchBy?: string; // ← add this
+    searchBy?: string;
   }) {
     const {
       userId,
@@ -344,6 +892,7 @@ export class SupabaseStorage implements IStorage {
       cursor,
       deleted,
       payment,
+      salesperson,
       category,
       product,
       start,
@@ -359,6 +908,14 @@ export class SupabaseStorage implements IStorage {
     if (deleted !== undefined) query = query.eq("deleted", deleted);
 
     if (payment) query = query.ilike("payment_method", payment);
+
+    if (salesperson) {
+      if (salesperson === "unassigned") {
+        query = query.is("salesperson_id", null);
+      } else {
+        query = query.or(`salesperson_id.eq.${salesperson},salesperson_name.ilike.%${salesperson}%`);
+      }
+    }
 
     if (start) query = query.gte("created_at", start);
     if (end) query = query.lte("created_at", end);
@@ -417,11 +974,27 @@ export class SupabaseStorage implements IStorage {
 
     query = query.order("created_at", { ascending: false }).limit(limit + 1);
 
-    const { data, error } = await query;
+    let { data, error } = await query;
+    if (error && (error.code === "42703" || error.message?.includes("salesperson_id") || error.message?.includes("salesperson_name"))) {
+      console.warn("salesperson columns missing on sales table during query, retrying without salesperson filter:", error.message);
+      let fallbackQuery = (await this.sb()).from("sales").select("*");
+      if (userId) fallbackQuery = fallbackQuery.eq("user_id", userId);
+      if (deleted !== undefined) fallbackQuery = fallbackQuery.eq("deleted", deleted);
+      if (payment) fallbackQuery = fallbackQuery.ilike("payment_method", payment);
+      if (start) fallbackQuery = fallbackQuery.gte("created_at", start);
+      if (end) fallbackQuery = fallbackQuery.lte("created_at", end);
+      if (product) fallbackQuery = fallbackQuery.contains("items", [{ productId: product }]);
+      if (category) fallbackQuery = fallbackQuery.contains("items", [{ category }]);
+      if (cursor) fallbackQuery = fallbackQuery.lt("created_at", cursor);
+      fallbackQuery = fallbackQuery.order("created_at", { ascending: false }).limit(limit + 1);
+      const res = await fallbackQuery;
+      data = res.data;
+      error = res.error;
+    }
     if (error) throw error;
 
-    const hasMore = data.length > limit;
-    const result = hasMore ? data.slice(0, limit) : data;
+    const hasMore = (data || []).length > limit;
+    const result = hasMore ? (data || []).slice(0, limit) : (data || []);
 
     return {
       data: result,
@@ -477,8 +1050,46 @@ export class SupabaseStorage implements IStorage {
     return data as Sale[];
   }
   async createSale(sale: InsertSale): Promise<Sale> {
-    const payload = {
-      user_id: sale.user_id,
+    const sb = await this.sb();
+    let validUserId = sale.user_id;
+
+    // Verify if validUserId exists in users table to prevent FK constraint error
+    const { data: userExists } = await sb
+      .from("users")
+      .select("id")
+      .eq("id", validUserId)
+      .maybeSingle();
+
+    if (!userExists) {
+      // Find first user in users table
+      const { data: firstUser } = await sb
+        .from("users")
+        .select("id")
+        .limit(1)
+        .maybeSingle();
+
+      if (firstUser?.id) {
+        validUserId = firstUser.id;
+      } else {
+        // Create default admin user if users table is empty
+        const { data: createdAdmin } = await sb
+          .from("users")
+          .insert({
+            id: validUserId,
+            username: "admin",
+            password: "password",
+            role: "admin",
+            full_name: "Super Admin",
+          })
+          .select("id")
+          .single();
+        if (createdAdmin?.id) validUserId = createdAdmin.id;
+      }
+    }
+
+    const payload: any = {
+      user_id: validUserId,
+      customer_id: (sale as any).customer_id || null,
       customer_name: sale.customer_name?.trim() || "Walk-in Customer",
       customer_phone: sale.customer_phone?.trim() || "N/A",
       items: sale.items,
@@ -491,29 +1102,59 @@ export class SupabaseStorage implements IStorage {
       discount_amount: parseFloat(sale.discount_amount || "0").toFixed(2),
       total_amount: parseFloat(sale.total_amount || "0").toFixed(2),
       payment_method: sale.payment_method || "cash",
+      salesperson_id: (sale as any).salesperson_id || null,
+      salesperson_name: (sale as any).salesperson_name || null,
     };
-    const { data, error } = await (await this.sb())
+    let { data, error } = await sb
       .from("sales")
       .insert(payload)
       .select("*")
       .single();
+    if (error && (error.code === "42703" || error.message?.includes("salesperson_id") || error.message?.includes("salesperson_name"))) {
+      console.warn("salesperson columns missing on sales table, retrying insert without salesperson fields:", error.message);
+      delete payload.salesperson_id;
+      delete payload.salesperson_name;
+      const fallback = await sb
+        .from("sales")
+        .insert(payload)
+        .select("*")
+        .single();
+      data = fallback.data;
+      error = fallback.error;
+    }
     if (error) throw error;
+    if (data) {
+      this.syncCustomerStats({
+        customerId: data.customer_id,
+        customerPhone: data.customer_phone,
+      }).catch((e) => console.warn("Background customer stats sync error:", e));
+    }
     return data as Sale;
   }
   async softDeleteSale(saleId: string): Promise<boolean> {
-    const { error } = await (await this.sb())
+    const sb = await this.sb();
+    const { data: targetSale } = await sb.from("sales").select("customer_id, customer_phone").eq("id", saleId).maybeSingle();
+    const { error } = await sb
       .from("sales")
       .update({ deleted: true, deleted_at: new Date().toISOString() as any })
       .eq("id", saleId);
     if (error) throw error;
+    if (targetSale) {
+      this.syncCustomerStats({ customerId: targetSale.customer_id, customerPhone: targetSale.customer_phone }).catch(() => {});
+    }
     return true;
   }
   async restoreSale(saleId: string): Promise<boolean> {
-    const { error } = await (await this.sb())
+    const sb = await this.sb();
+    const { data: targetSale } = await sb.from("sales").select("customer_id, customer_phone").eq("id", saleId).maybeSingle();
+    const { error } = await sb
       .from("sales")
       .update({ deleted: false, deleted_at: null as any })
       .eq("id", saleId);
     if (error) throw error;
+    if (targetSale) {
+      this.syncCustomerStats({ customerId: targetSale.customer_id, customerPhone: targetSale.customer_phone }).catch(() => {});
+    }
     return true;
   }
   async deleteSale(saleId: string): Promise<boolean> {
@@ -572,12 +1213,19 @@ export class SupabaseStorage implements IStorage {
       .eq("sale_id", saleId);
     if (paymentsError) throw paymentsError;
 
-    // 5) Finally delete the sale row
+    // 5) Fetch target sale customer before deleting sale row
+    const { data: targetSale } = await sb.from("sales").select("customer_id, customer_phone").eq("id", saleId).maybeSingle();
+
+    // 6) Finally delete the sale row
     const { error: saleDeleteError } = await sb
       .from("sales")
       .delete()
       .eq("id", saleId);
     if (saleDeleteError) throw saleDeleteError;
+
+    if (targetSale) {
+      this.syncCustomerStats({ customerId: targetSale.customer_id, customerPhone: targetSale.customer_phone }).catch(() => {});
+    }
 
     return true;
   }
@@ -1248,7 +1896,7 @@ export class SupabaseStorage implements IStorage {
 
         const qty = Number(item.quantity || 0);
         const sellingPrice = Number(item.price || 0);
-        const costPrice = Number(product.buying_price || product.price || 0);
+        const costPrice = Number(product.buying_price ?? product.buyingPrice ?? product.price ?? 0);
 
         const revenue = qty * sellingPrice * (1 - discountRate);
         const cost = qty * costPrice;
@@ -1439,4 +2087,557 @@ export class SupabaseStorage implements IStorage {
     if (error) throw error;
     return true;
   }
+
+  async createBackupLog(entry: {
+    status: string;
+    fileName?: string | null;
+    sizeBytes?: number | null;
+    masterStatus?: string | null;
+    userStatus?: string | null;
+    errors?: any;
+  }): Promise<any> {
+    try {
+      const sb = await this.sb();
+      const payload = {
+        status: entry.status,
+        file_name: entry.fileName || null,
+        size_bytes: entry.sizeBytes || 0,
+        master_status: entry.masterStatus || null,
+        user_status: entry.userStatus || null,
+        errors: entry.errors ? JSON.stringify(entry.errors) : null,
+      };
+      const { data, error } = await sb.from("backup_logs").insert(payload).select("*").maybeSingle();
+      if (error) console.warn("createBackupLog note (table backup_logs may need creation in Supabase):", error.message);
+      return data;
+    } catch (e) {
+      console.warn("createBackupLog exception:", e);
+      return null;
+    }
+  }
+
+  async getBackupLogs(limit: number = 50): Promise<any[]> {
+    try {
+      const sb = await this.sb();
+      const { data, error } = await sb
+        .from("backup_logs")
+        .select("*")
+        .order("created_at", { ascending: false })
+        .limit(limit);
+      if (error) {
+        console.warn("getBackupLogs note:", error.message);
+        return [];
+      }
+      return data || [];
+    } catch (e) {
+      console.warn("getBackupLogs exception:", e);
+      return [];
+    }
+  }
+
+  // Store & Billing Settings
+  async getStoreSettings(): Promise<StoreSettings> {
+    try {
+      const sb = await this.sb();
+      const { data, error } = await sb
+        .from("store_settings")
+        .select("*")
+        .eq("id", "default_store")
+        .maybeSingle();
+
+      if (!error && data) {
+        let history = memorySubscriptionHistory || DEFAULT_STORE_SETTINGS.subscriptionHistory;
+        if (data.subscription_history) {
+          try {
+            history = typeof data.subscription_history === "string" ? JSON.parse(data.subscription_history) : data.subscription_history;
+          } catch {}
+        }
+
+        return {
+          id: data.id || "default_store",
+          storeName: data.store_name || DEFAULT_STORE_SETTINGS.storeName,
+          address: data.address || DEFAULT_STORE_SETTINGS.address,
+          phone: data.phone || DEFAULT_STORE_SETTINGS.phone,
+          email: data.email ?? DEFAULT_STORE_SETTINGS.email,
+          gstNumber: data.gst_number ?? DEFAULT_STORE_SETTINGS.gstNumber,
+          tagline: data.tagline || DEFAULT_STORE_SETTINGS.tagline,
+          receiptFooter: data.receipt_footer || DEFAULT_STORE_SETTINGS.receiptFooter,
+          taxEnabled: data.tax_enabled ?? DEFAULT_STORE_SETTINGS.taxEnabled,
+          taxPercent: data.tax_percent !== undefined && data.tax_percent !== null ? parseFloat(data.tax_percent) : DEFAULT_STORE_SETTINGS.taxPercent,
+          taxLabel: data.tax_label || DEFAULT_STORE_SETTINGS.taxLabel,
+          taxInclusive: data.tax_inclusive ?? DEFAULT_STORE_SETTINGS.taxInclusive,
+          showSalespersonOnBill: data.show_salesperson_on_bill ?? DEFAULT_STORE_SETTINGS.showSalespersonOnBill,
+          whatsappTemplate: data.whatsapp_template || DEFAULT_STORE_SETTINGS.whatsappTemplate,
+          instagram: data.instagram ?? DEFAULT_STORE_SETTINGS.instagram,
+          whatsappNumber: data.whatsapp_number ?? DEFAULT_STORE_SETTINGS.whatsappNumber,
+          subscriptionExpiryDate: data.subscription_expiry_date || memorySubscriptionExpiryDate || DEFAULT_STORE_SETTINGS.subscriptionExpiryDate,
+          subscriptionRate6Months: data.subscription_rate_6_months !== undefined && data.subscription_rate_6_months !== null ? parseFloat(data.subscription_rate_6_months) : (memorySubscriptionRate6Months ?? DEFAULT_STORE_SETTINGS.subscriptionRate6Months),
+          lastPaymentAmount: data.last_payment_amount !== undefined && data.last_payment_amount !== null ? parseFloat(data.last_payment_amount) : (memoryLastPaymentAmount ?? DEFAULT_STORE_SETTINGS.lastPaymentAmount),
+          lastPaymentDate: data.last_payment_date || memoryLastPaymentDate || DEFAULT_STORE_SETTINGS.lastPaymentDate,
+          lastPaymentMonths: data.last_payment_months !== undefined && data.last_payment_months !== null ? parseInt(data.last_payment_months) : (memoryLastPaymentMonths ?? DEFAULT_STORE_SETTINGS.lastPaymentMonths),
+          subscriptionHistory: history,
+          backupFrequency: data.backup_frequency || DEFAULT_STORE_SETTINGS.backupFrequency,
+        };
+      }
+    } catch (e) {
+      console.warn("getStoreSettings DB note:", e);
+    }
+
+    return {
+      ...DEFAULT_STORE_SETTINGS,
+      subscriptionExpiryDate: memorySubscriptionExpiryDate || DEFAULT_STORE_SETTINGS.subscriptionExpiryDate,
+      subscriptionRate6Months: memorySubscriptionRate6Months ?? DEFAULT_STORE_SETTINGS.subscriptionRate6Months,
+      lastPaymentAmount: memoryLastPaymentAmount ?? DEFAULT_STORE_SETTINGS.lastPaymentAmount,
+      lastPaymentDate: memoryLastPaymentDate || DEFAULT_STORE_SETTINGS.lastPaymentDate,
+      lastPaymentMonths: memoryLastPaymentMonths ?? DEFAULT_STORE_SETTINGS.lastPaymentMonths,
+      subscriptionHistory: memorySubscriptionHistory || DEFAULT_STORE_SETTINGS.subscriptionHistory,
+    };
+  }
+
+  async updateStoreSettings(settings: Partial<StoreSettings>): Promise<StoreSettings> {
+    const current = await this.getStoreSettings();
+    const updated: StoreSettings = {
+      ...current,
+      ...settings,
+    };
+
+    if (updated.subscriptionExpiryDate) memorySubscriptionExpiryDate = updated.subscriptionExpiryDate;
+    if (updated.subscriptionRate6Months !== undefined) memorySubscriptionRate6Months = updated.subscriptionRate6Months;
+    if (updated.lastPaymentAmount !== undefined) memoryLastPaymentAmount = updated.lastPaymentAmount;
+    if (updated.lastPaymentDate) memoryLastPaymentDate = updated.lastPaymentDate;
+    if (updated.lastPaymentMonths !== undefined) memoryLastPaymentMonths = updated.lastPaymentMonths;
+    if (updated.subscriptionHistory) memorySubscriptionHistory = updated.subscriptionHistory;
+
+    try {
+      const sb = await this.sb();
+      const payload: Record<string, any> = {
+        id: "default_store",
+        store_name: updated.storeName,
+        address: updated.address,
+        phone: updated.phone,
+        email: updated.email,
+        gst_number: updated.gstNumber,
+        tagline: updated.tagline,
+        receipt_footer: updated.receiptFooter,
+        tax_enabled: updated.taxEnabled,
+        tax_percent: updated.taxPercent,
+        tax_label: updated.taxLabel,
+        tax_inclusive: updated.taxInclusive,
+        show_salesperson_on_bill: updated.showSalespersonOnBill,
+        whatsapp_template: updated.whatsappTemplate,
+        instagram: updated.instagram,
+        whatsapp_number: updated.whatsappNumber,
+        subscription_expiry_date: updated.subscriptionExpiryDate || DEFAULT_STORE_SETTINGS.subscriptionExpiryDate,
+        subscription_rate_6_months: updated.subscriptionRate6Months ?? DEFAULT_STORE_SETTINGS.subscriptionRate6Months,
+        last_payment_amount: updated.lastPaymentAmount ?? DEFAULT_STORE_SETTINGS.lastPaymentAmount,
+        last_payment_date: updated.lastPaymentDate || DEFAULT_STORE_SETTINGS.lastPaymentDate,
+        last_payment_months: updated.lastPaymentMonths ?? DEFAULT_STORE_SETTINGS.lastPaymentMonths,
+        subscription_history: updated.subscriptionHistory || [],
+        backup_frequency: updated.backupFrequency || DEFAULT_STORE_SETTINGS.backupFrequency,
+        updated_at: new Date().toISOString(),
+      };
+
+      const { error } = await sb
+        .from("store_settings")
+        .upsert(payload, { onConflict: "id" });
+
+      if (error) {
+        if (
+          error.code === "PGRST204" ||
+          error.message?.includes("subscription_expiry_date") ||
+          error.message?.includes("subscription_rate_6_months") ||
+          error.message?.includes("subscription_history")
+        ) {
+          console.warn("Notice: subscription columns missing in Supabase schema, storing in memory fallback.");
+          delete payload.subscription_expiry_date;
+          delete payload.subscription_rate_6_months;
+          delete payload.last_payment_amount;
+          delete payload.last_payment_date;
+          delete payload.last_payment_months;
+          delete payload.subscription_history;
+          const retryRes = await sb.from("store_settings").upsert(payload, { onConflict: "id" });
+          if (retryRes.error) throw retryRes.error;
+        } else {
+          console.error("updateStoreSettings Supabase error:", error.message);
+          throw error;
+        }
+      }
+    } catch (e) {
+      console.error("updateStoreSettings exception:", e);
+    }
+
+    return updated;
+  }
+
+  async syncCustomerStats(params: { customerId?: string | null; customerPhone?: string | null }): Promise<void> {
+    const { customerId, customerPhone } = params;
+    const cleanPhone = customerPhone?.trim();
+
+    if (!customerId && (!cleanPhone || cleanPhone === "N/A" || cleanPhone === "0000000000")) {
+      return;
+    }
+
+    try {
+      const sb = await this.sb();
+
+      let customer: Customer | undefined;
+      if (customerId) {
+        customer = await this.getCustomer(customerId);
+      }
+      if (!customer && cleanPhone) {
+        customer = await this.getCustomerByPhone(cleanPhone);
+      }
+
+      if (!customer) return;
+
+      let query = sb
+        .from("sales")
+        .select("total_amount, created_at")
+        .eq("deleted", false);
+
+      if (customer.phone && customer.phone !== "N/A" && customer.phone !== "0000000000") {
+        query = query.or(`customer_id.eq.${customer.id},customer_phone.eq.${customer.phone}`);
+      } else {
+        query = query.eq("customer_id", customer.id);
+      }
+
+      const { data: sales } = await query.order("created_at", { ascending: false });
+
+      const count = sales?.length || 0;
+      const spent = Math.round((sales || []).reduce((sum: number, s: any) => sum + parseFloat(s.total_amount || "0"), 0));
+      const lastVisit = sales && sales.length > 0 ? sales[0].created_at : null;
+
+      await sb
+        .from("customers")
+        .update({
+          total_spent: spent.toString(),
+          total_sales_count: count,
+          last_visit_at: lastVisit,
+        } as any)
+        .eq("id", customer.id);
+    } catch (err: any) {
+      console.warn("Failed to sync customer stats:", err?.message);
+    }
+  }
+
+  // Customers Implementation
+  async getCustomers(search?: string, includeDeleted: boolean = false): Promise<Array<Customer & { totalSales?: number; totalSpent?: number; lastPurchaseAt?: string | null }>> {
+    try {
+      const sb = await this.sb();
+      let query = sb.from("customers").select("*").order("name", { ascending: true });
+      if (!includeDeleted) {
+        query = query.eq("deleted", false);
+      }
+      if (search && search.trim()) {
+        const q = search.trim();
+        query = query.or(`name.ilike.%${q}%,phone.ilike.%${q}%`);
+      }
+      const { data: customerData, error } = await query;
+      if (error) {
+        console.warn("Error fetching customers:", error.message);
+        return [];
+      }
+      const customersList = (customerData ?? []) as any[];
+      if (customersList.length === 0) return [];
+
+      return customersList.map((c) => {
+        return {
+          ...c,
+          deleted: c.deleted ?? false,
+          deleted_at: c.deleted_at || c.deletedAt || null,
+          createdAt: c.createdAt || c.created_at || null,
+          created_at: c.created_at || c.createdAt || null,
+          totalSales: c.total_sales_count !== undefined && c.total_sales_count !== null ? Number(c.total_sales_count) : 0,
+          totalSpent: c.total_spent !== undefined && c.total_spent !== null ? Math.round(Number(c.total_spent)) : 0,
+          lastPurchaseAt: c.last_visit_at || c.last_purchase_at || c.lastPurchaseAt || null,
+        };
+      });
+    } catch (err: any) {
+      console.warn("Failed to fetch customers:", err?.message);
+      return [];
+    }
+  }
+
+  async getCustomer(id: string): Promise<Customer | undefined> {
+    try {
+      const { data, error } = await (await this.sb())
+        .from("customers")
+        .select("*")
+        .eq("id", id)
+        .single();
+      if (error || !data) return undefined;
+      return data as Customer;
+    } catch (err) {
+      return undefined;
+    }
+  }
+
+  async getCustomerByPhone(phone: string): Promise<Customer | undefined> {
+    if (!phone || !phone.trim()) return undefined;
+    const cleaned = phone.trim();
+    try {
+      const { data, error } = await (await this.sb())
+        .from("customers")
+        .select("*")
+        .eq("phone", cleaned)
+        .maybeSingle();
+      if (error || !data) return undefined;
+      return data as Customer;
+    } catch (err) {
+      return undefined;
+    }
+  }
+
+  async createCustomer(customer: InsertCustomer): Promise<Customer> {
+    const cleanedName = customer.name?.trim();
+    const cleanedPhone = customer.phone?.trim();
+    if (!cleanedName || !cleanedPhone) {
+      throw new Error("Customer name and phone number are required");
+    }
+    if (cleanedName.toLowerCase() === "walk-in customer") {
+      throw new Error('Cannot create "Walk-in Customer" as a persistent customer record');
+    }
+    if (cleanedPhone === "N/A" || cleanedPhone === "0000000000") {
+      throw new Error("A valid phone number is required");
+    }
+
+    const existing = await this.getCustomerByPhone(cleanedPhone);
+    if (existing) {
+      throw new Error("A customer with this phone number already exists");
+    }
+
+    const payload = {
+      name: cleanedName,
+      phone: cleanedPhone,
+      email: customer.email?.trim() || null,
+    };
+
+    const { data, error } = await (await this.sb())
+      .from("customers")
+      .insert(payload)
+      .select("*")
+      .single();
+
+    if (error) throw error;
+    return data as Customer;
+  }
+
+  async updateCustomer(id: string, customer: Partial<InsertCustomer>): Promise<Customer | undefined> {
+    const updates: any = {};
+    if (customer.name !== undefined) {
+      const cleaned = customer.name.trim();
+      if (cleaned.toLowerCase() === "walk-in customer") {
+        throw new Error('Customer name cannot be "Walk-in Customer"');
+      }
+      updates.name = cleaned;
+    }
+    if (customer.phone !== undefined) {
+      const cleanedPhone = customer.phone.trim();
+      if (!cleanedPhone || cleanedPhone === "N/A" || cleanedPhone === "0000000000") {
+        throw new Error("Valid phone number is required");
+      }
+      const existing = await this.getCustomerByPhone(cleanedPhone);
+      if (existing && existing.id !== id) {
+        throw new Error("A customer with this phone number already exists");
+      }
+      updates.phone = cleanedPhone;
+    }
+    if (customer.email !== undefined) {
+      updates.email = customer.email?.trim() || null;
+    }
+
+    const { data, error } = await (await this.sb())
+      .from("customers")
+      .update(updates)
+      .eq("id", id)
+      .select("*")
+      .single();
+
+    if (error || !data) return undefined;
+    return data as Customer;
+  }
+
+  async getCustomerSalesCount(id: string): Promise<{ salesCount: number; returnsCount: number }> {
+    try {
+      const sb = await this.sb();
+      const customer = await this.getCustomer(id);
+      if (!customer) return { salesCount: 0, returnsCount: 0 };
+
+      let salesQuery = sb
+        .from("sales")
+        .select("*", { count: "exact", head: true });
+
+      if (customer.phone && customer.phone !== "N/A" && customer.phone !== "0000000000") {
+        salesQuery = salesQuery.or(`customer_id.eq.${customer.id},customer_phone.eq.${customer.phone}`);
+      } else {
+        salesQuery = salesQuery.eq("customer_id", customer.id);
+      }
+
+      const { count: sCount, error: sErr } = await salesQuery;
+      if (sErr) console.warn("Failed to count sales for customer:", sErr.message);
+
+      let returnsCount = 0;
+      try {
+        const { count: rCount } = await sb
+          .from("sales_returns")
+          .select("*", { count: "exact", head: true })
+          .eq("customer_id", customer.id);
+        returnsCount = rCount || 0;
+      } catch (err: any) {
+        // Table might not exist or error
+      }
+
+      return {
+        salesCount: sCount || 0,
+        returnsCount,
+      };
+    } catch (err: any) {
+      console.warn("Error in getCustomerSalesCount:", err?.message);
+      return { salesCount: 0, returnsCount: 0 };
+    }
+  }
+
+  async getCustomerRecentSales(id: string, limit = 5): Promise<Sale[]> {
+    try {
+      const sb = await this.sb();
+      const customer = await this.getCustomer(id);
+      if (!customer) return [];
+      let query = sb
+        .from("sales")
+        .select("id, invoice_number, total_amount, created_at")
+        .order("created_at", { ascending: false })
+        .limit(limit);
+      if (customer.phone && customer.phone !== "N/A" && customer.phone !== "0000000000") {
+        query = query.or(`customer_id.eq.${customer.id},customer_phone.eq.${customer.phone}`);
+      } else {
+        query = query.eq("customer_id", customer.id);
+      }
+      const { data, error } = await query;
+      if (error) return [];
+      return (data ?? []) as any[];
+    } catch {
+      return [];
+    }
+  }
+
+  async softDeleteCustomer(id: string): Promise<boolean> {
+    const { error } = await (await this.sb())
+      .from("customers")
+      .update({
+        deleted: true,
+        deleted_at: new Date().toISOString(),
+      } as any)
+      .eq("id", id);
+    if (error) {
+      console.warn("Failed to soft-delete customer:", error.message);
+      return false;
+    }
+    return true;
+  }
+
+  async restoreCustomer(id: string): Promise<boolean> {
+    const { error } = await (await this.sb())
+      .from("customers")
+      .update({
+        deleted: false,
+        deleted_at: null,
+      } as any)
+      .eq("id", id);
+    if (error) {
+      console.warn("Failed to restore customer:", error.message);
+      return false;
+    }
+    return true;
+  }
+
+  async deleteCustomer(id: string): Promise<boolean> {
+    const { salesCount, returnsCount } = await this.getCustomerSalesCount(id);
+    if (salesCount > 0 || returnsCount > 0) {
+      throw new Error(
+        `Cannot delete customer: this customer is linked to ${salesCount} sales transaction(s)${
+          returnsCount > 0 ? ` and ${returnsCount} return(s)` : ""
+        }. Please archive them instead.`
+      );
+    }
+    const { error } = await (await this.sb())
+      .from("customers")
+      .delete()
+      .eq("id", id);
+    if (error) return false;
+    return true;
+  }
+
+  async findOrCreateCustomer(name: string, phone: string, email?: string): Promise<Customer | null> {
+    const cleanedName = name?.trim();
+    const cleanedPhone = phone?.trim();
+
+    // DO NOT CREATE customer if phone is invalid/blank OR name is Walk-in Customer
+    if (!cleanedPhone || cleanedPhone === "N/A" || cleanedPhone === "0000000000" || cleanedPhone === "0") {
+      return null;
+    }
+    if (!cleanedName || cleanedName.toLowerCase() === "walk-in customer") {
+      return null;
+    }
+
+    // Check if exists
+    const existing = await this.getCustomerByPhone(cleanedPhone);
+    if (existing) {
+      // Auto-restore customer if they were previously archived
+      if ((existing as any).deleted) {
+        await this.restoreCustomer(existing.id);
+      }
+      // Update name if changed
+      if (cleanedName && existing.name !== cleanedName) {
+        await this.updateCustomer(existing.id, { name: cleanedName });
+      }
+      return existing;
+    }
+
+    // Otherwise create new
+    try {
+      return await this.createCustomer({
+        name: cleanedName,
+        phone: cleanedPhone,
+        email: email?.trim() || null,
+      });
+    } catch (e: any) {
+      console.warn("findOrCreateCustomer fallback:", e?.message);
+      return null;
+    }
+  }
+
+  async getCustomerWithHistory(id: string): Promise<{
+    customer: Customer;
+    totalSales: number;
+    totalSpent: number;
+    sales: Sale[];
+  } | undefined> {
+    const customer = await this.getCustomer(id);
+    if (!customer) return undefined;
+
+    const sb = await this.sb();
+    let query = sb
+      .from("sales")
+      .select("*")
+      .eq("deleted", false);
+
+    if (customer.phone) {
+      query = query.or(`customer_id.eq.${customer.id},customer_phone.eq.${customer.phone}`);
+    } else {
+      query = query.eq("customer_id", customer.id);
+    }
+
+    const { data: salesData } = await query.order("created_at", { ascending: false });
+    const sales = (salesData ?? []) as Sale[];
+
+    const totalSales = sales.length;
+    const totalSpent = sales.reduce((sum, s) => sum + parseFloat(s.total_amount || "0"), 0);
+
+    return {
+      customer,
+      totalSales,
+      totalSpent: Math.round(totalSpent),
+      sales,
+    };
+  }
 }
+

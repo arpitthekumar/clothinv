@@ -39,6 +39,33 @@ export async function POST(req: NextRequest) {
     
     const data = insertProductSchema.parse(body);
 
+    // Validate price relationships: sellingPrice >= minPrice >= buyingPrice
+    const buying = data.buyingPrice != null ? Number(data.buyingPrice) : null;
+    const selling = data.price != null ? Number(data.price) : null;
+    const minP = data.minPrice != null ? Number(data.minPrice) : null;
+
+    if (buying != null && !isNaN(buying) && buying > 0) {
+      if (selling != null && !isNaN(selling) && selling < buying) {
+        return NextResponse.json(
+          { error: `Selling price (₹${selling}) cannot be lower than buying price (₹${buying})` },
+          { status: 400 }
+        );
+      }
+      if (minP != null && !isNaN(minP) && minP < buying) {
+        return NextResponse.json(
+          { error: `Minimum price (₹${minP}) cannot be lower than buying price (₹${buying})` },
+          { status: 400 }
+        );
+      }
+    }
+
+    if (minP != null && !isNaN(minP) && selling != null && !isNaN(selling) && selling < minP) {
+      return NextResponse.json(
+        { error: `Selling price (₹${selling}) cannot be lower than minimum price (₹${minP})` },
+        { status: 400 }
+      );
+    }
+
     // Map all fields to database column names
     const dbData = mapProductToDb(data);
 

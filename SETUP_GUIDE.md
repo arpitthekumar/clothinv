@@ -118,15 +118,16 @@ clothinv-new/
 
 ## 🗄️ Database Tables Overview
 
-The system uses **20 main tables**:
+The system uses **22 main tables**:
 
-### Core Tables
+### Core & Settings Tables
 | Table | Purpose |
 |-------|---------|
 | `users` | Employee/admin accounts |
 | `categories` | Product categories |
 | `products` | Inventory items |
 | `customers` | Customer information |
+| `store_settings` | Dynamic store identity & receipt header/footer settings |
 
 ### Sales & Orders
 | Table | Purpose |
@@ -151,6 +152,7 @@ The system uses **20 main tables**:
 | `product_cost_history` | Cost tracking |
 | `product_price_history` | Price changes |
 | `sync_status` | Offline sync tracking |
+| `backup_logs` | Automated cron & manual backup execution logs |
 
 ### Additional
 | Table | Purpose |

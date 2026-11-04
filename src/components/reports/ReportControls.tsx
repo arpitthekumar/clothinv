@@ -18,6 +18,9 @@ interface ReportControlsProps {
   dateRange: string;
   setReportType: (val: string) => void;
   setDateRange: (val: string) => void;
+  salesperson?: string;
+  setSalesperson?: (val: string) => void;
+  salespersons?: Array<{ id: string; name: string }>;
   onExport: () => void;
   customDateRange?: { from?: Date; to?: Date } | null;
   onCustomDateRangeChange?: (range: { from?: Date; to?: Date } | null) => void;
@@ -31,6 +34,9 @@ export default function ReportControls({
   dateRange,
   setReportType,
   setDateRange,
+  salesperson = "",
+  setSalesperson,
+  salespersons = [],
   onExport,
   customDateRange,
   onCustomDateRangeChange,
@@ -148,6 +154,27 @@ export default function ReportControls({
                   <span>{getAllTimeRangeDisplay()}</span>
                 </div>
               )}
+            </div>
+
+            <div className="flex-1">
+              <label className="text-sm font-medium mb-2 block">Sales Person</label>
+              <Select
+                value={salesperson === "" ? "all" : salesperson}
+                onValueChange={(v) => setSalesperson?.(v === "all" ? "" : v)}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="All Salespersons" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Salespersons</SelectItem>
+                  <SelectItem value="unassigned">Unassigned</SelectItem>
+                  {salespersons.map((sp) => (
+                    <SelectItem key={sp.id} value={sp.id}>
+                      👤 {sp.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
 
             <div className="flex flex-wrap gap-2">

@@ -15,6 +15,7 @@ export function useSales(
     start?: string;
     end?: string;
     category?: string;
+    salesperson?: string;
   } = {}
 ) {
   const { toast } = useToast();
@@ -30,6 +31,7 @@ export function useSales(
         start: filters.start || undefined,
         end: filters.end || undefined,
         category: filters.category || undefined,
+        salesperson: filters.salesperson || undefined,
       },
     ],
     initialPageParam: null,
@@ -46,6 +48,7 @@ export function useSales(
       if (filters.start) qp.set("start", String(filters.start));
       if (filters.end) qp.set("end", String(filters.end));
       if (filters.category) qp.set("category", String(filters.category));
+      if (filters.salesperson) qp.set("salesperson", String(filters.salesperson));
       const res = await fetch(`/api/sales/load?${qp.toString()}`, {
         credentials: "include",
       });

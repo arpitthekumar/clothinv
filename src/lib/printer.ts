@@ -1,9 +1,12 @@
+import { DEFAULT_WHATSAPP_TEMPLATE } from "@/types/store-settings";
+
 // Invoice printing and WhatsApp sharing functionality
 export interface InvoiceData {
   invoiceNumber: string;
-  date: Date;
+  date: Date | string | number;
   customerName?: string;
   customerPhone?: string;
+  salespersonName?: string;
   items: Array<{
     name: string;
     quantity: number;
@@ -15,36 +18,67 @@ export interface InvoiceData {
   total: number;
   paymentMethod: string;
   taxPercent?: number;
+  taxInclusive?: boolean;
   discountType?: "percentage" | "fixed";
   discountValue?: number;
   discountAmount?: number;
   discount_amount?: number;  
+  storeSettings?: {
+    storeName?: string;
+    address?: string;
+    phone?: string;
+    email?: string;
+    gstNumber?: string;
+    tagline?: string;
+    receiptFooter?: string;
+    taxLabel?: string;
+    taxInclusive?: boolean;
+    showSalespersonOnBill?: boolean;
+    whatsappTemplate?: string;
+    instagram?: string;
+    whatsappNumber?: string;
+  };
 }
 
 class InvoicePrinter {
-  // ✅ Unified IST formatter (no AM/PM, converts UTC → IST)
-  private formatIndianDateTime(date: Date) {
-    // Convert UTC → IST
-    const utcDate = new Date(date.toString().replace(" ", "T") + "Z");
-    const istDate = new Date(
-      utcDate.toLocaleString("en-US", { timeZone: "Asia/Kolkata" })
-    );
+  // ✅ Unified IST formatter (handles Date, ISO string, timestamps safely)
+  public formatIndianDateTime(dateInput?: Date | string | number) {
+    if (!dateInput) {
+      dateInput = new Date();
+    }
+    let d: Date;
+    if (dateInput instanceof Date) {
+      d = dateInput;
+    } else if (typeof dateInput === "number") {
+      d = new Date(dateInput);
+    } else if (typeof dateInput === "string") {
+      const isoStr = dateInput.trim().replace(" ", "T");
+      d = new Date(isoStr);
+      if (isNaN(d.getTime())) {
+        d = new Date(dateInput);
+      }
+    } else {
+      d = new Date();
+    }
 
-    // Format date in dd/mm/yyyy
-    const formattedDate = istDate.toLocaleDateString("en-IN", {
+    if (isNaN(d.getTime())) {
+      d = new Date();
+    }
+
+    const formattedDate = d.toLocaleDateString("en-IN", {
       day: "2-digit",
       month: "2-digit",
       year: "numeric",
+      timeZone: "Asia/Kolkata",
     });
 
-    // Format 12-hour time manually without AM/PM
-    let hours = istDate.getHours();
-    const minutes = istDate.getMinutes().toString().padStart(2, "0");
+    const formattedTime = d.toLocaleTimeString("en-IN", {
+      hour: "2-digit",
+      minute: "2-digit",
+      hour12: true,
+      timeZone: "Asia/Kolkata",
+    });
 
-    if (hours > 12) hours -= 12;
-    if (hours === 0) hours = 12;
-
-    const formattedTime = `${hours}:${minutes}`;
     return { formattedDate, formattedTime };
   }
 
@@ -52,7 +86,7 @@ class InvoicePrinter {
   private formatCurrency(value: number, withDecimals = true): string {
     return value.toLocaleString("en-IN", {
       minimumFractionDigits: 0,
-      maximumFractionDigits:  0,
+      maximumFractionDigits: 0,
     });
   }
 
@@ -83,6 +117,23 @@ class InvoicePrinter {
     const { formattedDate, formattedTime } = this.formatIndianDateTime(
       invoice.date
     );
+    const store = invoice.storeSettings;
+    const storeName = store?.storeName || "";
+    const address = store?.address || "";
+    const phone = store?.phone || "";
+    const email = store?.email;
+    const instagram = store?.instagram;
+    const whatsappNumber = store?.whatsappNumber;
+    const tagline = store?.tagline || "Quality Fabrics & Clothing";
+    const footer = store?.receiptFooter || "Thank you for your business!";
+    const gst = store?.gstNumber;
+
+    const isInclusive = invoice.taxInclusive !== undefined ? invoice.taxInclusive : Boolean(store?.taxInclusive);
+
+    const contactParts = [`Ph: ${phone}`];
+    if (email) contactParts.push(`Email: ${email}`);
+    if (instagram) contactParts.push(`Ig: ${instagram}`);
+    if (whatsappNumber) contactParts.push(`WA: ${whatsappNumber}`);
 
     return `
       <!DOCTYPE html>
@@ -91,7 +142,9 @@ class InvoicePrinter {
         <title>Invoice ${invoice.invoiceNumber}</title>
         <style>
           body { font-family: Arial, sans-serif; margin: 20px; }
-          .header { text-align: center; margin-bottom: 30px; }
+          .header { text-align: center; margin-bottom: 20px; }
+          .header h1 { margin: 0; font-size: 24px; }
+          .header p { margin: 2px 0; font-size: 13px; color: #444; }
           .invoice-details { margin-bottom: 20px; }
           .items-table { width: 100%; border-collapse: collapse; margin-bottom: 20px; }
           .items-table th, .items-table td { border: 1px solid #ddd; padding: 8px; text-align: left; }
@@ -107,10 +160,12 @@ class InvoicePrinter {
       </head>
       <body>
         <div class="header">
-          <h1>Bhootiya Fabric Collection</h1>
-          <p style="margin: 2px 0; font-size: 14px;">Moti Ganj, Bakebar Road, Bharthana</p>
-          <p style="margin: 2px 0; font-size: 14px;">Ph: +91 82736 89065</p>
-          <h2>Invoice</h2>
+          <h1>${storeName}</h1>
+          ${tagline ? `<p><em>${tagline}</em></p>` : ""}
+          <p>${address}</p>
+          <p>${contactParts.join(" | ")}</p>
+          ${gst ? `<p>GSTIN: ${gst}</p>` : ""}
+          <h2>Tax Invoice</h2>
         </div>
 
         <div class="invoice-details">
@@ -120,6 +175,11 @@ class InvoicePrinter {
           ${
             invoice.customerName
               ? `<p><strong>Customer:</strong> ${invoice.customerName}</p>`
+              : ""
+          }
+          ${
+            (store?.showSalespersonOnBill !== false && invoice.salespersonName)
+              ? `<p><strong>Sales Person:</strong> ${invoice.salespersonName}</p>`
               : ""
           }
         </div>
@@ -160,14 +220,21 @@ class InvoicePrinter {
                 )}</div>`
               : ""
           }
+          ${
+            invoice.tax && invoice.tax > 0
+              ? `<div class="total-line">${store?.taxLabel || "GST"} ${invoice.taxPercent ? `(${invoice.taxPercent}%)` : ""}${isInclusive ? " (Incl.)" : ""}: ${isInclusive ? "" : "+"}₹${this.formatCurrency(
+                  invoice.tax
+                )}</div>`
+              : ""
+          }
           <div class="total-line grand-total">Total: ₹${this.formatCurrency(
             invoice.total
           )}</div>
           <div class="total-line">Payment Method: ${invoice.paymentMethod}</div>
         </div>
 
-        <div style="text-align: center; margin-top: 30px; font-size: 0.9em; color: #666;">
-          Thank you for your business!
+        <div style="text-align: center; margin-top: 30px; font-size: 0.9em; color: #444; font-weight: bold;">
+          ${footer}
         </div>
       </body>
       </html>
@@ -187,57 +254,57 @@ class InvoicePrinter {
     window.open(whatsappUrl, "_blank");
   }
 
-  // 🧾 Generate WhatsApp message text
+  // 🧾 Generate WhatsApp message text (Public so POS modal can use it)
   public generateWhatsAppMessage(invoice: InvoiceData): string {
-    const dateToUse = invoice.date ? new Date(invoice.date) : new Date();
-    const { formattedDate, formattedTime } = this.formatIndianDateTime(dateToUse);
-
-    const customerName =
-      invoice.customerName && invoice.customerName.trim() !== ""
-        ? invoice.customerName
-        : "Valued Customer";
+    const { formattedDate, formattedTime } = this.formatIndianDateTime(
+      invoice.date
+    );
+    const store = invoice.storeSettings;
+    const storeName = store?.storeName || "";
+    const customer = invoice.customerName || "Walk-in Customer";
+    const footer = store?.receiptFooter || "Thank you, Visit Again!";
+    const taxLabel = store?.taxLabel || "GST";
+    const isInclusive = invoice.taxInclusive !== undefined ? invoice.taxInclusive : Boolean(store?.taxInclusive);
 
     const itemsList = (invoice.items || [])
       .map(
         (item) =>
-          `• ${item.name} (x${this.formatCurrency(item.quantity, false)}) - ₹${this.formatCurrency(
+          `• ${item.name} x${this.formatCurrency(item.quantity, false)} - ₹${this.formatCurrency(
             item.total
           )}`
       )
       .join("\n");
 
-    const lines: string[] = [
-      `🏪 *Bhootiya Fabric Collection*`,
-      `📍 Moti Ganj, Bakebar Road, Bharthana`,
-      `📞 Ph: +91 82736 89065\n`,
-      `Hello ${customerName}! 👋`,
-      `Thanks for shopping with us.\n`,
-      `🧾 *Invoice:* ${invoice.invoiceNumber}`,
-      `📅 *Date:* ${formattedDate} | ${formattedTime}`,
-    ];
+    const discountLine =
+      invoice.discountAmount && invoice.discountAmount > 0
+        ? `💰 *Discount:* -₹${this.formatCurrency(invoice.discountAmount)}\n`
+        : "";
 
-    if (itemsList) {
-      lines.push(`\n🛍️ *Items:*`, itemsList);
-    }
+    const taxLine =
+      invoice.tax && invoice.tax > 0
+        ? `💰 *${taxLabel} ${invoice.taxPercent ? `(${invoice.taxPercent}%)` : ""}${isInclusive ? " (Incl.)" : ""}:* ${isInclusive ? "" : "+"}₹${this.formatCurrency(invoice.tax)}\n`
+        : "";
 
-    lines.push("");
+    const template = store?.whatsappTemplate || DEFAULT_WHATSAPP_TEMPLATE;
 
-    if (invoice.subtotal && invoice.discountAmount && invoice.discountAmount > 0) {
-      lines.push(`💵 *Subtotal:* ₹${this.formatCurrency(invoice.subtotal)}`);
-      lines.push(`🏷️ *Discount:* -₹${this.formatCurrency(invoice.discountAmount)}`);
-    } else if (invoice.subtotal && invoice.subtotal !== invoice.total) {
-      lines.push(`💵 *Subtotal:* ₹${this.formatCurrency(invoice.subtotal)}`);
-    }
-
-    lines.push(`💰 *Total Amount:* ₹${this.formatCurrency(invoice.total)}`);
-
-    if (invoice.paymentMethod) {
-      lines.push(`💳 *Payment Mode:* ${invoice.paymentMethod}`);
-    }
-
-    lines.push(`\nThank you for shopping with us! 🙏`);
-
-    return lines.join("\n").trim();
+    return template
+      .replace(/\{store_name\}/g, storeName)
+      .replace(/\{invoice_number\}/g, invoice.invoiceNumber || "N/A")
+      .replace(/\{customer_name\}/g, customer)
+      .replace(/\{date\}/g, formattedDate)
+      .replace(/\{time\}/g, formattedTime)
+      .replace(/\{items_list\}/g, itemsList)
+      .replace(/\{subtotal\}/g, this.formatCurrency(invoice.subtotal))
+      .replace(/\{discount_line\}/g, discountLine)
+      .replace(/\{tax_line\}/g, taxLine)
+      .replace(/\{total\}/g, this.formatCurrency(invoice.total))
+      .replace(/\{payment_method\}/g, invoice.paymentMethod || "Cash")
+      .replace(/\{footer\}/g, footer)
+      .replace(/\{salesperson_name\}/g, (store?.showSalespersonOnBill !== false && invoice.salespersonName) ? invoice.salespersonName : "")
+      .replace(/\{email\}/g, store?.email || "")
+      .replace(/\{instagram\}/g, store?.instagram || "")
+      .replace(/\{whatsapp_number\}/g, store?.whatsappNumber || "")
+      .trim();
   }
 
   // 🖨 Thermal printer output
@@ -275,14 +342,16 @@ class InvoicePrinter {
     const CUT = ESC + "i";
 
     let printData = INIT;
-    printData += CENTER + BOLD_ON + "Bhootiya Fabric Collection\n" + BOLD_OFF;
-    printData += "Moti Ganj, Bakebar Road, Bharthana\n";
-    printData += "Ph: +91 82736 89065\n\n";
+    printData += CENTER + BOLD_ON + "wtscloth\n" + BOLD_OFF;
     printData += "Invoice\n\n";
     printData += LEFT;
     printData += `Invoice: ${invoice.invoiceNumber}\n`;
     printData += `Date: ${formattedDate}\n`;
-    printData += `Time: ${formattedTime}\n\n`;
+    printData += `Time: ${formattedTime}\n`;
+    if (invoice.storeSettings?.showSalespersonOnBill !== false && invoice.salespersonName) {
+      printData += `Salesperson: ${invoice.salespersonName}\n`;
+    }
+    printData += "\n";
     printData += "--------------------------------\n";
     invoice.items.forEach((item) => {
       printData += `${item.name}\n`;
@@ -294,6 +363,9 @@ class InvoicePrinter {
     printData += `Subtotal: ₹${this.formatCurrency(invoice.subtotal)}\n`;
     if (invoice.discountAmount && invoice.discountAmount > 0) {
       printData += `Discount: -₹${this.formatCurrency(invoice.discountAmount)}\n`;
+    }
+    if (invoice.tax && invoice.tax > 0) {
+      printData += `GST ${invoice.taxPercent ? `(${invoice.taxPercent}%)` : ""}: +₹${this.formatCurrency(invoice.tax)}\n`;
     }
     printData +=
       BOLD_ON + `TOTAL: ₹${this.formatCurrency(invoice.total)}\n` + BOLD_OFF;

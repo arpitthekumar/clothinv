@@ -14,12 +14,14 @@ import html2canvas from "html2canvas";
 import { jsPDF } from "jspdf";
 import LabelBill from "./LabelBill";
 import { SaleData } from "@/lib/type";
-import { invoicePrinter, InvoiceData } from "@/lib/printer";
+import { invoicePrinter, type InvoiceData } from "@/lib/printer";
 import {
   getPosCheckoutPrefs,
   type ThankYouButtonId,
 } from "@/lib/pos-checkout-prefs";
 import { playAutomationSound } from "@/lib/sound";
+import { useStoreSettings } from "@/hooks/use-store-settings";
+import { DEFAULT_WHATSAPP_TEMPLATE } from "@/types/store-settings";
 
 export function ThankYouModal({
   open,
@@ -35,6 +37,7 @@ export function ThankYouModal({
   /** e.g. Sales screen reprint — skip POS receipt automation. */
   disableAutomation?: boolean;
 }) {
+  const { settings: activeStoreSettings } = useStoreSettings();
   const invoiceRef = useRef<HTMLDivElement>(null);
 
   // ====== STATES ======
@@ -82,12 +85,17 @@ export function ThankYouModal({
         discount_value: item.discount_value ?? item.discountValue ?? 0,
         discount_amount: item.discount_amount ?? item.discountAmount ?? 0,
       })),
+      subtotal: invoiceData.subtotal ?? 0,
+      taxAmount: invoiceData.tax ?? (invoiceData as any).taxAmount ?? 0,
+      taxPercent: invoiceData.taxPercent ?? 0,
+      discountAmount: invoiceData.discountAmount ?? 0,
       totalAmount: invoiceData.total ?? 0,
       paymentMethod: invoiceData.paymentMethod ?? "Cash",
       invoiceNumber: invoiceData.invoiceNumber ?? "N/A",
-      createdAt: invoiceData.date ?? new Date().toISOString(),
+      createdAt: invoiceData.date instanceof Date ? invoiceData.date : String(invoiceData.date ?? new Date()),
       customerName: invoiceData.customerName || "Walk-in Customer",
       customerPhone: customerPhone || "N/A",
+      salespersonName: invoiceData.salespersonName || (invoiceData as any).salesperson_name || undefined,
     }
     : null;
 
@@ -203,6 +211,12 @@ export function ThankYouModal({
     const deep = `wts://print?type=receipt&image=${encodeURIComponent(
       base64Image
     )}`;
+
+    console.log("🖨️ [Native Receipt Image Print Triggered]", {
+      deepLink: deep,
+      base64Length: base64Image.length,
+      sampleBase64: base64Image.substring(0, 50) + "...",
+    });
 
     window.location.href = deep;
   };
@@ -335,10 +349,17 @@ export function ThankYouModal({
       };
     });
 
-    // 5️⃣ Final payable
-    const total = Math.round(
+    const afterDiscount = Math.round(
       itemsFinal.reduce((sum, i) => sum + i.net, 0)
     );
+
+    const taxAmount = Math.round(saleData.taxAmount || 0);
+    const taxPercent = saleData.taxPercent || 0;
+
+    // 5️⃣ Final payable
+    const total = saleData.totalAmount && saleData.totalAmount > 0
+      ? Math.round(saleData.totalAmount)
+      : Math.round(afterDiscount + taxAmount);
 
     /* ───────────────── FORMATTER ───────────────── */
     const formatIN = (num: number) =>
@@ -347,18 +368,74 @@ export function ThankYouModal({
         maximumFractionDigits: 0,
       });
 
+    /* ───────────────── STORE METADATA ───────────────── */
+    const store = {
+      storeName: activeStoreSettings.storeName || invoiceData?.storeSettings?.storeName || "",
+      address: activeStoreSettings.address || invoiceData?.storeSettings?.address || "",
+      phone: activeStoreSettings.phone || invoiceData?.storeSettings?.phone || "",
+      email: activeStoreSettings.email || invoiceData?.storeSettings?.email || "",
+      gstNumber: activeStoreSettings.gstNumber || invoiceData?.storeSettings?.gstNumber || "",
+      tagline: activeStoreSettings.tagline || invoiceData?.storeSettings?.tagline || "",
+      receiptFooter: activeStoreSettings.receiptFooter || invoiceData?.storeSettings?.receiptFooter || "Thank you, Visit Again!",
+      instagram: activeStoreSettings.instagram || invoiceData?.storeSettings?.instagram || "",
+      whatsappNumber: activeStoreSettings.whatsappNumber || invoiceData?.storeSettings?.whatsappNumber || "",
+      whatsappTemplate: activeStoreSettings.whatsappTemplate || invoiceData?.storeSettings?.whatsappTemplate || DEFAULT_WHATSAPP_TEMPLATE,
+      taxLabel: activeStoreSettings.taxLabel || invoiceData?.storeSettings?.taxLabel || "GST",
+      taxInclusive: activeStoreSettings.taxInclusive ?? invoiceData?.storeSettings?.taxInclusive ?? false,
+      showSalespersonOnBill: activeStoreSettings.showSalespersonOnBill ?? invoiceData?.storeSettings?.showSalespersonOnBill ?? true,
+    };
+
+    const showSalesperson = store.showSalespersonOnBill !== false;
+    const salespersonVal = showSalesperson ? (saleData.salespersonName || invoiceData?.salespersonName || "") : "";
+
     /* ───────────────── FAST PRINT DATA ───────────────── */
     const fastData = {
+      // Store Settings & Branding Details
+      storeName: store.storeName,
+      store_name: store.storeName,
+      address: store.address,
+      phone: store.phone,
+      email: store.email,
+      gstNumber: store.gstNumber,
+      gst_number: store.gstNumber,
+      tagline: store.tagline,
+      receiptFooter: store.receiptFooter,
+      receipt_footer: store.receiptFooter,
+      footer: store.receiptFooter,
+      instagram: store.instagram,
+      whatsappNumber: store.whatsappNumber,
+      whatsapp_number: store.whatsappNumber,
+      taxLabel: store.taxLabel,
+      tax_label: store.taxLabel,
+      taxInclusive: store.taxInclusive,
+      tax_inclusive: store.taxInclusive,
+
+      // Salesperson Settings & Details
+      showSalesperson: showSalesperson,
+      showSalespersonOnBill: showSalesperson,
+      show_salesperson: showSalesperson,
+      salespersonName: salespersonVal,
+      salesperson: salespersonVal,
+      salesPerson: salespersonVal,
+      salesperson_name: salespersonVal,
+
+      // Invoice & Customer Details
       invoiceNumber: saleData.invoiceNumber,
+      invoice_number: saleData.invoiceNumber,
       customerName: saleData.customerName,
+      customer_name: saleData.customerName,
       customerPhone: saleData.customerPhone,
+      customer_phone: saleData.customerPhone,
       date: formattedDate,
       time: formattedTime,
       paymentMethod: saleData.paymentMethod,
+      payment_method: saleData.paymentMethod,
 
+      // Financial Breakdown & Items
       items: itemsFinal.map((i) => ({
         name: i.name,
         qty: i.quantity,
+        quantity: i.quantity,
         price: formatIN(i.price),        // rate
         gross: formatIN(i.gross),         // before discount
         discount: formatIN(i.itemDiscount), // item discount
@@ -367,6 +444,9 @@ export function ThankYouModal({
 
       subtotal: formatIN(subtotal),        // before discount
       discount: formatIN(totalDiscount),   // total discount
+      tax: formatIN(taxAmount),            // tax amount
+      taxPercent: taxPercent,
+      tax_percent: taxPercent,
       total: formatIN(total),              // final payable
       barcode: barcodeBase64,
     };
@@ -375,6 +455,14 @@ export function ThankYouModal({
     const json = JSON.stringify(fastData);
     const base64 = btoa(unescape(encodeURIComponent(json)));
     const deepLink = `wts://receipt?json=${encodeURIComponent(base64)}`;
+
+    console.log("🧾 [Native Receipt Fast Print Triggered]", {
+      deepLink,
+      fastData,
+      rawJsonLength: json.length,
+      base64Length: base64.length,
+      base64Sample: base64.substring(0, 50) + "...",
+    });
 
     // Trigger Android app
     window.location.href = deepLink;
@@ -397,46 +485,62 @@ export function ThankYouModal({
   };
 
   const sendWhatsApp = () => {
-    if (!customerPhone || customerPhone === "N/A")
-      return alert("Invalid number");
+    const phone = formatPhone(customerPhone || invoiceData?.customerPhone || saleData?.customerPhone || "");
 
-    const phone = formatPhone(customerPhone);
+    const mergedStoreSettings = {
+      storeName: activeStoreSettings.storeName || invoiceData?.storeSettings?.storeName || "",
+      address: activeStoreSettings.address || invoiceData?.storeSettings?.address || "",
+      phone: activeStoreSettings.phone || invoiceData?.storeSettings?.phone || "",
+      email: activeStoreSettings.email || invoiceData?.storeSettings?.email || "",
+      gstNumber: activeStoreSettings.gstNumber || invoiceData?.storeSettings?.gstNumber || "",
+      tagline: activeStoreSettings.tagline || invoiceData?.storeSettings?.tagline || "",
+      receiptFooter: activeStoreSettings.receiptFooter || invoiceData?.storeSettings?.receiptFooter || "Thank you, Visit Again!",
+      instagram: activeStoreSettings.instagram || invoiceData?.storeSettings?.instagram || "",
+      whatsappNumber: activeStoreSettings.whatsappNumber || invoiceData?.storeSettings?.whatsappNumber || "",
+      whatsappTemplate: activeStoreSettings.whatsappTemplate || invoiceData?.storeSettings?.whatsappTemplate || DEFAULT_WHATSAPP_TEMPLATE,
+      taxLabel: activeStoreSettings.taxLabel || invoiceData?.storeSettings?.taxLabel || "GST",
+      taxInclusive: activeStoreSettings.taxInclusive ?? invoiceData?.storeSettings?.taxInclusive ?? false,
+      showSalespersonOnBill: activeStoreSettings.showSalespersonOnBill ?? invoiceData?.storeSettings?.showSalespersonOnBill ?? true,
+    };
 
-    let msg = "";
+    let targetInvoice: InvoiceData | null = null;
+
     if (invoiceData) {
-      msg = invoicePrinter.generateWhatsAppMessage({
+      targetInvoice = {
         ...invoiceData,
-        customerName: saleData?.customerName || invoiceData.customerName,
-        customerPhone: customerPhone,
-      });
+        storeSettings: mergedStoreSettings,
+      };
     } else if (saleData) {
-      const itemsList = (saleData.items || [])
-        .map(
-          (item) =>
-            `• ${item.name} (x${item.quantity}) - ₹${item.total}`
-        )
-        .join("\n");
-
-      msg =
-        `🏪 *Bhootiya Fabric Collection*\n` +
-        `📍 Moti Ganj, Bakebar Road, Bharthana\n` +
-        `📞 Ph: +91 82736 89065\n\n` +
-        `Hello ${saleData.customerName || "Customer"}! 👋\n` +
-        `Thanks for shopping with us.\n\n` +
-        `🧾 *Invoice:* ${saleData.invoiceNumber}\n` +
-        (itemsList ? `\n🛍️ *Items:*\n${itemsList}\n\n` : "") +
-        `💰 *Total Amount:* ₹${saleData.totalAmount}\n` +
-        `💳 *Payment Mode:* ${saleData.paymentMethod}\n\n` +
-        `Thank you for shopping with us! 🙏`;
-    } else {
-      msg = "Hello! Thanks for shopping with us.";
+      targetInvoice = {
+        invoiceNumber: saleData.invoiceNumber,
+        date: saleData.createdAt ?? new Date(),
+        customerName: saleData.customerName,
+        customerPhone: saleData.customerPhone,
+        salespersonName: saleData.salespersonName,
+        items: (saleData.items || []).map((i) => ({
+          name: i.name,
+          quantity: i.quantity,
+          price: i.price,
+          total: (i as any).net ?? i.total ?? i.price * i.quantity,
+        })),
+        subtotal: saleData.subtotal ?? saleData.totalAmount,
+        tax: saleData.taxAmount ?? 0,
+        taxPercent: saleData.taxPercent,
+        discountAmount: saleData.discountAmount,
+        total: saleData.totalAmount,
+        paymentMethod: saleData.paymentMethod,
+        storeSettings: mergedStoreSettings,
+      };
     }
 
-    const encodedMsg = encodeURIComponent(msg);
-
-    window.open(`https://wa.me/${phone}?text=${encodedMsg}`, "_blank");
+    if (targetInvoice) {
+      invoicePrinter.shareViaWhatsApp(targetInvoice, phone || undefined);
+    } else {
+      if (!phone) return alert("Please enter a valid customer phone number for WhatsApp");
+    }
   };
 
+ 
   /* Automation: reads latest prefs when receipt opens; handlers close over initial render — OK for one-shot actions. */
   useEffect(() => {
     if (!open || disableAutomation || !invoiceData) return;

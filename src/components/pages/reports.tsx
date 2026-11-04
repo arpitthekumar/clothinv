@@ -13,9 +13,11 @@ import { normalizeItems } from "@/lib/json";
 import { aggregateSalesByPaymentMethod } from "@/lib/payment-breakdown";
 import { getReportDateRangeLabel } from "@/lib/report-date-range";
 import { startOfDay, endOfDay, subDays } from "date-fns";
+import { parseDbDate } from "@/lib/utils";
 import { Sale } from "@shared/schema";
 import AnalyticsCharts from "../reports/AnalyticsCharts";
 import PaymentMethodBreakdown from "@/components/reports/PaymentMethodBreakdown";
+import { SalespersonPerformance } from "@/components/reports/SalespersonPerformance";
 import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
 import { AlertTriangle, Loader2, Calculator } from "lucide-react";
 import {
@@ -100,6 +102,7 @@ export default function Reports() {
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [reportType, setReportType] = useState("daily");
   const [dateRange, setDateRange] = useState("today");
+  const [salesperson, setSalesperson] = useState("");
   const [customDateRange, setCustomDateRange] = useState<{
     from?: Date;
     to?: Date;
@@ -113,6 +116,10 @@ export default function Reports() {
     value: string;
     customRange?: { from?: Date; to?: Date } | null;
   } | null>(null);
+
+  const { data: salespersons = [] } = useQuery<any[]>({
+    queryKey: ["/api/salespersons"],
+  });
 
   const handleDateRangeChange = (value: string) => {
     if (value === "all") {
@@ -172,7 +179,7 @@ export default function Reports() {
   const allTimeRange = useMemo(() => {
     if (!sales || sales.length === 0) return null;
     const dates = sales
-      .map((s: any) => s.created_at ? new Date(s.created_at).getTime() : 0)
+      .map((s: any) => s.created_at ? parseDbDate(s.created_at).getTime() : 0)
       .filter((t) => t > 0);
     if (dates.length === 0) return null;
     return {
@@ -241,6 +248,7 @@ export default function Reports() {
         salesWindowDays,
         fromDate: dateRangeParams.fromDate,
         toDate: dateRangeParams.toDate,
+        salesperson: salesperson || undefined,
       },
     ],
   });
@@ -272,7 +280,7 @@ export default function Reports() {
   // Sidebar toggle
   const toggleSidebar = () => setSidebarOpen(!sidebarOpen);
 
-  // Filter sales by date range
+  // Filter sales by date range & salesperson
   const filteredSales = useMemo(() => {
     if (!sales) return [];
     const { fromDate, toDate } = dateRangeParams;
@@ -280,11 +288,26 @@ export default function Reports() {
     const to = new Date(toDate);
 
     return sales.filter((sale: any) => {
+      if (sale.deleted) return false;
       if (!sale.created_at) return false;
-      const saleDate = new Date(sale.created_at);
-      return saleDate >= from && saleDate <= to;
+      const saleDate = parseDbDate(sale.created_at);
+      if (saleDate < from || saleDate > to) return false;
+
+      if (salesperson) {
+        if (salesperson === "unassigned") {
+          if (sale.salesperson_id) return false;
+        } else {
+          if (
+            sale.salesperson_id !== salesperson &&
+            !(sale.salesperson_name && sale.salesperson_name.toLowerCase().includes(salesperson.toLowerCase()))
+          ) {
+            return false;
+          }
+        }
+      }
+      return true;
     });
-  }, [sales, dateRangeParams]);
+  }, [sales, dateRangeParams, salesperson]);
 
   const dateRangeLabel = useMemo(
     () => getReportDateRangeLabel(dateRange, customDateRange, allTimeRange),
@@ -347,6 +370,9 @@ export default function Reports() {
             dateRange={dateRange}
             setReportType={setReportType}
             setDateRange={handleDateRangeChange}
+            salesperson={salesperson}
+            setSalesperson={setSalesperson}
+            salespersons={salespersons}
             onExport={handleExportReport}
             customDateRange={customDateRange}
             onCustomDateRangeChange={handleCustomDateRangeChange}
@@ -375,26 +401,12 @@ export default function Reports() {
                 averageTicket={averageTicket}
               />
 
-              <PaymentMethodBreakdown
-                totals={paymentMethodTotals}
-                dateRangeLabel={dateRangeLabel}
-              />
-              <SalesTable
-                sales={filteredSales}
-                loading={isLoading}
-                products={products}
-              />
-
-              <div className="relative space-y-6">
-                {analyticsQuery.isFetching && (
-                  <div className="absolute inset-0 bg-background/50 backdrop-blur-[1px] flex flex-col items-center justify-center z-50 rounded-lg min-h-[300px]">
-                    <div className="flex items-center gap-3 bg-card p-4 rounded-xl shadow-lg border">
-                      <Loader2 className="h-6 w-6 animate-spin text-primary" />
-                      <span className="font-medium text-sm">Loading analytics data...</span>
-                    </div>
-                  </div>
-                )}
-
+                <div className="lg:col-span-2">
+                  <PaymentMethodBreakdown
+                    totals={paymentMethodTotals}
+                    dateRangeLabel={dateRangeLabel}
+                  />
+                </div>
                 <KPIWidgets
                   profit={Number(analytics.totalProfit || 0)}
                   valuation={Number(stockValuation.totalValuation || 0)}
@@ -411,6 +423,28 @@ export default function Reports() {
                   topProducts={analytics.topProducts}
                   profitData={analytics.profitData}
                 />
+                <div>
+                  <SalespersonPerformance data={analytics.salespersonPerformance || []} />
+                </div>
+
+              <SalesTable
+                sales={filteredSales}
+                loading={isLoading}
+                products={products}
+              />
+
+              <div className="relative space-y-6">
+                {analyticsQuery.isFetching && (
+                  <div className="absolute inset-0 bg-background/50 backdrop-blur-[1px] flex flex-col items-center justify-center z-50 rounded-lg min-h-[300px]">
+                    <div className="flex items-center gap-3 bg-card p-4 rounded-xl shadow-lg border">
+                      <Loader2 className="h-6 w-6 animate-spin text-primary" />
+                      <span className="font-medium text-sm">Loading analytics data...</span>
+                    </div>
+                  </div>
+                )}
+
+                
+                
                 <NotSellingTable
                   products={analytics.notSelling || []}
                   dateRange={dateRange}
@@ -485,31 +519,31 @@ export default function Reports() {
                 <div className="flex justify-between items-center text-sm">
                   <span className="text-muted-foreground">Gross Sales Revenue (A)</span>
                   <span className="font-semibold tabular-nums text-foreground">
-                    ₹{audit.grossSales.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                    ₹{Math.round(audit.grossSales).toLocaleString("en-IN", { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
                   </span>
                 </div>
                 <div className="flex justify-between items-center text-sm border-b pb-2">
                   <span className="text-muted-foreground">Less: Sales Tax Collected (B)</span>
                   <span className="font-semibold tabular-nums text-red-500">
-                    - ₹{audit.taxAmount.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                    - ₹{Math.round(audit.taxAmount).toLocaleString("en-IN", { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
                   </span>
                 </div>
                 <div className="flex justify-between items-center text-sm font-medium">
                   <span className="text-foreground">Net Sales Revenue (C = A - B)</span>
                   <span className="font-bold tabular-nums text-foreground">
-                    ₹{audit.netRevenue.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                    ₹{Math.round(audit.netRevenue).toLocaleString("en-IN", { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
                   </span>
                 </div>
                 <div className="flex justify-between items-center text-sm border-b pb-2">
                   <span className="text-muted-foreground">Less: Cost of Goods Sold / COGS (D)</span>
                   <span className="font-semibold tabular-nums text-red-500">
-                    - ₹{audit.costOfSales.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                    - ₹{Math.round(audit.costOfSales).toLocaleString("en-IN", { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
                   </span>
                 </div>
                 <div className="flex justify-between items-center text-base font-semibold pt-1">
                   <span className="text-primary font-bold">Net Margin / Profit (E = C - D)</span>
                   <span className="font-extrabold tabular-nums text-emerald-600 dark:text-emerald-400 text-lg">
-                    ₹{audit.netProfit.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                    ₹{Math.round(audit.netProfit).toLocaleString("en-IN", { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
                   </span>
                 </div>
               </div>
@@ -526,7 +560,7 @@ export default function Reports() {
               </div>
               <div className="text-right">
                 <span className="text-2xl font-black text-emerald-600 dark:text-emerald-400">
-                  {audit.profitMarginPercent.toFixed(2)}%
+                  {Math.round(audit.profitMarginPercent)}%
                 </span>
               </div>
             </div>

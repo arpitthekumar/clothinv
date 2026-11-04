@@ -23,6 +23,29 @@ export const users = pgTable("users", {
   createdAt: timestamp("created_at").defaultNow(),
 });
 
+export const userSessions = pgTable("user_sessions", {
+  id: varchar("id")
+    .primaryKey()
+    .default(sql`gen_random_uuid()`),
+  userId: varchar("user_id")
+    .notNull()
+    .references(() => users.id, { onDelete: "cascade" }),
+  sessionToken: text("session_token").notNull().unique(),
+  deviceName: text("device_name").notNull(),
+  ipAddress: text("ip_address"),
+  userAgent: text("user_agent"),
+  createdAt: timestamp("created_at").defaultNow(),
+  lastActiveAt: timestamp("last_active_at").defaultNow(),
+  lastApiActivityAt: timestamp("last_api_activity_at").defaultNow(),
+  lastHeartbeatAt: timestamp("last_heartbeat_at").defaultNow(),
+  revokedAt: timestamp("revoked_at"),
+  revocationReason: text("revocation_reason"),
+  posStatus: text("pos_status").default("ONLINE"), // ONLINE | IDLE | BUSY | OFFLINE | REVOKED
+  currentPosOperation: text("current_pos_operation"), // e.g. "Creating Sale", "Processing Payment", "Printing Receipt"
+});
+
+
+
 export const categories = pgTable("categories", {
   id: varchar("id").primaryKey(),
   name: text("name").notNull().unique(),
@@ -38,7 +61,7 @@ export const products = pgTable("products", {
     .default(sql`gen_random_uuid()`),
   name: text("name").notNull(),
   sku: text("sku").notNull().unique(),
-  categoryId: varchar("category_id").references(() => categories.id),
+  categoryId: varchar("category_id").references(() => categories.id, { onDelete: "set null" }),
   description: text("description"),
   price: decimal("price", { precision: 10, scale: 2 }).notNull(),
   buyingPrice: decimal("buying_price", { precision: 10, scale: 2 }),
@@ -46,6 +69,8 @@ export const products = pgTable("products", {
   stock: integer("stock").notNull().default(0),
   minStock: integer("min_stock").default(5),
   barcode: text("barcode"),
+  isBargainable: boolean("is_bargainable").default(false),
+  minPrice: decimal("min_price", { precision: 10, scale: 2 }),
   deleted: boolean("deleted").default(false),
   deletedAt: timestamp("deleted_at"),
   createdAt: timestamp("created_at").defaultNow(),
@@ -69,9 +94,22 @@ export const sales = pgTable("sales", {
   discount_amount: decimal("discount_amount").notNull().default("0"),
   total_amount: decimal("total_amount").notNull(),
   payment_method: text("payment_method").notNull().default("cash"),
+  salesperson_id: varchar("salesperson_id"),
+  salesperson_name: text("salesperson_name"),
   invoice_number: text("invoice_number").notNull().unique(),
   deleted: boolean("deleted").default(false),
   deletedAt: timestamp("deleted_at"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const salespersons = pgTable("salespersons", {
+  id: varchar("id")
+    .primaryKey()
+    .default(sql`gen_random_uuid()`),
+  name: text("name").notNull(),
+  code: text("code"),
+  phone: text("phone"),
+  active: boolean("active").default(true),
   createdAt: timestamp("created_at").defaultNow(),
 });
 
@@ -127,6 +165,8 @@ export const insertProductSchema = createInsertSchema(products).pick({
   stock: true,
   minStock: true,
   barcode: true,
+  isBargainable: true,
+  minPrice: true,
 });
 
 export const insertSaleSchema = createInsertSchema(sales).pick({
@@ -143,6 +183,15 @@ export const insertSaleSchema = createInsertSchema(sales).pick({
   discount_amount: true,
   total_amount: true,
   payment_method: true,
+  salesperson_id: true,
+  salesperson_name: true,
+});
+
+export const insertSalespersonSchema = createInsertSchema(salespersons).pick({
+  name: true,
+  code: true,
+  phone: true,
+  active: true,
 });
 
 export const insertStockMovementSchema = createInsertSchema(
@@ -158,10 +207,14 @@ export const insertStockMovementSchema = createInsertSchema(
 // Types
 export type User = typeof users.$inferSelect;
 export type InsertUser = z.infer<typeof insertUserSchema>;
+export type UserSession = typeof userSessions.$inferSelect;
 export type Category = typeof categories.$inferSelect;
 export type InsertCategory = z.infer<typeof insertCategorySchema>;
 export type Product = typeof products.$inferSelect;
 export type InsertProduct = z.infer<typeof insertProductSchema>;
+
+export type Salesperson = typeof salespersons.$inferSelect;
+export type InsertSalesperson = z.infer<typeof insertSalespersonSchema>;
 
 // Define Sale type manually to match Supabase exactly
 export type Sale = {
@@ -179,6 +232,8 @@ export type Sale = {
   discount_amount: string;
   total_amount: string;
   payment_method: string;
+  salesperson_id?: string | null;
+  salesperson_name?: string | null;
   invoice_number: string;
   deleted?: boolean;
   deleted_at?: Date | null;
@@ -316,6 +371,11 @@ export const customers = pgTable("customers", {
   name: text("name").notNull(),
   phone: text("phone"),
   email: text("email"),
+  total_spent: decimal("total_spent", { precision: 12, scale: 2 }).default("0"),
+  total_sales_count: integer("total_sales_count").default(0),
+  last_visit_at: timestamp("last_visit_at"),
+  deleted: boolean("deleted").default(false),
+  deletedAt: timestamp("deleted_at"),
   createdAt: timestamp("created_at").defaultNow(),
 });
 
@@ -457,11 +517,27 @@ export const insertPromotionTargetSchema = createInsertSchema(
   targetId: true,
 });
 
-export const insertCustomerSchema = createInsertSchema(customers).pick({
-  name: true,
-  phone: true,
-  email: true,
+export const insertCustomerSchema = z.object({
+  name: z
+    .string()
+    .min(1, "Customer name is required")
+    .refine(
+      (val) => val.trim().toLowerCase() !== "walk-in customer",
+      'Cannot save "Walk-in Customer" as a persistent customer record'
+    ),
+  phone: z
+    .string()
+    .min(1, "Customer phone number is required")
+    .refine(
+      (val) => {
+        const cleaned = val.trim();
+        return cleaned !== "" && cleaned !== "N/A" && cleaned !== "0000000000";
+      },
+      "A valid phone number is required to save a customer"
+    ),
+  email: z.string().email("Invalid email address").optional().or(z.literal("")).nullable(),
 });
+
 
 export const insertSaleItemSchema = createInsertSchema(saleItems).pick({
   saleId: true,
@@ -535,5 +611,20 @@ export type SalesReturnItem = typeof salesReturnItems.$inferSelect;
 export type InsertSalesReturnItem = z.infer<typeof insertSalesReturnItemSchema>;
 export type Payment = typeof payments.$inferSelect;
 export type InsertPayment = z.infer<typeof insertPaymentSchema>;
+export const backupLogs = pgTable("backup_logs", {
+  id: varchar("id")
+    .primaryKey()
+    .default(sql`gen_random_uuid()`),
+  timestamp: timestamp("timestamp").defaultNow(),
+  status: text("status").notNull(),
+  fileName: text("file_name"),
+  sizeBytes: integer("size_bytes"),
+  masterStatus: text("master_status"),
+  userStatus: text("user_status"),
+  errors: text("errors"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export type BackupLog = typeof backupLogs.$inferSelect;
 export type DiscountCoupon = typeof discountCoupons.$inferSelect;
 export type InsertDiscountCoupon = z.infer<typeof insertDiscountCouponSchema>;

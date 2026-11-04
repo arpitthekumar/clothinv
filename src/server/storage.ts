@@ -1,25 +1,64 @@
 import {
   type User,
   type InsertUser,
+  type UserSession,
   type Product,
   type InsertProduct,
   type Category,
   type InsertCategory,
   type Sale,
   type InsertSale,
+  type Salesperson,
+  type InsertSalesperson,
   type StockMovement,
   type InsertStockMovement,
 } from "@shared/schema";
+import { type StoreSettings, DEFAULT_STORE_SETTINGS } from "@/types/store-settings";
 import { SupabaseStorage } from "./storage.supabase";
 
 export interface IStorage {
-  // Users
+  // Salespersons
+  getSalespersons(includeInactive?: boolean): Promise<Salesperson[]>;
+  getSalesperson(id: string): Promise<Salesperson | undefined>;
+  createSalesperson(salesperson: InsertSalesperson): Promise<Salesperson>;
+  updateSalesperson(
+    id: string,
+    salesperson: Partial<InsertSalesperson>
+  ): Promise<Salesperson | undefined>;
+  deleteSalesperson(id: string): Promise<boolean>;
+  getSalespersonSalesCount(id: string): Promise<number>;
+  getSalespersonRecentSales(id: string, limit?: number): Promise<Sale[]>;
+
+  // Users & Sessions
   getUser(id: string): Promise<User | undefined>;
   getUserByUsername(username: string): Promise<User | undefined>;
   createUser(user: InsertUser): Promise<User>;
   updateUser(id: string, user: Partial<InsertUser>): Promise<User | undefined>;
   deleteUser(id: string): Promise<boolean>;
   getUsers(): Promise<User[]>;
+  getUserSalesCount(userId: string): Promise<number>;
+  getUserRecentSales(userId: string, limit?: number): Promise<Sale[]>;
+  getUserSessions(userId: string): Promise<UserSession[]>;
+  createUserSession(session: {
+    userId: string;
+    sessionToken: string;
+    deviceName: string;
+    ipAddress?: string;
+    userAgent?: string;
+  }): Promise<UserSession>;
+  touchUserSession(sessionToken: string): Promise<void>;
+  updateHeartbeat(
+    sessionToken: string,
+    isBusy?: boolean,
+    currentOperation?: string
+  ): Promise<boolean>;
+  updateApiActivity(sessionToken: string): Promise<void>;
+  revokeSession(sessionIdOrToken: string, reason?: string, userId?: string): Promise<boolean>;
+  revokeAllUserSessions(userId: string, reason?: string, exceptToken?: string): Promise<boolean>;
+  deleteUserSession(sessionIdOrToken: string, userId?: string): Promise<boolean>;
+  deleteAllOtherUserSessions(userId: string, currentSessionToken: string): Promise<boolean>;
+
+
 
   // Categories
   getCategories(): Promise<Category[]>;
@@ -42,6 +81,20 @@ export interface IStorage {
     product: Partial<InsertProduct>
   ): Promise<Product | undefined>;
   deleteProduct(id: string): Promise<boolean>;
+  getProductSalesCount(productId: string): Promise<number>;
+  getProductRecentSales(
+    productId: string,
+    limit?: number
+  ): Promise<
+    Array<{
+      id: string;
+      invoiceNumber: string;
+      amount: string;
+      quantity: number;
+      customerName?: string;
+      createdAt?: string;
+    }>
+  >;
   updateStock(id: string, quantity: number): Promise<Product | undefined>;
   softDeleteProduct: (id: string) => Promise<boolean>;
   restoreProduct: (id: string) => Promise<boolean>;
@@ -114,6 +167,27 @@ export interface IStorage {
   ): Promise<import("@shared/schema").PromotionTarget>;
   getPromotionTargets(): Promise<import("@shared/schema").PromotionTarget[]>;
 
+  // Customers
+  getCustomers(search?: string, includeDeleted?: boolean): Promise<Array<import("@shared/schema").Customer & { totalSales?: number; totalSpent?: number; lastPurchaseAt?: string | null }>>;
+  getCustomer(id: string): Promise<import("@shared/schema").Customer | undefined>;
+  getCustomerByPhone(phone: string): Promise<import("@shared/schema").Customer | undefined>;
+  createCustomer(customer: import("@shared/schema").InsertCustomer): Promise<import("@shared/schema").Customer>;
+  updateCustomer(id: string, customer: Partial<import("@shared/schema").InsertCustomer>): Promise<import("@shared/schema").Customer | undefined>;
+  deleteCustomer(id: string): Promise<boolean>;
+  softDeleteCustomer(id: string): Promise<boolean>;
+  restoreCustomer(id: string): Promise<boolean>;
+  getCustomerSalesCount(id: string): Promise<{ salesCount: number; returnsCount: number }>;
+  getCustomerRecentSales(id: string, limit?: number): Promise<import("@shared/schema").Sale[]>;
+  findOrCreateCustomer(name: string, phone: string, email?: string): Promise<import("@shared/schema").Customer | null>;
+  getCustomerWithHistory(id: string): Promise<{
+    customer: import("@shared/schema").Customer;
+    totalSales: number;
+    totalSpent: number;
+    sales: import("@shared/schema").Sale[];
+  } | undefined>;
+  syncCustomerStats(params: { customerId?: string | null; customerPhone?: string | null }): Promise<void>;
+
+
   // Reports
   getNotSellingProducts(params: { sinceDays: number; fromDate?: Date; toDate?: Date }): Promise<
     Array<{
@@ -179,6 +253,12 @@ export interface IStorage {
     coupon: Partial<import("@shared/schema").InsertDiscountCoupon>
   ): Promise<import("@shared/schema").DiscountCoupon | undefined>;
   deleteDiscountCoupon(id: string): Promise<boolean>;
+
+  // Store & Billing Settings
+  getStoreSettings(): Promise<StoreSettings>;
+  updateStoreSettings(settings: Partial<StoreSettings>): Promise<StoreSettings>;
 }
+
+export { type StoreSettings, DEFAULT_STORE_SETTINGS } from "@/types/store-settings";
 
 export const storage = new SupabaseStorage();

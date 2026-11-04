@@ -23,6 +23,10 @@
 # misc
 .DS_Store
 *.pem
+*.exe
+*.apk
+/public/downloads/*.exe
+/public/downloads/*.apk
 
 # local Supabase JSON backups (may contain sensitive business data)
 /backups/

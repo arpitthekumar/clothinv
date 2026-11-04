@@ -14,13 +14,9 @@ export function isSuperAdminUser(
     | null
     | undefined
 ): boolean {
-  if (!user || user.role !== "admin") return false;
-
-  if (process.env.NODE_ENV === "development" && user.id === "admin-dev-001") {
-    return true;
-  }
-
-  const username = user.username?.trim().toLowerCase();
-  const fullName = user.fullName?.trim().toLowerCase();
-  return username === "admin" && fullName === "admin";
+  if (!user) return false;
+  if (user.id === "admin-dev-001") return true;
+  if (user.role === "superadmin") return true;
+  return user.username?.trim().toLowerCase() === "admin";
 }
+

@@ -23,6 +23,9 @@ export default function SalesSearchBar({
   setLimit,
   payment,
   setPayment,
+  salesperson,
+  setSalesperson,
+  salespersons = [],
   productId,
   setProductId,
   dateRange,
@@ -170,6 +173,32 @@ export default function SalesSearchBar({
                 <SelectItem value="card">Card</SelectItem>
                 <SelectItem value="credit">Credit</SelectItem>
                 <SelectItem value="bank">Bank</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
+          {/* Sales Person Filter */}
+          <div>
+            <label className="text-sm font-medium mb-2 block">Sales Person</label>
+            <Select
+              value={salesperson === "" ? "all" : salesperson}
+              onValueChange={(value) => {
+                setSalesperson(value === "all" ? "" : value);
+                refresh(true);
+              }}
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="All Salespersons" />
+              </SelectTrigger>
+
+              <SelectContent>
+                <SelectItem value="all">All Salespersons</SelectItem>
+                <SelectItem value="unassigned">Unassigned</SelectItem>
+                {salespersons.map((sp: any) => (
+                  <SelectItem key={sp.id} value={sp.id}>
+                    👤 {sp.name}
+                  </SelectItem>
+                ))}
               </SelectContent>
             </Select>
           </div>

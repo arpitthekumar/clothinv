@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireAuth } from "../../_lib/session";
 import { storage } from "@server/storage";
 import { mapProductFromDb } from "@/lib/db-column-mapper";
+import { parseDbDate } from "@/lib/utils";
 
 function formatDayShort(d: Date) {
   return d.toLocaleDateString("en-US", { weekday: "short" });
@@ -23,6 +24,7 @@ export async function GET(request: NextRequest) {
   );
   const fromDateParam = url.searchParams.get("fromDate");
   const toDateParam = url.searchParams.get("toDate");
+  const salespersonParam = url.searchParams.get("salesperson");
 
   // Parse date range if provided
   let fromDate: Date | undefined;
@@ -34,12 +36,13 @@ export async function GET(request: NextRequest) {
 
   // Read-only: use storage to fetch required data
   const [
-    sales,
+    allSalesRaw,
     productsRaw,
     categories,
     profitMargins,
     stockValuation,
     notSelling,
+    salespersonsList,
   ] = await Promise.all([
     storage.getSales(false),
     storage.getProducts(),
@@ -47,7 +50,85 @@ export async function GET(request: NextRequest) {
     storage.getProfitMargins({ sinceDays, fromDate, toDate }),
     storage.getStockValuation(),
     storage.getNotSellingProducts({ sinceDays, fromDate, toDate }),
+    storage.getSalespersons(true),
   ]);
+
+  // Filter sales by salesperson if parameter is passed
+  let sales = (allSalesRaw || []).filter((s) => !s.deleted);
+  
+  // Calculate salesperson performance metrics (over date range if set)
+  const spMap: Record<string, { id: string; name: string; totalSales: number; orderCount: number }> = {};
+  
+  // Pre-seed known salespersons
+  for (const sp of salespersonsList || []) {
+    spMap[sp.id] = { id: sp.id, name: sp.name, totalSales: 0, orderCount: 0 };
+  }
+
+  for (const s of sales) {
+    if (s.deleted) continue;
+    if (fromDate && toDate && s.created_at) {
+      const d = parseDbDate(s.created_at);
+      if (d < fromDate || d > toDate) continue;
+    }
+    const amt = parseFloat((s.total_amount as any) || "0");
+    const spId = s.salesperson_id ? String(s.salesperson_id).trim() : "";
+    const spName = s.salesperson_name ? String(s.salesperson_name).trim() : "";
+
+    // Match by ID first, or by name (case-insensitive)
+    let targetKey: string | undefined = undefined;
+    if (spId && spMap[spId]) {
+      targetKey = spId;
+    } else if (spName) {
+      const sNameLower = spName.toLowerCase();
+      targetKey = Object.keys(spMap).find(
+        (k) => spMap[k].name.trim().toLowerCase() === sNameLower
+      );
+    } else if (spId) {
+      const sIdLower = spId.toLowerCase();
+      targetKey = Object.keys(spMap).find(
+        (k) => k.toLowerCase() === sIdLower || spMap[k].name.trim().toLowerCase() === sIdLower
+      );
+    }
+
+    if (!targetKey) {
+      targetKey = spId || spName || "unassigned";
+      if (!spMap[targetKey]) {
+        spMap[targetKey] = {
+          id: targetKey,
+          name: spName || (targetKey === "unassigned" ? "Unassigned" : spId || "Staff"),
+          totalSales: 0,
+          orderCount: 0,
+        };
+      }
+    }
+
+    spMap[targetKey].totalSales += amt;
+    spMap[targetKey].orderCount += 1;
+  }
+
+  const salespersonPerformance = Object.values(spMap)
+    .map((sp) => ({
+      ...sp,
+      totalSales: Math.round((sp.totalSales + Number.EPSILON) * 100) / 100,
+      avgOrderValue: sp.orderCount > 0 ? Math.round((sp.totalSales / sp.orderCount + Number.EPSILON) * 100) / 100 : 0,
+    }))
+    .sort((a, b) => b.totalSales - a.totalSales);
+
+  if (salespersonParam) {
+    if (salespersonParam === "unassigned") {
+      sales = sales.filter((s) => !s.salesperson_id && !s.salesperson_name);
+    } else {
+      const selSp = (salespersonsList || []).find((sp) => sp.id === salespersonParam);
+      const selName = selSp?.name?.toLowerCase();
+      sales = sales.filter(
+        (s) =>
+          s.salesperson_id === salespersonParam ||
+          (selName && s.salesperson_name && s.salesperson_name.toLowerCase() === selName) ||
+          (s.salesperson_name &&
+            s.salesperson_name.toLowerCase().includes(salespersonParam.toLowerCase()))
+      );
+    }
+  }
 
   const products = (productsRaw || []).map(mapProductFromDb);
 
@@ -57,7 +138,7 @@ export async function GET(request: NextRequest) {
   let oldestSaleDate = now;
   for (const s of sales || []) {
     if (s.created_at) {
-      const d = new Date(s.created_at);
+      const d = parseDbDate(s.created_at);
       if (d < oldestSaleDate) oldestSaleDate = d;
     }
   }
@@ -123,8 +204,9 @@ export async function GET(request: NextRequest) {
   }
 
   for (const s of sales || []) {
+    if (s.deleted) continue;
     if (!s.created_at) continue;
-    const saleDate = new Date(s.created_at);
+    const saleDate = parseDbDate(s.created_at);
     if (saleDate < salesStart || saleDate > salesEnd) continue;
     const key = getBucketKey(saleDate);
     const amt = parseFloat((s.total_amount as any) || "0");
@@ -171,10 +253,11 @@ export async function GET(request: NextRequest) {
   const categorySalesEnd = toDate ? new Date(toDate) : undefined;
 
   for (const s of sales || []) {
+    if (s.deleted) continue;
     if (!s.items) continue;
     // Filter by date range if provided
     if (categorySalesStart && categorySalesEnd) {
-      const saleDate = new Date(s.created_at ??0);
+      const saleDate = parseDbDate(s.created_at);
       if (saleDate < categorySalesStart || saleDate > categorySalesEnd)
         continue;
     }
@@ -227,10 +310,11 @@ export async function GET(request: NextRequest) {
   const productSalesEnd = toDate ? new Date(toDate) : undefined;
 
   for (const s of sales || []) {
+    if (s.deleted) continue;
     if (!s.items) continue;
     // Filter by date range if provided
     if (productSalesStart && productSalesEnd) {
-      const saleDate = new Date(s.created_at ?? 0);
+      const saleDate = parseDbDate(s.created_at);
       if (saleDate < productSalesStart || saleDate > productSalesEnd) continue;
     }
     let items: any[] = [];
@@ -307,8 +391,9 @@ export async function GET(request: NextRequest) {
   let totalGrossSalesCalc = 0;
   let totalTaxCalc = 0;
   for (const s of sales || []) {
+    if (s.deleted) continue;
     if (!s.created_at || !s.items) continue;
-    const saleDate = new Date(s.created_at);
+    const saleDate = parseDbDate(s.created_at);
     // Filter by date range if provided
     if (profitStart && profitEnd) {
       if (saleDate < profitStart || saleDate > profitEnd) continue;
@@ -326,7 +411,7 @@ export async function GET(request: NextRequest) {
       const qty = Number(it.quantity || 0);
       const prod = productMap[it.productId];
       const costPerUnit = prod
-        ? Number(prod.buyingPrice ?? prod.price ?? 0)
+        ? Number(prod.buyingPrice ?? (prod as any).buying_price ?? 0)
         : 0;
       costSum += qty * costPerUnit;
     }
@@ -385,6 +470,7 @@ export async function GET(request: NextRequest) {
     categoryData,
     topProducts,
     profitData,
+    salespersonPerformance,
     totalProfit,
     totalSalesCost: totalSalesCostCalc,
     totalValuation,

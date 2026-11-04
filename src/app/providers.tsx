@@ -7,6 +7,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { AuthProvider } from "@/hooks/use-auth";
 import { Toaster } from "@/components/ui/toaster";
 import { NetworkStatusListener } from "@/components/shared/network-status-listener";
+import { SubscriptionGuard } from "@/components/shared/subscription-guard";
 
 export default function Providers({ children }: { children: ReactNode }) {
   // Online-only mode: disable service worker registration and background sync; also unregister any existing SW
@@ -22,8 +23,7 @@ export default function Providers({ children }: { children: ReactNode }) {
       <TooltipProvider>
         <AuthProvider>
           <Toaster />
-          {/* NetworkStatusListener retained for UI messaging, but app requires online */}
-          {children}
+          <SubscriptionGuard>{children}</SubscriptionGuard>
         </AuthProvider>
       </TooltipProvider>
     </QueryClientProvider>

@@ -6,22 +6,33 @@ import {
   useMutation,
   UseMutationResult,
 } from "@tanstack/react-query";
-import { User as SelectUser, InsertUser } from "@shared/schema";
+import { User as SelectUser, InsertUser, UserSession } from "@shared/schema";
 import { getQueryFn, apiRequest, queryClient } from "../lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
+import { usePosHeartbeat } from "./use-pos-heartbeat";
+
+
+export type LoginResponse = SelectUser | {
+  deviceLimitReached: true;
+  message: string;
+  activeDevices: UserSession[];
+};
+
+export type LoginData = Pick<InsertUser, "username" | "password"> & {
+  disconnectSessionId?: string;
+};
 
 type AuthContextType = {
   user: SelectUser | null;
   isLoading: boolean;
   error: Error | null;
-  loginMutation: UseMutationResult<SelectUser, Error, LoginData>;
+  loginMutation: UseMutationResult<LoginResponse, Error, LoginData>;
   logoutMutation: UseMutationResult<void, Error, void>;
   registerMutation: UseMutationResult<SelectUser, Error, InsertUser>;
 };
 
-type LoginData = Pick<InsertUser, "username" | "password">;
-
 export const AuthContext = createContext<AuthContextType | null>(null);
+
 export function AuthProvider({ children }: { children: ReactNode }) {
   const { toast } = useToast();
   const {
@@ -33,13 +44,28 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     queryFn: getQueryFn({ on401: "returnNull" }),
   });
 
-  const loginMutation = useMutation({
+  const loginMutation = useMutation<LoginResponse, Error, LoginData>({
     mutationFn: async (credentials: LoginData) => {
-      const res = await apiRequest("POST", "/api/login", credentials);
-      return await res.json();
+      const res = await fetch("/api/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(credentials),
+        credentials: "include",
+      });
+
+      const data = await res.json();
+      if (!res.ok) {
+        if (data.deviceLimitReached) {
+          return data as LoginResponse;
+        }
+        throw new Error(data.message || "Sign in failed. Please check credentials.");
+      }
+      return data as SelectUser;
     },
-    onSuccess: (user: SelectUser) => {
-      queryClient.setQueryData(["/api/user"], user);
+    onSuccess: (data: LoginResponse) => {
+      if (!("deviceLimitReached" in data)) {
+        queryClient.setQueryData(["/api/user"], data);
+      }
     },
     onError: (error: Error) => {
       toast({
@@ -98,10 +124,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         registerMutation,
       }}
     >
+      <HeartbeatRunner />
       {children}
     </AuthContext.Provider>
   );
 }
+
+function HeartbeatRunner() {
+  usePosHeartbeat();
+  return null;
+}
+
 
 export function useAuth() {
   const context = useContext(AuthContext);

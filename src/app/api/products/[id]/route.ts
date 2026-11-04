@@ -37,6 +37,44 @@ export async function PUT(req: NextRequest, context: { params: Promise<{ id: str
     if (body.categoryId === "") body.categoryId = null;
     
     const data = insertProductSchema.partial().parse(body);
+
+    // Validate price relationships against existing values
+    const existing = await storage.getProduct(params.id);
+    const buyingPriceVal = data.buyingPrice !== undefined 
+      ? data.buyingPrice 
+      : (existing ? (existing as any).buyingPrice ?? (existing as any).buying_price : null);
+    const sellingPriceVal = data.price !== undefined 
+      ? data.price 
+      : (existing ? (existing as any).price : null);
+    const minPriceVal = data.minPrice !== undefined 
+      ? data.minPrice 
+      : (existing ? (existing as any).minPrice ?? (existing as any).min_price : null);
+
+    const buying = buyingPriceVal != null ? Number(buyingPriceVal) : null;
+    const selling = sellingPriceVal != null ? Number(sellingPriceVal) : null;
+    const minP = minPriceVal != null ? Number(minPriceVal) : null;
+
+    if (buying != null && !isNaN(buying) && buying > 0) {
+      if (selling != null && !isNaN(selling) && selling < buying) {
+        return NextResponse.json(
+          { error: `Selling price (₹${selling}) cannot be lower than buying price (₹${buying})` },
+          { status: 400 }
+        );
+      }
+      if (minP != null && !isNaN(minP) && minP < buying) {
+        return NextResponse.json(
+          { error: `Minimum price (₹${minP}) cannot be lower than buying price (₹${buying})` },
+          { status: 400 }
+        );
+      }
+    }
+
+    if (minP != null && !isNaN(minP) && selling != null && !isNaN(selling) && selling < minP) {
+      return NextResponse.json(
+        { error: `Selling price (₹${selling}) cannot be lower than minimum price (₹${minP})` },
+        { status: 400 }
+      );
+    }
     
     // Map all fields to database column names (snake_case for Supabase)
     const dbData = mapProductToDb(data);
@@ -74,6 +112,20 @@ export async function DELETE(_req: NextRequest, context: { params: Promise<{ id:
   const auth = await requireAuth();
   if (!auth.ok) return NextResponse.json({}, { status: 401 });
   if (auth.user.role !== "admin") return NextResponse.json({}, { status: 403 });
+
+  const salesCount = await storage.getProductSalesCount(params.id);
+  if (salesCount > 0) {
+    const recentSales = await storage.getProductRecentSales(params.id, 6);
+    return NextResponse.json(
+      {
+        error: `Cannot permanently delete product: this item is connected to ${salesCount} sales transaction${salesCount > 1 ? "s" : ""}. To protect historical invoice and audit records, keep it in trash instead.`,
+        code: "HAS_LINKED_SALES",
+        salesCount,
+        linkedInvoices: recentSales,
+      },
+      { status: 409 }
+    );
+  }
 
   const ok = await storage.deleteProduct(params.id);
   if (!ok) return NextResponse.json({}, { status: 404 });

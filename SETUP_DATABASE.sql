@@ -18,6 +18,31 @@ CREATE TABLE IF NOT EXISTS users (
 );
 
 -- ============================
+-- 1B. USER SESSIONS TABLE (Max 2 Device Limit)
+-- ============================
+CREATE TABLE IF NOT EXISTS user_sessions (
+  id VARCHAR(36) PRIMARY KEY DEFAULT gen_random_uuid()::TEXT,
+  user_id VARCHAR(36) NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  session_token TEXT NOT NULL UNIQUE,
+  device_name TEXT NOT NULL,
+  ip_address TEXT,
+  user_agent TEXT,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  last_active_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  last_api_activity_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  last_heartbeat_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  revoked_at TIMESTAMP,
+  revocation_reason TEXT,
+  pos_status TEXT DEFAULT 'ONLINE',
+  current_pos_operation TEXT
+);
+
+CREATE INDEX IF NOT EXISTS idx_user_sessions_user_id ON user_sessions(user_id);
+CREATE INDEX IF NOT EXISTS idx_user_sessions_token ON user_sessions(session_token);
+
+
+
+-- ============================
 -- 2. CATEGORIES TABLE
 -- ============================
 CREATE TABLE IF NOT EXISTS categories (
@@ -35,7 +60,7 @@ CREATE TABLE IF NOT EXISTS products (
   id VARCHAR(36) PRIMARY KEY DEFAULT gen_random_uuid()::TEXT,
   name TEXT NOT NULL,
   sku TEXT NOT NULL UNIQUE,
-  category_id VARCHAR(36) REFERENCES categories(id),
+  category_id VARCHAR(36) REFERENCES categories(id) ON DELETE SET NULL,
   description TEXT,
   price DECIMAL(10, 2) NOT NULL,
   buying_price DECIMAL(10, 2),
@@ -43,6 +68,8 @@ CREATE TABLE IF NOT EXISTS products (
   stock INTEGER NOT NULL DEFAULT 0,
   min_stock INTEGER DEFAULT 5,
   barcode TEXT,
+  is_bargainable BOOLEAN DEFAULT FALSE,
+  min_price DECIMAL(10, 2),
   deleted BOOLEAN DEFAULT FALSE,
   deleted_at TIMESTAMP,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -57,6 +84,8 @@ CREATE TABLE IF NOT EXISTS customers (
   name TEXT NOT NULL,
   phone TEXT,
   email TEXT,
+  deleted BOOLEAN DEFAULT FALSE,
+  deleted_at TIMESTAMP,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
@@ -78,9 +107,23 @@ CREATE TABLE IF NOT EXISTS sales (
   discount_amount DECIMAL(10, 2) NOT NULL DEFAULT 0,
   total_amount DECIMAL(10, 2) NOT NULL,
   payment_method TEXT NOT NULL DEFAULT 'cash',
+  salesperson_id VARCHAR(36),
+  salesperson_name TEXT,
   invoice_number TEXT NOT NULL UNIQUE,
   deleted BOOLEAN DEFAULT FALSE,
   deleted_at TIMESTAMP,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- ============================
+-- 5B. SALESPERSONS TABLE
+-- ============================
+CREATE TABLE IF NOT EXISTS salespersons (
+  id VARCHAR(36) PRIMARY KEY DEFAULT gen_random_uuid()::TEXT,
+  name TEXT NOT NULL,
+  code TEXT,
+  phone TEXT,
+  active BOOLEAN DEFAULT TRUE,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
@@ -246,6 +289,19 @@ CREATE TABLE IF NOT EXISTS promotion_targets (
 );
 
 -- ============================
+-- 18b. CUSTOMERS TABLE
+-- ============================
+CREATE TABLE IF NOT EXISTS customers (
+  id VARCHAR(36) PRIMARY KEY DEFAULT gen_random_uuid()::TEXT,
+  name TEXT NOT NULL,
+  phone TEXT UNIQUE,
+  email TEXT,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+
+-- ============================
 -- 19. DISCOUNT COUPONS TABLE
 -- ============================
 CREATE TABLE IF NOT EXISTS discount_coupons (
@@ -272,6 +328,47 @@ CREATE TABLE IF NOT EXISTS payments (
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
+-- ============================
+-- 21. STORE SETTINGS TABLE
+-- ============================
+CREATE TABLE IF NOT EXISTS store_settings (
+  id VARCHAR(36) PRIMARY KEY DEFAULT 'default_store',
+  store_name TEXT NOT NULL DEFAULT 'Bhotiya Fabric Collection',
+  address TEXT DEFAULT 'Moti Ganj, Bakebar Road, Bharthana',
+  phone TEXT DEFAULT '+91 82736 89065',
+  email TEXT DEFAULT '',
+  gst_number TEXT DEFAULT '',
+  tagline TEXT DEFAULT 'Quality Fabrics & Clothing',
+  receipt_footer TEXT DEFAULT 'Thank you, Visit Again!',
+  tax_enabled BOOLEAN DEFAULT FALSE,
+  tax_percent DECIMAL(5, 2) DEFAULT 18.00,
+  tax_label TEXT DEFAULT 'GST',
+  tax_inclusive BOOLEAN DEFAULT FALSE,
+  show_salesperson_on_bill BOOLEAN DEFAULT TRUE,
+  whatsapp_template TEXT,
+  instagram TEXT DEFAULT '',
+  whatsapp_number TEXT DEFAULT '',
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+ALTER TABLE store_settings ADD COLUMN IF NOT EXISTS show_salesperson_on_bill BOOLEAN DEFAULT TRUE;
+ALTER TABLE store_settings ADD COLUMN IF NOT EXISTS subscription_expiry_date TIMESTAMP;
+
+-- ============================
+-- 22. BACKUP LOGS TABLE
+-- ============================
+CREATE TABLE IF NOT EXISTS backup_logs (
+  id VARCHAR(36) PRIMARY KEY DEFAULT gen_random_uuid()::TEXT,
+  status TEXT NOT NULL DEFAULT 'success',
+  file_name TEXT,
+  size_bytes BIGINT DEFAULT 0,
+  trigger TEXT DEFAULT 'manual', -- 'cron' | 'manual'
+  master_status TEXT,
+  user_status TEXT,
+  errors JSONB,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
 -- ===========================================================================
 -- INDEXES FOR PERFORMANCE
 -- ===========================================================================
@@ -294,6 +391,11 @@ CREATE INDEX idx_sales_customer_id ON sales(customer_id);
 CREATE INDEX idx_sales_invoice_number ON sales(invoice_number);
 CREATE INDEX idx_sales_created_at ON sales(created_at);
 CREATE INDEX idx_sales_deleted ON sales(deleted);
+
+-- Customers
+CREATE INDEX idx_customers_phone ON customers(phone);
+CREATE INDEX idx_customers_name ON customers(name);
+
 
 -- Sale Items
 CREATE INDEX idx_sale_items_sale_id ON sale_items(sale_id);
@@ -334,6 +436,10 @@ CREATE INDEX idx_coupons_active ON discount_coupons(active);
 -- Payments
 CREATE INDEX idx_payments_sale_id ON payments(sale_id);
 CREATE INDEX idx_payments_status ON payments(status);
+
+-- Store Settings & Backup Logs
+CREATE INDEX idx_store_settings_id ON store_settings(id);
+CREATE INDEX idx_backup_logs_created_at ON backup_logs(created_at);
 
 -- ===========================================================================
 -- ROW LEVEL SECURITY (Optional but recommended for Supabase)

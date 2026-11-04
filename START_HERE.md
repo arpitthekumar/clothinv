@@ -27,7 +27,7 @@ Understand what was cleaned up and why
 
 ### 4. **SETUP_DATABASE.sql** 🗄️
 The actual SQL schema file
-- 20 database tables
+- 22 database tables
 - All indexes for performance
 - Ready to run in Supabase
 - Never modify unless adding new features

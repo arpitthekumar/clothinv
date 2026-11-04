@@ -59,11 +59,20 @@ export default function SalesCard({
         </div>
       </div>
 
-      {/* Stats */}
-      <div className="flex gap-3 text-sm text-muted-foreground mb-3">
-        <User className="h-4 w-4" /> User: {sale.user_id?.slice(0, 8)}
-        <Package className="h-4 w-4" /> {normalizeItems(sale.items).length}{" "}
-        items
+      {/* Customer & Salesperson Info */}
+      <div className="flex flex-wrap items-center gap-3 text-sm text-muted-foreground mb-3">
+        <div className="flex items-center gap-1">
+          <User className="h-4 w-4" />
+          <span>{sale.customer_name || "Walk-in"}</span>
+        </div>
+        {sale.salesperson_name && (
+          <Badge variant="secondary" className="text-xs bg-primary/10 text-primary border-primary/20">
+            👤 Sales Person: {sale.salesperson_name}
+          </Badge>
+        )}
+        <div className="flex items-center gap-1">
+          <Package className="h-4 w-4" /> {normalizeItems(sale.items).length} items
+        </div>
       </div>
 
       <Separator className="my-3" />
@@ -82,7 +91,7 @@ export default function SalesCard({
           <Button
             size="sm"
             variant="destructive"
-            onClick={() => onDelete(sale.id)}
+            onClick={() => onDelete(sale)}
           >
             <Trash2 className="mr-2 h-4 w-4" /> Delete
           </Button>
@@ -101,7 +110,7 @@ export default function SalesCard({
             <Button
               size="sm"
               variant="destructive"
-              onClick={() => onPermanentDelete(sale.id)}
+              onClick={() => onPermanentDelete(sale)}
             >
               <XCircle className="mr-2 h-4 w-4" /> Permanent Delete
             </Button>

@@ -26,7 +26,7 @@ import { insertProductSchema, type Product } from "@shared/schema";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { AddCategoryModal } from "@/components/shared/add-category-modal";
-import { Plus, RefreshCw } from "lucide-react";
+import { Plus, RefreshCw, Search } from "lucide-react";
 import { LabelPreviewDialog } from "@/components/shared/label-preview-dialog";
 import { z } from "zod";
 import {
@@ -35,18 +35,60 @@ import {
   DialogHeader as CategoryDialogHeader,
   DialogTitle as CategoryDialogTitle,
 } from "@/components/ui/dialog";
-import { Search } from "lucide-react";
+import { Switch } from "@/components/ui/switch";
+import { getProductDefaultPrefs } from "@/lib/product-default-prefs";
 
-const formSchema = insertProductSchema.extend({
-  price: z.string().min(1, "Price is required"),
-  buyingPrice: z.string().optional(),
-  stock: z.string().min(1, "Stock is required"),
-  minStock: z.string().optional(),
-  description: z.string().optional(),
-  size: z.string().optional(),
-  barcode: z.string().optional(),
-  categoryId: z.string().optional(),
-});
+const formSchema = z
+  .object({
+    name: z.string().min(1, "Name is required"),
+    sku: z.string().min(1, "SKU is required"),
+    price: z.string().min(1, "Price is required"),
+    buyingPrice: z.string().optional(),
+    stock: z.string().min(1, "Stock is required"),
+    minStock: z.string().optional(),
+    description: z.string().optional(),
+    size: z.string().optional(),
+    barcode: z.string().optional(),
+    categoryId: z.string().optional(),
+    isBargainable: z.boolean().optional(),
+    minPrice: z.string().optional(),
+  })
+  .superRefine((data, ctx) => {
+    const sellingPrice = parseFloat(data.price);
+    const buyingPrice = data.buyingPrice ? parseFloat(data.buyingPrice) : null;
+    const minPrice = data.minPrice ? parseFloat(data.minPrice) : null;
+
+    // Rule 1: Selling price cannot be lower than buying price (whether bargainable is ON or OFF)
+    if (buyingPrice != null && !isNaN(buyingPrice) && buyingPrice > 0) {
+      if (!isNaN(sellingPrice) && sellingPrice < buyingPrice) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: `Selling price (₹${sellingPrice}) cannot be lower than buying price (₹${buyingPrice})`,
+          path: ["price"],
+        });
+      }
+    }
+
+    // Rule 2: Minimum bargain price cannot be lower than buying price
+    if (minPrice != null && !isNaN(minPrice)) {
+      if (buyingPrice != null && !isNaN(buyingPrice) && buyingPrice > 0 && minPrice < buyingPrice) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: `Minimum price (₹${minPrice}) cannot be lower than buying price (₹${buyingPrice})`,
+          path: ["minPrice"],
+        });
+      }
+
+      // Rule 3: Selling price cannot be lower than minimum bargain price
+      if (!isNaN(sellingPrice) && sellingPrice < minPrice) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: `Selling price (₹${sellingPrice}) cannot be lower than minimum price (₹${minPrice})`,
+          path: ["price"],
+        });
+      }
+    }
+  });
 
 type FormValues = z.infer<typeof formSchema>;
 
@@ -57,6 +99,14 @@ interface AddProductModalProps {
 }
 
 // Helper functions for auto-generation
+const isValidEan13 = (code: string): boolean => {
+  if (!/^\d{13}$/.test(code)) return false;
+  const digits = code.split("").map(Number);
+  const sum = digits.slice(0, 12).reduce((acc, d, i) => acc + (i % 2 === 0 ? d : d * 3), 0);
+  const checksum = (10 - (sum % 10)) % 10;
+  return checksum === digits[12];
+};
+
 const generateSKU = (productName: string): string => {
   const timestamp = Date.now().toString().slice(-6);
   const prefix = productName
@@ -98,8 +148,10 @@ export function AddProductModal({
     queryKey: ["/api/categories"],
   });
 
+  const defaultPrefs = getProductDefaultPrefs();
+
   const form = useForm<FormValues>({
-    resolver: zodResolver(formSchema),
+    resolver: zodResolver(formSchema) as any,
     defaultValues: {
       name: (initialProduct?.name as string) || "",
       sku: (initialProduct?.sku as string) || "",
@@ -116,12 +168,17 @@ export function AddProductModal({
           ? String(initialProduct.minStock)
           : "0",
       barcode: (initialProduct?.barcode as string) || "",
+      isBargainable: (initialProduct as any)?.isBargainable ?? defaultPrefs.defaultIsBargainable,
+      minPrice: (initialProduct as any)?.minPrice
+        ? String((initialProduct as any).minPrice)
+        : "",
     },
   });
 
   // When switching to edit mode or changing selected product, preload form fields
   useEffect(() => {
     if (!isOpen) return;
+    const currentPrefs = getProductDefaultPrefs();
     const values: FormValues = {
       name: (initialProduct?.name as string) || "",
       sku: (initialProduct?.sku as string) || "",
@@ -138,6 +195,10 @@ export function AddProductModal({
           ? String(initialProduct.minStock)
           : "0",
       barcode: (initialProduct?.barcode as string) || "",
+      isBargainable: (initialProduct as any)?.isBargainable ?? currentPrefs.defaultIsBargainable,
+      minPrice: (initialProduct as any)?.minPrice
+        ? String((initialProduct as any).minPrice)
+        : "",
     };
     form.reset(values);
   }, [initialProduct, isOpen]);
@@ -155,8 +216,7 @@ export function AddProductModal({
       if (!form.getValues("barcode")) {
         form.setValue("barcode", newBarcode);
         // Generate 1D barcode preview (EAN-13 or Code128)
-        const isEanCandidate = /^\d{12,13}$/.test(newBarcode);
-        const symbology = isEanCandidate ? "ean13" : "code128";
+        const symbology = isValidEan13(newBarcode) ? "ean13" : "code128";
         setGeneratedQR(
           `https://bwipjs-api.metafloor.com/?bcid=${symbology}&text=${encodeURIComponent(
             newBarcode
@@ -171,8 +231,7 @@ export function AddProductModal({
     const newBarcode = generateBarcode();
     form.setValue("sku", newSKU);
     form.setValue("barcode", newBarcode);
-    const isEanCandidate = /^\d{12,13}$/.test(newBarcode);
-    const symbology = isEanCandidate ? "ean13" : "code128";
+    const symbology = isValidEan13(newBarcode) ? "ean13" : "code128";
     setGeneratedQR(
       `https://bwipjs-api.metafloor.com/?bcid=${symbology}&text=${encodeURIComponent(
         newBarcode
@@ -192,6 +251,8 @@ export function AddProductModal({
         description: data.description || "No description provided",
         size: data.size || null,
         barcode: data.barcode || null,
+        isBargainable: data.isBargainable,
+        minPrice: data.isBargainable && data.minPrice ? data.minPrice : null,
       };
 
       // Only include buyingPrice if it has a value (omit if empty to avoid validation issues)
@@ -258,8 +319,8 @@ export function AddProductModal({
     >
       <DialogContent
         className="sm:max-w-2xl max-h-[90vh] overflow-y-auto"
-        onInteractOutside={(e) => e.preventDefault()} // 🚫 block outside click
-        onEscapeKeyDown={(e) => e.preventDefault()} // 🚫 block ESC close
+        onInteractOutside={(e) => e.preventDefault()}
+        onEscapeKeyDown={(e) => e.preventDefault()}
         data-testid="modal-add-product"
       >
         <DialogHeader>
@@ -274,10 +335,10 @@ export function AddProductModal({
         </DialogHeader>
 
         <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+          <form onSubmit={form.handleSubmit(onSubmit as any)} className="space-y-6">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <FormField
-                control={form.control}
+                control={form.control as any}
                 name="name"
                 render={({ field }) => (
                   <FormItem>
@@ -295,7 +356,7 @@ export function AddProductModal({
               />
 
               <FormField
-                control={form.control}
+                control={form.control as any}
                 name="sku"
                 render={({ field }) => (
                   <FormItem>
@@ -324,7 +385,7 @@ export function AddProductModal({
               />
 
               <FormField
-                control={form.control}
+                control={form.control as any}
                 name="categoryId"
                 render={({ field }) => {
                   const [openCategorySearch, setOpenCategorySearch] =
@@ -419,7 +480,7 @@ export function AddProductModal({
               />
 
               <FormField
-                control={form.control}
+                control={form.control as any}
                 name="size"
                 render={({ field }) => (
                   <FormItem>
@@ -437,7 +498,7 @@ export function AddProductModal({
               />
 
               <FormField
-                control={form.control}
+                control={form.control as any}
                 name="price"
                 render={({ field }) => (
                   <FormItem>
@@ -457,7 +518,7 @@ export function AddProductModal({
               />
 
               <FormField
-                control={form.control}
+                control={form.control as any}
                 name="buyingPrice"
                 render={({ field }) => (
                   <FormItem>
@@ -477,7 +538,7 @@ export function AddProductModal({
               />
 
               <FormField
-                control={form.control}
+                control={form.control as any}
                 name="stock"
                 render={({ field }) => (
                   <FormItem>
@@ -496,7 +557,7 @@ export function AddProductModal({
               />
 
               <FormField
-                control={form.control}
+                control={form.control as any}
                 name="minStock"
                 render={({ field }) => (
                   <FormItem>
@@ -515,7 +576,7 @@ export function AddProductModal({
               />
 
               <FormField
-                control={form.control}
+                control={form.control as any}
                 name="barcode"
                 render={({ field }) => (
                   <FormItem>
@@ -531,10 +592,56 @@ export function AddProductModal({
                   </FormItem>
                 )}
               />
+
+              <FormField
+                control={form.control as any}
+                name="isBargainable"
+                render={({ field }) => (
+                  <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3 shadow-sm">
+                    <div className="space-y-0.5">
+                      <FormLabel>Bargainable Item</FormLabel>
+                      <p className="text-xs text-muted-foreground">
+                        Allow flexible price editing on POS checkout
+                      </p>
+                    </div>
+                    <FormControl>
+                      <Switch
+                        checked={field.value}
+                        onCheckedChange={field.onChange}
+                      />
+                    </FormControl>
+                  </FormItem>
+                )}
+              />
+
+              {form.watch("isBargainable") && (
+                <FormField
+                  control={form.control as any}
+                  name="minPrice"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Minimum Price Floor (₹)</FormLabel>
+                      <FormControl>
+                        <Input
+                          type="number"
+                          step="0.01"
+                          placeholder="Lowest allowed selling price"
+                          {...field}
+                          data-testid="input-product-min-price"
+                        />
+                      </FormControl>
+                      <p className="text-xs text-muted-foreground">
+                        Displays alert badge if sold below this price
+                      </p>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              )}
             </div>
 
             <FormField
-              control={form.control}
+              control={form.control as any}
               name="description"
               render={({ field }) => (
                 <FormItem>
@@ -560,6 +667,7 @@ export function AddProductModal({
                 name: form.getValues("name") || "",
                 sku: form.getValues("sku") || "",
                 price: form.getValues("price") || "",
+                minPrice: form.getValues("minPrice") || undefined,
                 size: form.getValues("size") || "",
                 categoryName:
                   (categories || []).find(

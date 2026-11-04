@@ -23,6 +23,8 @@ export const CANONICAL_PUBLIC_TABLES: readonly string[] = [
   "product_price_history",
   "discount_coupons",
   "sync_status",
+  "store_settings",
+  "backup_logs",
 ] as const;
 
 /**
@@ -50,6 +52,8 @@ export const RESTORE_INSERT_ORDER: readonly string[] = [
   "product_price_history",
   "discount_coupons",
   "sync_status",
+  "store_settings",
+  "backup_logs",
 ];
 
 /** Delete children before parents (reverse of restore insert order). */

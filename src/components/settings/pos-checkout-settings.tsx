@@ -26,7 +26,39 @@ import {
   type ThankYouMode,
 } from "@/lib/pos-checkout-prefs";
 import { useToast } from "@/hooks/use-toast";
-import { Zap, CreditCard, XCircle, Send, Printer, Image, FileText, DoorOpen, Volume2, VolumeX } from "lucide-react";
+import { Zap, CreditCard, XCircle, Send, Printer, Image, FileText, DoorOpen, Volume2, VolumeX, Tag, Percent, Sparkles, CheckCircle2, AlertTriangle } from "lucide-react";
+import type { AllowedDiscountModes, DefaultDiscountType } from "@/lib/pos-checkout-prefs";
+
+const allowedDiscountOptions: { value: AllowedDiscountModes; label: string; description: string }[] = [
+  { value: "all", label: "All Discount Options", description: "Allow Percentage (%), Fixed Amount (₹), and Coupon Codes" },
+  { value: "coupon_only", label: "Coupon Code Only", description: "Only allow discount via promotional coupon codes" },
+  { value: "percentage_only", label: "Percentage Discount Only (%)", description: "Only allow percentage-based discount" },
+  { value: "fixed_only", label: "Fixed Amount Only (₹)", description: "Only allow flat amount discount" },
+  { value: "percentage_and_coupon", label: "Percentage (%) & Coupon Code", description: "Allow percentage (%) and coupon code options" },
+];
+
+const defaultDiscountTypeOptions: { value: DefaultDiscountType; label: string }[] = [
+  { value: "percentage", label: "Percentage Discount (%)" },
+  { value: "fixed", label: "Fixed Amount (₹)" },
+  { value: "coupon", label: "Coupon Code" },
+];
+
+function isDiscountTypeAllowed(type: DefaultDiscountType, mode: AllowedDiscountModes): boolean {
+  if (mode === "all") return true;
+  if (mode === "coupon_only") return type === "coupon";
+  if (mode === "percentage_only") return type === "percentage";
+  if (mode === "fixed_only") return type === "fixed";
+  if (mode === "percentage_and_coupon") return type === "percentage" || type === "coupon";
+  return true;
+}
+
+function getFallbackTypeForMode(mode: AllowedDiscountModes): DefaultDiscountType {
+  if (mode === "coupon_only") return "coupon";
+  if (mode === "percentage_only") return "percentage";
+  if (mode === "fixed_only") return "fixed";
+  if (mode === "percentage_and_coupon") return "percentage";
+  return "percentage";
+}
 
 const paymentModes: { value: PaymentConfirmMode; label: string }[] = [
   { value: "manual", label: "Manual — confirm sale after you tap Payment done" },
@@ -85,11 +117,63 @@ export function PosCheckoutSettings() {
     setPrefs((p) => ({ ...p, [key]: value, preset: key === 'preset' ? value as PresetMode : 'custom' }));
   };
 
+  const handleSelectAllowedMode = (newMode: AllowedDiscountModes) => {
+    let nextType = prefs.defaultDiscountType;
+    let didAdjust = false;
+
+    if (prefs.defaultDiscountEnabled && !isDiscountTypeAllowed(prefs.defaultDiscountType, newMode)) {
+      nextType = getFallbackTypeForMode(newMode);
+      didAdjust = true;
+    }
+
+    setPrefs((prev) => ({
+      ...prev,
+      allowedDiscountModes: newMode,
+      defaultDiscountType: nextType,
+      preset: "custom",
+    }));
+
+    if (didAdjust) {
+      toast({
+        title: "Default Discount Adjusted",
+        description: `Default discount type auto-switched to match allowed POS mode (${newMode}).`,
+      });
+    }
+  };
+
+  const handleSelectDefaultType = (newType: DefaultDiscountType) => {
+    let nextMode = prefs.allowedDiscountModes || "all";
+    let didExpand = false;
+
+    if (!isDiscountTypeAllowed(newType, nextMode)) {
+      if (newType === "coupon" && nextMode === "percentage_only") {
+        nextMode = "percentage_and_coupon";
+      } else {
+        nextMode = "all";
+      }
+      didExpand = true;
+    }
+
+    setPrefs((prev) => ({
+      ...prev,
+      defaultDiscountType: newType,
+      allowedDiscountModes: nextMode,
+      preset: "custom",
+    }));
+
+    if (didExpand) {
+      toast({
+        title: "Allowed Modes Expanded",
+        description: `POS allowed modes updated to support ${newType === "percentage" ? "Percentage" : newType === "fixed" ? "Fixed Amount" : "Coupon Code"}.`,
+      });
+    }
+  };
+
   const save = () => {
     setPosCheckoutPrefs(prefs);
     toast({
       title: "Settings saved",
-      description: "Your POS checkout automation settings have been saved successfully.",
+      description: "Your POS checkout & discount preferences have been saved successfully.",
     });
   };
 
@@ -102,6 +186,11 @@ export function PosCheckoutSettings() {
     const newPrefs = applyPreset(preset);
     setPrefs(newPrefs);
   };
+
+  const isCurrentDefaultTypeValid = isDiscountTypeAllowed(
+    prefs.defaultDiscountType || "percentage",
+    prefs.allowedDiscountModes || "all"
+  );
 
   return (
     <div className="space-y-6">
@@ -130,6 +219,164 @@ export function PosCheckoutSettings() {
                 </button>
               ))}
             </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* CART DISCOUNTS & DEFAULT PRESET CARD */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Tag className="h-5 w-5 text-primary" />
+            Cart Discounts & Default Preset
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-6">
+          {/* Allowed Discount Modes */}
+          <div className="space-y-3">
+            <div>
+              <Label className="text-sm font-semibold">Allowed Discount Modes in POS Checkout</Label>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                Controls which discount options cashier/user sees during POS checkout.
+              </p>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2.5">
+              {allowedDiscountOptions.map((opt) => {
+                const isSelected = (prefs.allowedDiscountModes || "all") === opt.value;
+                return (
+                  <button
+                    key={opt.value}
+                    type="button"
+                    onClick={() => handleSelectAllowedMode(opt.value)}
+                    className={cn(
+                      "flex flex-col justify-between gap-1.5 rounded-xl border p-3.5 text-left transition-all",
+                      isSelected
+                        ? "border-primary bg-primary/10 ring-1 ring-primary shadow-xs"
+                        : "border-border hover:bg-muted/60"
+                    )}
+                  >
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="font-semibold text-sm leading-snug">{opt.label}</span>
+                      {isSelected && (
+                        <CheckCircle2 className="h-4 w-4 text-primary shrink-0" />
+                      )}
+                    </div>
+                    <span className="text-xs text-muted-foreground leading-relaxed">{opt.description}</span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Automatic Default Cart Discount Toggle */}
+          <div className="pt-4 border-t space-y-4">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-4 rounded-xl border bg-muted/20">
+              <div className="space-y-1">
+                <Label className="text-base font-semibold flex items-center gap-2">
+                  <Sparkles className="h-4 w-4 text-amber-500 fill-amber-500/20" />
+                  Default Cart Discount Preset
+                </Label>
+                <p className="text-xs text-muted-foreground">
+                  Automatically pre-fill a default discount on every new cart (can still be cleared manually).
+                </p>
+              </div>
+              <Button
+                variant={prefs.defaultDiscountEnabled ? "default" : "outline"}
+                size="sm"
+                onClick={() => update("defaultDiscountEnabled", !prefs.defaultDiscountEnabled)}
+                className={`font-semibold shrink-0 gap-1.5 transition-all ${
+                  prefs.defaultDiscountEnabled
+                    ? "bg-emerald-600 hover:bg-emerald-700 text-white"
+                    : "border-border hover:bg-muted"
+                }`}
+              >
+                {prefs.defaultDiscountEnabled ? (
+                  <>
+                    <CheckCircle2 className="h-4 w-4" />
+                    Default Discount ON
+                  </>
+                ) : (
+                  "Default Discount OFF"
+                )}
+              </Button>
+            </div>
+
+            {prefs.defaultDiscountEnabled && (
+              <div className="p-4 rounded-xl bg-card border shadow-xs space-y-4">
+                {!isCurrentDefaultTypeValid && (
+                  <div className="p-3 rounded-lg bg-amber-500/10 border border-amber-500/30 text-amber-600 dark:text-amber-400 text-xs font-medium flex items-center gap-2">
+                    <AlertTriangle className="h-4 w-4 shrink-0 text-amber-500" />
+                    <span>
+                      <strong>Warning:</strong> Selected default discount type (<strong>{prefs.defaultDiscountType}</strong>) is currently restricted by Allowed Discount Modes (<strong>{prefs.allowedDiscountModes}</strong>). Selecting a type will automatically expand allowed modes.
+                    </span>
+                  </div>
+                )}
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Default Discount Type</Label>
+                    <div className="grid grid-cols-3 gap-1.5 p-1 bg-muted rounded-lg text-xs font-medium">
+                      {defaultDiscountTypeOptions.map((opt) => {
+                        const isSelected = prefs.defaultDiscountType === opt.value;
+                        const isAllowed = isDiscountTypeAllowed(opt.value, prefs.allowedDiscountModes || "all");
+                        return (
+                          <button
+                            key={opt.value}
+                            type="button"
+                            onClick={() => handleSelectDefaultType(opt.value)}
+                            className={`py-2 px-2 rounded-md transition-all text-center flex items-center justify-center gap-1 ${
+                              isSelected
+                                ? "bg-background text-foreground shadow-xs font-semibold ring-1 ring-primary/30"
+                                : isAllowed
+                                ? "text-muted-foreground hover:text-foreground"
+                                : "text-muted-foreground/70 hover:text-foreground opacity-90"
+                            }`}
+                          >
+                            <span>{opt.value === "percentage" ? "% Percent" : opt.value === "fixed" ? "₹ Fixed" : "Coupon"}</span>
+                            {!isAllowed && <span className="text-[10px] text-amber-500 font-bold" title="Clicking will expand allowed POS modes">⚡</span>}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                      {prefs.defaultDiscountType === "coupon"
+                        ? "Default Coupon Code"
+                        : prefs.defaultDiscountType === "percentage"
+                        ? "Default Percentage (%)"
+                        : "Default Fixed Amount (₹)"}
+                    </Label>
+                    <div className="relative">
+                      {prefs.defaultDiscountType === "fixed" && (
+                        <span className="absolute left-3 top-2.5 text-xs text-muted-foreground font-bold">₹</span>
+                      )}
+                      <Input
+                        type={prefs.defaultDiscountType === "coupon" ? "text" : "number"}
+                        placeholder={
+                          prefs.defaultDiscountType === "coupon"
+                            ? "e.g. WELCOME10"
+                            : prefs.defaultDiscountType === "percentage"
+                            ? "e.g. 10"
+                            : "e.g. 100"
+                        }
+                        value={prefs.defaultDiscountValue || ""}
+                        onChange={(e) => update("defaultDiscountValue", e.target.value)}
+                        className={prefs.defaultDiscountType === "fixed" ? "pl-7" : ""}
+                      />
+                      {prefs.defaultDiscountType === "percentage" && (
+                        <span className="absolute right-3 top-2.5 text-xs text-muted-foreground font-bold">%</span>
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                <div className="p-2.5 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-xs text-emerald-600 dark:text-emerald-400 font-medium flex items-center gap-2">
+                  <span>💡</span> Every new cart will start with this discount pre-applied. Cashiers can clear it with 1-click.
+                </div>
+              </div>
+            )}
           </div>
         </CardContent>
       </Card>

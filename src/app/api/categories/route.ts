@@ -44,24 +44,23 @@ export async function DELETE(req: NextRequest) {
       );
     }
 
-    // Check if any products are using this category
+    // Check if any active products are using this category
     const productsRaw = await storage.getProducts(false); // Exclude deleted products
-    const products = productsRaw.map(mapProductFromDb);
-    const productsUsingCategory = products.filter(
-      (p) => p.categoryId === categoryId
+    const productsUsingCategory = (productsRaw || []).filter(
+      (p: any) => p.categoryId === categoryId || p.category_id === categoryId
     );
 
     if (productsUsingCategory.length > 0) {
       return NextResponse.json(
         {
-          error: `Cannot delete category. ${productsUsingCategory.length} product(s) are using this category.`,
+          error: `Cannot delete category. ${productsUsingCategory.length} active product(s) are currently assigned to this category. Please reassign or delete them first.`,
           productCount: productsUsingCategory.length,
         },
         { status: 400 }
       );
     }
 
-    // Delete the category
+    // Delete the category (disassociates soft-deleted products)
     await storage.deleteCategory(categoryId);
     return NextResponse.json({ success: true }, { status: 200 });
   } catch (error: any) {

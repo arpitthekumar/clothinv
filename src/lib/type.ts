@@ -16,7 +16,15 @@ export interface SaleData {
   customerId?: string; // maps to customer_id
   customerName: string; // customer_name
   customerPhone: string; // customer_phone
+  salespersonId?: string;
+  salespersonName?: string;
   items: SaleItem[];
+  subtotal?: number;
+  taxAmount?: number;
+  taxPercent?: number;
+  taxInclusive?: boolean;
+  tax_inclusive?: boolean;
+  discountAmount?: number;
   totalAmount: number;
   paymentMethod: string; // payment_method
   invoiceNumber: string; // invoice_number

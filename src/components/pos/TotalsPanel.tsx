@@ -9,6 +9,8 @@ interface TotalsPanelProps {
   couponDiscount: number;
   tax: number;
   total: number;
+  taxPercent?: number;
+  taxLabel?: string;
 }
 
 export function TotalsPanel({
@@ -18,6 +20,8 @@ export function TotalsPanel({
   couponDiscount,
   tax,
   total,
+  taxPercent = 0,
+  taxLabel = "GST",
 }: TotalsPanelProps) {
   // ✅ Format function (Indian commas, no decimals)
   const formatIN = (num: number) =>
@@ -58,9 +62,9 @@ export function TotalsPanel({
       )}
 
       {tax > 0 && (
-        <div className="flex justify-between">
-          <span>Tax:</span>
-          <span>₹{formatIN(tax)}</span>
+        <div className="flex justify-between font-medium text-foreground">
+          <span>{taxLabel || "GST"} {taxPercent > 0 ? `(${taxPercent}%)` : ""}:</span>
+          <span>+₹{formatIN(tax)}</span>
         </div>
       )}
 

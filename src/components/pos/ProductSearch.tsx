@@ -345,10 +345,10 @@ export default function ProductSearch({
       <div className="relative group">
         {/* Search Input */}
         <div
-          className={`flex items-center gap-2 bg-white dark:bg-slate-900 border 
+          className={`flex items-center gap-2 bg-card border border-border
           px-4 py-2 shadow-sm 
         transition 
-        group-focus-within:ring-2 group-focus-within:ring-blue-300
+        group-focus-within:ring-2 group-focus-within:ring-ring
 		    ${
           showHistory || results.length > 0
             ? "rounded-t-4xl rounded-b-none"
@@ -357,31 +357,31 @@ export default function ProductSearch({
 `}
         >
           {" "}
-          <Search className="h-5 w-5 text-slate-400" />
+          <Search className="h-5 w-5 text-muted-foreground" />
           <input
             value={query}
             onChange={(e) => handleInputChange(e.target.value)}
             onFocus={() => setShowHistory(true)}
             placeholder="Search products, SKU, barcode..."
-            className="flex-1 bg-transparent outline-none text-sm"
+            className="flex-1 bg-transparent outline-none text-sm text-foreground placeholder:text-muted-foreground"
           />
           {query && (
             <button
               onClick={() => setQuery("")}
-              className="text-slate-400 hover:text-slate-600"
+              className="text-muted-foreground hover:text-foreground"
             >
-              <X className="h-4 w-4 hover:text-red-500" />
+              <X className="h-4 w-4 hover:text-destructive" />
             </button>
           )}
           <button
             onClick={handleTapSearch}
-            className="text-slate-500 hover:text-slate-700"
+            className="text-muted-foreground hover:text-foreground"
           >
-            <Search className="h-5 w-5 hover:text-blue-500" />
+            <Search className="h-5 w-5 hover:text-primary" />
           </button>
           <button
             onClick={onOpenScanner}
-            className="text-slate-500 hover:text-yellow-500"
+            className="text-muted-foreground hover:text-amber-500"
           >
             <QrCode className="h-5 w-5" />
           </button>
@@ -394,17 +394,17 @@ export default function ProductSearch({
               initial={{ opacity: 0, y: -6 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0 }}
-              className="left-0 w-full bg-white dark:bg-slate-900 
-    border border-t-0 shadow-lg overflow-hidden z-50
+              className="left-0 w-full bg-card
+    border border-border border-t-0 shadow-lg overflow-hidden z-50
     rounded-4xl rounded-t-none
     transition 
-    group-focus-within:ring-2 group-focus-within:ring-blue-300"
+    group-focus-within:ring-2 group-focus-within:ring-ring"
             >
               <div className="max-h-64 overflow-y-auto">
                 {/* RECENT SEARCHES WHEN EMPTY INPUT */}
                 {showHistory && query.trim() === "" && history.length > 0 && (
                   <div className="p-2">
-                    <p className="text-xs text-slate-400 mb-1 px-2">
+                    <p className="text-xs text-muted-foreground mb-1 px-2">
                       Recent searches
                     </p>
 
@@ -412,16 +412,16 @@ export default function ProductSearch({
                       <button
                         key={h}
                         onClick={() => handleSelectHistory(h)}
-                        className="w-full flex items-center gap-2 px-3 py-2 hover:bg-slate-50 dark:hover:bg-slate-800 rounded-lg"
+                        className="w-full flex items-center gap-2 px-3 py-2 hover:bg-muted text-foreground rounded-lg"
                       >
-                        <Clock className="h-4 w-4 text-slate-400" />
+                        <Clock className="h-4 w-4 text-muted-foreground" />
                         <span className="flex-1 truncate text-sm">{h}</span>
                         <X
                           onClick={(e) => {
                             e.stopPropagation();
                             deleteHistoryItem(h);
                           }}
-                          className="h-4 w-4 text-slate-400 hover:text-red-500"
+                          className="h-4 w-4 text-muted-foreground hover:text-destructive"
                         />
                       </button>
                     ))}
@@ -438,10 +438,10 @@ export default function ProductSearch({
                     .map((match) => (
                       <button
                         key={match}
-                        className="flex w-full items-center gap-2 px-3 py-2 hover:bg-slate-50 dark:hover:bg-slate-800 text-sm"
+                        className="flex w-full items-center gap-2 px-3 py-2 hover:bg-muted text-foreground text-sm"
                         onClick={() => handleSelectHistory(match)}
                       >
-                        <Search className="h-4 w-4 text-slate-400" />
+                        <Search className="h-4 w-4 text-muted-foreground" />
                         <span className="truncate">{match}</span>
                       </button>
                     ))}
@@ -456,9 +456,9 @@ export default function ProductSearch({
                       <div
                         key={p.id}
                         onClick={() => onAddToCart(p.id)}
-                        className={`w-full flex items-center justify-between px-3 py-2 text-sm cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-800 ${
+                        className={`w-full flex items-center justify-between px-3 py-2 text-sm cursor-pointer hover:bg-muted ${
                           selectedIndex === i
-                            ? "bg-yellow-50 dark:bg-yellow-900/20"
+                            ? "bg-amber-50 dark:bg-amber-950/20"
                             : ""
                         }`}
                       >

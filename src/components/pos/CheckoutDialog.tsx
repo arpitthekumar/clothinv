@@ -12,6 +12,8 @@ import { Button } from "@/components/ui/button";
 import { Loader2 } from "lucide-react";
 import type { PosCheckoutPrefs } from "@/lib/pos-checkout-prefs";
 import { playAutomationSound } from "@/lib/sound";
+import { setGlobalPosBusy } from "@/hooks/use-pos-heartbeat";
+
 
 interface CheckoutDialogProps {
   open: boolean;
@@ -50,15 +52,19 @@ export function CheckoutDialog({
 
   useEffect(() => {
     if (!open) {
+      setGlobalPosBusy(false);
       consumedRef.current = false;
       setCountdown(0);
       return;
     }
 
+    setGlobalPosBusy(true, "Processing Payment & Checkout");
+
     if (prefs.paymentConfirmMode !== "automated") {
       setCountdown(0);
       return;
     }
+
 
     consumedRef.current = false;
     setCountdown(autoSeconds);
