@@ -1,7 +1,11 @@
 "use client";
 
+import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
+import { Edit2, AlertTriangle, Check } from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
 
 interface CartItemUI {
   id: string;
@@ -11,6 +15,10 @@ interface CartItemUI {
   quantity: number;
   price: string;
   stock: number;
+  isBargainable?: boolean;
+  minPrice?: string | number | null;
+  buyingPrice?: string | number | null;
+  customUnitPrice?: number | null;
 }
 
 interface CartTableProps {
@@ -18,10 +26,10 @@ interface CartTableProps {
   onDecrease: (productId: string) => void;
   onIncrease: (productId: string) => void;
   onRemove: (productId: string) => void;
+  onUpdatePrice?: (productId: string, customPrice: number | null) => void;
 
   getDiscountedUnitPrice?: (productId: string, basePrice: number) => number;
 
-  // ✅ ADD THESE
   getFinalUnitPrice?: (
     productId: string,
     basePrice: number,
@@ -39,13 +47,18 @@ export function CartTable({
   onDecrease,
   onIncrease,
   onRemove,
+  onUpdatePrice,
   getDiscountedUnitPrice,
-   getFinalUnitPrice,   // ✅ ADD
-  subtotal,            // ✅ ADD
-  couponDiscount,      // ✅ ADD
+  getFinalUnitPrice,
+  subtotal,
+  couponDiscount,
 }: CartTableProps) {
-  const formatIN = (num: number) =>
-    num.toLocaleString("en-IN", {
+  const [editingPriceId, setEditingPriceId] = useState<string | null>(null);
+  const [tempPrice, setTempPrice] = useState<string>("");
+  const { toast } = useToast();
+
+  const formatIN = (num: number | null | undefined) =>
+    (typeof num === "number" && !isNaN(num) ? num : 0).toLocaleString("en-IN", {
       minimumFractionDigits: 0,
       maximumFractionDigits: 0,
     });
@@ -64,7 +77,7 @@ export function CartTable({
   return (
     <div className="space-y-3">
       {items.map((item) => {
-        const baseUnit = parseFloat(item.price);
+        const baseUnit = Math.round(item.customUnitPrice ?? parseFloat(item.price));
 
         const productPrice = getDiscountedUnitPrice
           ? getDiscountedUnitPrice(item.productId, baseUnit)
@@ -73,24 +86,48 @@ export function CartTable({
         const unitCharged =
           getFinalUnitPrice && subtotal !== undefined && couponDiscount !== undefined
             ? getFinalUnitPrice(
-              item.productId,
-              baseUnit,
-              item.quantity,
-              subtotal,
-              couponDiscount
-            )
+                item.productId,
+                baseUnit,
+                item.quantity,
+                subtotal,
+                couponDiscount
+              )
             : productPrice;
 
-        const lineList = baseUnit * item.quantity;
+        const lineList = Math.round(parseFloat(item.price)) * item.quantity;
         const lineCharged = unitCharged * item.quantity;
         const lineSave = lineList - lineCharged;
 
         const hasPromo = lineSave > 0.01;
+        const minPriceNum = item.minPrice ? Math.round(parseFloat(String(item.minPrice))) : null;
+        const buyingPriceNum = item.buyingPrice ? Math.round(parseFloat(String(item.buyingPrice))) : null;
+        const minAllowed = (minPriceNum != null || buyingPriceNum != null)
+          ? Math.max(minPriceNum ?? 0, buyingPriceNum ?? 0)
+          : null;
+
+        const isBelowMin = minAllowed != null && unitCharged < minAllowed;
 
         const discountPercent =
           hasPromo && lineList > 0
             ? Math.round((lineSave / lineList) * 100)
             : 0;
+
+        const handleSavePrice = () => {
+          const val = Math.round(parseFloat(tempPrice));
+          if (!isNaN(val) && val >= 0) {
+            if (minAllowed != null && val < minAllowed) {
+              toast({
+                title: "Price Too Low",
+                description: `Price cannot be set lower than minimum allowed price (₹${formatIN(minAllowed)})`,
+                variant: "destructive",
+              });
+              return;
+            }
+            const originalPrice = Math.round(parseFloat(item.price));
+            onUpdatePrice?.(item.productId, val === originalPrice ? null : val);
+          }
+          setEditingPriceId(null);
+        };
 
         return (
           <div
@@ -101,44 +138,97 @@ export function CartTable({
 
               {/* LEFT */}
               <div className="flex-1 space-y-1">
-                <h4 className="font-semibold text-sm md:text-base leading-tight">
-                  {item.name}
-                </h4>
+                <div className="flex items-center gap-2 flex-wrap">
+                  <h4 className="font-semibold text-sm md:text-base leading-tight">
+                    {item.name}
+                  </h4>
+                  {item.isBargainable && (
+                    <Badge variant="outline" className="text-[10px] bg-blue-50 text-blue-700 dark:bg-blue-950 dark:text-blue-300 border-blue-200">
+                      Bargainable
+                    </Badge>
+                  )}
+                </div>
 
                 <p className="text-xs text-muted-foreground">
                   SKU: {item.sku}
                 </p>
 
-                {/* PRICE */}
-                {hasPromo ? (
-                  <div className="flex items-center gap-2 text-sm flex-wrap">
-                    <span className="line-through text-muted-foreground">
-                      ₹{formatIN(baseUnit)}
-                    </span>
-
-                    <span className="text-green-600 font-semibold">
-                      ₹{formatIN(unitCharged)}
-                    </span>
-
-                    <span className="text-xs text-muted-foreground">
-                      per item
-                    </span>
+                {/* PRICE EDIT / DISPLAY */}
+                {editingPriceId === item.productId ? (
+                  <div className="flex items-center gap-1.5 mt-1.5">
+                    <span className="text-xs font-semibold">₹</span>
+                    <Input
+                      type="number"
+                      step="1"
+                      className="h-7 w-28 text-xs px-2"
+                      autoFocus
+                      value={tempPrice}
+                      onChange={(e) => setTempPrice(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") handleSavePrice();
+                        if (e.key === "Escape") setEditingPriceId(null);
+                      }}
+                    />
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-7 w-7 text-green-600 hover:bg-green-50"
+                      onClick={handleSavePrice}
+                    >
+                      <Check className="h-3.5 w-3.5" />
+                    </Button>
                   </div>
                 ) : (
-                  <div className="text-sm text-muted-foreground">
-                    ₹{formatIN(baseUnit)} × {item.quantity}
+                  <div className="flex items-center gap-2 text-sm flex-wrap mt-1">
+                    {hasPromo ? (
+                      <>
+                        <span className="line-through text-muted-foreground">
+                          ₹{formatIN(Math.round(parseFloat(item.price)))}
+                        </span>
+                        <span className="text-green-600 font-semibold">
+                          ₹{formatIN(unitCharged)}
+                        </span>
+                        <span className="text-xs text-muted-foreground">per item</span>
+                      </>
+                    ) : (
+                      <div className="text-sm text-muted-foreground">
+                        ₹{formatIN(baseUnit)} × {item.quantity}
+                      </div>
+                    )}
+
+                    {item.isBargainable && (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-6 px-1.5 text-xs text-blue-600 hover:text-blue-700 hover:bg-blue-50 dark:hover:bg-blue-950"
+                        onClick={() => {
+                          setEditingPriceId(item.productId);
+                          setTempPrice(String(Math.round(baseUnit)));
+                        }}
+                      >
+                        <Edit2 className="h-3 w-3 mr-1" />
+                        Edit Price
+                      </Button>
+                    )}
                   </div>
                 )}
 
-                {/* STOCK + SAVE */}
-                <div className="flex items-center gap-2 flex-wrap">
+                {/* BADGES: STOCK, SAVINGS, MIN PRICE ALERT */}
+                <div className="flex items-center gap-2 flex-wrap pt-0.5">
                   <Badge variant="outline" className="text-xs">
                     {item.stock} in stock
                   </Badge>
 
                   {hasPromo && (
-                    <Badge className="bg-green-100 text-green-700 text-xs">
+                    <Badge className="bg-green-100 text-green-700 dark:bg-green-950 dark:text-green-300 text-xs">
                       Save ₹{formatIN(lineSave)} ({discountPercent}%)
+                    </Badge>
+                  )}
+
+                  {isBelowMin && (
+                    <Badge className="bg-red-100 text-red-700 dark:bg-red-950 dark:text-red-300 text-xs flex items-center gap-1">
+                      <AlertTriangle className="h-3 w-3" />
+                      Below Min Price (₹{formatIN(minAllowed)})
                     </Badge>
                   )}
                 </div>

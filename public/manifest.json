@@ -1,12 +1,21 @@
 {
-  "name": "WTS Cloth Inventory",
-  "short_name": "WTS",
+  "name": "wtscloth Inventory",
+  "short_name": "wtscloth",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#111827",
   "theme_color": "#3b82f6",
   "description": "Offline-capable clothing management system",
   "icons": [
-    
+    {
+      "src": "/icons/icon-192.webp",
+      "sizes": "192x192",
+      "type": "image/webp"
+    },
+    {
+      "src": "/icons/icon-512.webp",
+      "sizes": "512x512",
+      "type": "image/webp"
+    }
   ]
 }

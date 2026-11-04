@@ -19,6 +19,7 @@ export async function GET(req: NextRequest) {
   const start = url.searchParams.get("start");
   const end = url.searchParams.get("end");
   const category = url.searchParams.get("category");
+  const salesperson = url.searchParams.get("salesperson");
 
   // ✅ FIX: Everyone sees all sales
   const userId = null;
@@ -29,6 +30,7 @@ export async function GET(req: NextRequest) {
     cursor,
     deleted,
     payment,
+    salesperson,
     product,
     category,
     start,

@@ -1,9 +1,17 @@
 "use client";
 
-import { Edit, QrCode, Trash2, RotateCcw, XCircle } from "lucide-react";
+import { Edit, QrCode, Trash2, RotateCcw, XCircle, ShieldAlert, CheckCircle2, Receipt, Calendar } from "lucide-react";
 import { LabelPreviewDialog } from "@/components/shared/label-preview-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from "@/components/ui/dialog";
 import {
   AlertDialog,
   AlertDialogContent,
@@ -47,6 +55,18 @@ export function InventoryRow({
   const [showLabel, setShowLabel] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [confirmPermanentDelete, setConfirmPermanentDelete] = useState(false);
+  const [deleteWarning, setDeleteWarning] = useState<{
+    productName: string;
+    salesCount: number;
+    linkedInvoices: Array<{
+      id: string;
+      invoiceNumber: string;
+      amount: string;
+      quantity?: number;
+      customerName?: string;
+      createdAt?: string;
+    }>;
+  } | null>(null);
   const { user } = useAuth();
 
   // ✅ Role checks
@@ -98,7 +118,20 @@ export function InventoryRow({
   // ❌ Permanent delete
   const permanentDeleteMutation = useMutation({
     mutationFn: async (productId: string) => {
-      await apiRequest("DELETE", `/api/products/${productId}/permanent`);
+      const res = await fetch(`/api/products/${productId}/permanent`, {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        const error: any = new Error(data.error || "Failed to delete product");
+        error.status = res.status;
+        error.code = data.code;
+        error.salesCount = data.salesCount;
+        error.linkedInvoices = data.linkedInvoices || [];
+        throw error;
+      }
+      return data;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/products"] });
@@ -106,13 +139,41 @@ export function InventoryRow({
         title: "Product permanently deleted",
         description: "This product has been removed completely.",
       });
+      setConfirmPermanentDelete(false);
     },
-    onError: (err: Error) =>
-      toast({
-        title: "Error deleting product",
-        description: err.message,
-        variant: "destructive",
-      }),
+    onError: (err: any) => {
+      setConfirmPermanentDelete(false);
+      const isLinked =
+        err.code === "HAS_LINKED_SALES" ||
+        err.status === 409 ||
+        (typeof err.message === "string" && err.message.includes("HAS_LINKED_SALES"));
+
+      if (isLinked) {
+        let linkedInvoices = err.linkedInvoices || [];
+        let salesCount = err.salesCount || 1;
+
+        if (typeof err.message === "string" && err.message.includes("{")) {
+          try {
+            const jsonPart = err.message.substring(err.message.indexOf("{"));
+            const parsed = JSON.parse(jsonPart);
+            if (parsed.salesCount) salesCount = parsed.salesCount;
+            if (parsed.linkedInvoices) linkedInvoices = parsed.linkedInvoices;
+          } catch {}
+        }
+
+        setDeleteWarning({
+          productName: product.name,
+          salesCount,
+          linkedInvoices,
+        });
+      } else {
+        toast({
+          title: "Error deleting product",
+          description: err.message,
+          variant: "destructive",
+        });
+      }
+    },
   });
 
   const getStockStatus = (stock: number, minStock: number = 5) => {
@@ -225,6 +286,7 @@ export function InventoryRow({
                     name: product.name,
                     sku: product.sku,
                     price: product.price,
+                    minPrice: product.minPrice || undefined,
                     size: product.size || null,
                     categoryName: category?.name || null,
                     barcode: product.barcode || undefined,
@@ -347,6 +409,113 @@ export function InventoryRow({
           </AlertDialogContent>
         </AlertDialog>
       )}
+
+      {/* ⚠️ Linked Sales Warning Dialog */}
+      <Dialog open={!!deleteWarning} onOpenChange={(open) => !open && setDeleteWarning(null)}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <div className="flex items-center gap-3">
+              <div className="h-10 w-10 rounded-full bg-amber-500/10 text-amber-600 flex items-center justify-center shrink-0">
+                <ShieldAlert className="h-6 w-6" />
+              </div>
+              <div>
+                <DialogTitle className="text-lg">Cannot Permanently Delete Product</DialogTitle>
+                <DialogDescription className="text-xs text-muted-foreground mt-0.5">
+                  Connected to existing sales invoices
+                </DialogDescription>
+              </div>
+            </div>
+          </DialogHeader>
+
+          <div className="space-y-3 py-2 text-sm">
+            <div className="p-3.5 bg-amber-500/10 border border-amber-500/20 rounded-lg text-amber-900 dark:text-amber-200">
+              <p className="font-medium text-xs leading-relaxed">
+                Cannot delete <span className="font-bold underline">{deleteWarning?.productName}</span> because this product is linked to{" "}
+                <span className="font-bold">
+                  {deleteWarning?.salesCount} sales transaction{deleteWarning?.salesCount !== 1 ? "s" : ""}
+                </span>
+                .
+              </p>
+              <p className="text-[11px] mt-1.5 opacity-90 leading-relaxed">
+                Permanently deleting this item would erase it from past invoices, receipts, and revenue audits.
+              </p>
+            </div>
+
+            {/* List of Connected Invoices */}
+            {deleteWarning && deleteWarning.linkedInvoices.length > 0 && (
+              <div className="space-y-1.5">
+                <div className="flex items-center justify-between text-xs font-semibold text-muted-foreground px-0.5">
+                  <span>These are the invoices it is connected to:</span>
+                  <span className="text-[11px]">
+                    {deleteWarning.linkedInvoices.length} of {deleteWarning.salesCount} shown
+                  </span>
+                </div>
+                <div className="space-y-1.5 max-h-40 overflow-y-auto pr-1">
+                  {deleteWarning.linkedInvoices.map((inv) => (
+                    <div
+                      key={inv.id}
+                      className="flex items-center justify-between p-2 rounded-lg border bg-muted/40 hover:bg-muted/60 transition-colors text-xs"
+                    >
+                      <div className="flex items-center gap-2">
+                        <Receipt className="h-3.5 w-3.5 text-primary shrink-0" />
+                        <div>
+                          <span className="font-mono font-bold text-foreground">
+                            {inv.invoiceNumber}
+                          </span>
+                          {inv.quantity && (
+                            <span className="text-muted-foreground ml-1.5 text-[11px]">
+                              ({inv.quantity} pcs sold)
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                      <div className="text-right">
+                        <div className="font-semibold text-emerald-600 dark:text-emerald-400">
+                          ₹{parseFloat(inv.amount || "0").toLocaleString("en-IN")}
+                        </div>
+                        {inv.createdAt && (
+                          <div className="text-[10px] text-muted-foreground">
+                            {new Date(inv.createdAt).toLocaleDateString("en-IN", {
+                              day: "numeric",
+                              month: "short",
+                              year: "numeric",
+                            })}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+                {deleteWarning.salesCount > deleteWarning.linkedInvoices.length && (
+                  <p className="text-[11px] text-muted-foreground text-center pt-0.5">
+                    + {deleteWarning.salesCount - deleteWarning.linkedInvoices.length} more invoice(s) on record
+                  </p>
+                )}
+              </div>
+            )}
+
+            <div className="p-3 bg-muted/60 border rounded-lg text-xs space-y-1 text-muted-foreground">
+              <p className="font-semibold text-foreground flex items-center gap-1.5">
+                <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600 shrink-0" />
+                Safe Action: Keep in Trash
+              </p>
+              <p className="leading-relaxed">
+                Keeping this product in Trash keeps it hidden from active inventory and POS billing, while preserving all past customer invoices 100% intact.
+              </p>
+            </div>
+          </div>
+
+          <DialogFooter className="pt-2">
+            <Button
+              type="button"
+              className="w-full bg-primary"
+              onClick={() => setDeleteWarning(null)}
+            >
+              Keep Safely in Trash
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </>
   );
 }

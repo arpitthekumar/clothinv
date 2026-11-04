@@ -1,9 +1,40 @@
 /**
- * Maps frontend camelCase field names to database column names.
- * Your Supabase table currently stores most columns in camelCase and
- * only a few in snake_case (e.g. buying_price, deleted_at). This helper
- * ensures we send the right field names without requiring DB changes.
+ * Maps frontend camelCase field names to database column names (snake_case in PostgreSQL).
  */
+
+export function mapUserToDb(user: any): any {
+  if (!user || typeof user !== 'object') {
+    return user;
+  }
+  const dbUser: any = {};
+  if ('id' in user && user.id !== undefined) dbUser.id = user.id;
+  if ('username' in user && user.username !== undefined) dbUser.username = user.username;
+  if ('password' in user && user.password !== undefined) dbUser.password = user.password;
+  if ('role' in user && user.role !== undefined) dbUser.role = user.role;
+  if ('fullName' in user && user.fullName !== undefined) dbUser.full_name = user.fullName;
+  if ('full_name' in user && user.full_name !== undefined) dbUser.full_name = user.full_name;
+  if ('createdAt' in user && user.createdAt !== undefined) dbUser.created_at = user.createdAt;
+  if ('created_at' in user && user.created_at !== undefined) dbUser.created_at = user.created_at;
+
+  return dbUser;
+}
+
+export function mapUserFromDb(user: any): any {
+  if (!user || typeof user !== "object") {
+    return user;
+  }
+  const u = { ...user };
+  if (u.full_name !== undefined && u.fullName === undefined) {
+    u.fullName = u.full_name;
+    delete u.full_name;
+  }
+  if (u.created_at !== undefined && u.createdAt === undefined) {
+    u.createdAt =
+      typeof u.created_at === "string" ? new Date(u.created_at) : u.created_at;
+    delete u.created_at;
+  }
+  return u;
+}
 
 export function mapProductToDb(product: any): any {
   if (!product || typeof product !== 'object') {
@@ -12,33 +43,38 @@ export function mapProductToDb(product: any): any {
 
   const dbProduct: any = {};
   
-  // Fields that already match the column names in Supabase (camelCase is fine)
-  const directFields = [
-    'id',
-    'name',
-    'sku',
-    'categoryId',
-    'description',
-    'price',
-    'size',
-    'stock',
-    'minStock',
-    'barcode',
-    'createdAt',
-    'updatedAt',
-    'deleted',
-    'deleted_at',
-  ];
-  for (const field of directFields) {
-    if (field in product && product[field] !== undefined) {
-      dbProduct[field] = product[field];
-    }
-  }
+  const mapping: Record<string, string> = {
+    id: 'id',
+    name: 'name',
+    sku: 'sku',
+    categoryId: 'category_id',
+    category_id: 'category_id',
+    description: 'description',
+    price: 'price',
+    buyingPrice: 'buying_price',
+    buying_price: 'buying_price',
+    size: 'size',
+    stock: 'stock',
+    minStock: 'min_stock',
+    min_stock: 'min_stock',
+    barcode: 'barcode',
+    isBargainable: 'is_bargainable',
+    is_bargainable: 'is_bargainable',
+    minPrice: 'min_price',
+    min_price: 'min_price',
+    deleted: 'deleted',
+    deletedAt: 'deleted_at',
+    deleted_at: 'deleted_at',
+    createdAt: 'created_at',
+    created_at: 'created_at',
+    updatedAt: 'updated_at',
+    updated_at: 'updated_at',
+  };
 
-  if ('buyingPrice' in product) {
-    const val = product.buyingPrice;
-    if (val !== undefined && val !== null && val !== '') {
-      dbProduct['buying_price'] = val;
+  for (const [key, value] of Object.entries(product)) {
+    if (value !== undefined) {
+      const targetKey = mapping[key] || key;
+      dbProduct[targetKey] = value;
     }
   }
 
@@ -77,29 +113,15 @@ export function mapProductFromDb(product: any): any {
     delete mapped.updated_at;
   }
 
-  if ('deleted_at' in mapped && mapped.deleted_at !== undefined) {
-    mapped.deletedAt = mapped.deleted_at;
-    delete mapped.deleted_at;
+  if ('is_bargainable' in mapped && mapped.is_bargainable !== undefined) {
+    mapped.isBargainable = mapped.is_bargainable;
+    delete mapped.is_bargainable;
+  }
+
+  if ('min_price' in mapped && mapped.min_price !== undefined) {
+    mapped.minPrice = mapped.min_price;
+    delete mapped.min_price;
   }
 
   return mapped;
 }
-
-/** Supabase/Postgres returns snake_case; app + session expect camelCase User fields. */
-export function mapUserFromDb(user: any): any {
-  if (!user || typeof user !== "object") {
-    return user;
-  }
-  const u = { ...user };
-  if (u.full_name !== undefined && u.fullName === undefined) {
-    u.fullName = u.full_name;
-    delete u.full_name;
-  }
-  if (u.created_at !== undefined && u.createdAt === undefined) {
-    u.createdAt =
-      typeof u.created_at === "string" ? new Date(u.created_at) : u.created_at;
-    delete u.created_at;
-  }
-  return u;
-}
-

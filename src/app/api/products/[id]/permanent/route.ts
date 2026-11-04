@@ -41,6 +41,20 @@ export async function DELETE(
       );
     }
 
+    const salesCount = await storage.getProductSalesCount(productId);
+    if (salesCount > 0) {
+      const recentSales = await storage.getProductRecentSales(productId, 6);
+      return NextResponse.json(
+        {
+          error: `Cannot permanently delete product: this item is connected to ${salesCount} sales transaction${salesCount > 1 ? "s" : ""}. To protect historical invoice and audit records, keep it in trash instead.`,
+          code: "HAS_LINKED_SALES",
+          salesCount,
+          linkedInvoices: recentSales,
+        },
+        { status: 409 }
+      );
+    }
+
     await storage.deleteProduct(productId);
 
     return NextResponse.json({ success: true });

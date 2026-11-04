@@ -12,6 +12,7 @@ import {
 } from "lucide-react";
 import { useBilling } from "@/hooks/use-billing";
 import { usePosCheckoutPrefs } from "@/hooks/use-pos-checkout-prefs";
+import { useStoreSettings } from "@/hooks/use-store-settings";
 import ProductSearch from "@/components/pos/ProductSearch";
 import { FavoriteProducts } from "@/components/pos/FavoriteProducts";
 import { CartTable } from "@/components/pos/CartTable";
@@ -35,11 +36,17 @@ export function BillingInterface() {
     lastCustomerPhone,
     customerPhone,
     customerName,
+    salespersonId,
+    setSalespersonId,
+    salespersons,
     isProcessing,
     isConfirmingSale,
-    favorites,
     couponCode,
     appliedCoupon,
+    customDiscountType,
+    customDiscountValue,
+    matchedCustomerName,
+    restoreMatchedCustomerName,
     setProductCode,
     setShowScanner,
     setPaymentMethod,
@@ -48,11 +55,15 @@ export function BillingInterface() {
     setCustomerPhone,
     setCustomerName,
     setCouponCode,
+    setCustomDiscountType,
+    setCustomDiscountValue,
+    favorites,
     products,
     recentSales,
     mostSoldProducts,
     addToCart,
     updateQuantity,
+    updateItemPrice,
     removeFromCart,
     clearCart,
     toggleFavorite,
@@ -85,6 +96,8 @@ export function BillingInterface() {
 
   // all handlers implemented inside useBilling hook
 
+  const { settings: storeSettings } = useStoreSettings();
+
   const totals = calculateTotals();
   const {
     listSubtotal,
@@ -93,6 +106,7 @@ export function BillingInterface() {
     couponDiscount,
     tax,
     total,
+    taxPercent,
   } = totals;
 
   return (
@@ -201,9 +215,9 @@ export function BillingInterface() {
             <CartTable
               items={cart as any}
               getDiscountedUnitPrice={getDiscountedUnitPrice}
-              getFinalUnitPrice={getFinalUnitPrice}   // ✅ ADD THIS
-              subtotal={subtotal}                    // ✅ ADD THIS
-              couponDiscount={couponDiscount}        // ✅ ADD THIS
+              getFinalUnitPrice={getFinalUnitPrice}
+              subtotal={subtotal}
+              couponDiscount={couponDiscount}
               onDecrease={(productId) => {
                 const item = cart.find((i) => i.productId === productId);
                 if (!item) return;
@@ -215,6 +229,7 @@ export function BillingInterface() {
                 updateQuantity(productId, item.quantity + 1);
               }}
               onRemove={removeFromCart}
+              onUpdatePrice={updateItemPrice}
             />
           </CardContent>
         </Card>
@@ -234,6 +249,8 @@ export function BillingInterface() {
               couponDiscount={couponDiscount}
               tax={tax}
               total={total}
+              taxPercent={taxPercent}
+              taxLabel={storeSettings?.taxLabel || "GST"}
             />
           </CardContent>
         </Card>
@@ -251,11 +268,21 @@ export function BillingInterface() {
               onChangeCustomerName={setCustomerName}
               customerPhone={customerPhone}
               onChangeCustomerPhone={setCustomerPhone}
+              salespersonId={salespersonId}
+              onChangeSalespersonId={setSalespersonId}
+              salespersons={salespersons}
               couponCode={couponCode}
               onChangeCouponCode={setCouponCode}
               hasAppliedCoupon={!!appliedCoupon}
               onApplyCoupon={applyCoupon}
               onRemoveCoupon={removeCoupon}
+              customDiscountType={customDiscountType}
+              onChangeCustomDiscountType={setCustomDiscountType}
+              customDiscountValue={customDiscountValue}
+              onChangeCustomDiscountValue={setCustomDiscountValue}
+              allowedDiscountModes={posCheckoutPrefs?.allowedDiscountModes || "all"}
+              matchedCustomerName={matchedCustomerName}
+              onRestoreMatchedName={restoreMatchedCustomerName}
             />
 
             <Button

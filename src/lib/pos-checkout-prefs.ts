@@ -16,6 +16,15 @@ export type ThankYouButtonId =
 
 export type PresetMode = "custom" | "fast" | "safe" | "balanced";
 
+export type AllowedDiscountModes =
+  | "all"
+  | "coupon_only"
+  | "percentage_only"
+  | "fixed_only"
+  | "percentage_and_coupon";
+
+export type DefaultDiscountType = "percentage" | "fixed" | "coupon";
+
 export type PosCheckoutPrefs = {
   version: 1;
   preset: PresetMode;
@@ -28,6 +37,15 @@ export type PosCheckoutPrefs = {
   thankYouAutoButton: ThankYouButtonId;
   /** Whether to play sound before automation runs */
   soundEnabled: boolean;
+
+  /** Allowed Cart Discount Modes */
+  allowedDiscountModes: AllowedDiscountModes;
+  /** Whether automatic default discount for new cart is enabled */
+  defaultDiscountEnabled: boolean;
+  /** Default discount type: percentage | fixed | coupon */
+  defaultDiscountType: DefaultDiscountType;
+  /** Default discount value (e.g. 10 for 10% or ₹10, or coupon code) */
+  defaultDiscountValue: string;
 };
 
 export const DEFAULT_POS_CHECKOUT_PREFS: PosCheckoutPrefs = {
@@ -40,6 +58,10 @@ export const DEFAULT_POS_CHECKOUT_PREFS: PosCheckoutPrefs = {
   thankYouAutoSeconds: 0,
   thankYouAutoButton: "close",
   soundEnabled: true,
+  allowedDiscountModes: "all",
+  defaultDiscountEnabled: false,
+  defaultDiscountType: "percentage",
+  defaultDiscountValue: "0",
 };
 
 export const PRESET_CONFIGS: Record<PresetMode, Omit<PosCheckoutPrefs, 'version' | 'preset'>> = {
@@ -51,6 +73,10 @@ export const PRESET_CONFIGS: Record<PresetMode, Omit<PosCheckoutPrefs, 'version'
     thankYouAutoSeconds: 0,
     thankYouAutoButton: "close",
     soundEnabled: true,
+    allowedDiscountModes: "all",
+    defaultDiscountEnabled: false,
+    defaultDiscountType: "percentage",
+    defaultDiscountValue: "0",
   },
   fast: {
     paymentConfirmMode: "none",
@@ -60,6 +86,10 @@ export const PRESET_CONFIGS: Record<PresetMode, Omit<PosCheckoutPrefs, 'version'
     thankYouAutoSeconds: 1,
     thankYouAutoButton: "close",
     soundEnabled: true,
+    allowedDiscountModes: "all",
+    defaultDiscountEnabled: false,
+    defaultDiscountType: "percentage",
+    defaultDiscountValue: "0",
   },
   safe: {
     paymentConfirmMode: "manual",
@@ -69,6 +99,10 @@ export const PRESET_CONFIGS: Record<PresetMode, Omit<PosCheckoutPrefs, 'version'
     thankYouAutoSeconds: 0,
     thankYouAutoButton: "close",
     soundEnabled: true,
+    allowedDiscountModes: "all",
+    defaultDiscountEnabled: false,
+    defaultDiscountType: "percentage",
+    defaultDiscountValue: "0",
   },
   balanced: {
     paymentConfirmMode: "automated",
@@ -78,6 +112,10 @@ export const PRESET_CONFIGS: Record<PresetMode, Omit<PosCheckoutPrefs, 'version'
     thankYouAutoSeconds: 2,
     thankYouAutoButton: "fast_print",
     soundEnabled: true,
+    allowedDiscountModes: "all",
+    defaultDiscountEnabled: false,
+    defaultDiscountType: "percentage",
+    defaultDiscountValue: "0",
   },
 };
 

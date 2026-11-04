@@ -39,6 +39,6 @@ export const config = {
      * Run on all app routes except Next internals and static assets so API + pages
      * receive x-clothinv-supabase-profile for database selection.
      */
-    "/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico|apk)$).*)",
+    "/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico|apk|exe)$).*)",
   ],
 };

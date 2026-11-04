@@ -8,39 +8,65 @@ interface SaleCalculation {
   discountValue: number;
   discountAmount: number;
   total: number;
+  taxInclusive?: boolean;
 }
 
-export function calculateSaleTotals(items: Array<{ quantity: number; price: string | number }>, discountType?: string | null, discountValue: number = 0): SaleCalculation {
-  // Calculate subtotal (rounded)
+export function calculateSaleTotals(
+  items: Array<{ quantity: number; price: string | number }>,
+  discountType?: string | null,
+  discountValue: number = 0,
+  taxPercentParam: number = 0,
+  taxInclusive: boolean = false
+): SaleCalculation {
+  // Calculate subtotal (rounded to whole integer)
   const subtotal = Math.round(items.reduce((sum, item) => {
     const price = typeof item.price === 'string' ? parseFloat(item.price) : item.price;
-    return sum + (price * item.quantity);
-  }, 0) * 100) / 100;
+    return sum + (Math.round(price) * item.quantity);
+  }, 0));
 
-  // Calculate discount (rounded)
-  const discountAmount = discountType === 'percentage'
-    ? Math.round(subtotal * (discountValue / 100) * 100) / 100
+  // Calculate discount (rounded to whole integer & clamped to subtotal)
+  const rawDiscount = discountType === 'percentage'
+    ? Math.round(subtotal * (Math.min(100, Math.max(0, discountValue)) / 100))
     : discountType === 'fixed'
-    ? Math.round(discountValue * 100) / 100
+    ? Math.max(0, Math.round(discountValue))
     : 0;
 
-  // Amount after discount
-  const afterDiscount = Math.round((subtotal - discountAmount) * 100) / 100;
+  const discountAmount = Math.min(subtotal, rawDiscount);
+  const taxPercent = Math.max(0, taxPercentParam);
 
-  // Calculate tax (0% - GST removed)
-  const taxPercent = 0;
-  const taxAmount = 0;
+  if (taxInclusive && taxPercent > 0) {
+    // 🏷️ INCLUSIVE TAX (MRP Includes GST)
+    // Total is Subtotal - Discount (no tax added on top)
+    const total = Math.max(0, subtotal - discountAmount);
+    // Extract GST amount from total: Tax = Total - (Total / (1 + Tax%/100))
+    const netBeforeTax = total / (1 + taxPercent / 100);
+    const taxAmount = Math.round(total - netBeforeTax);
 
-  // Calculate final total (rounded)
-  const total = Math.round((afterDiscount + taxAmount) * 100) / 100;
+    return {
+      subtotal,
+      taxPercent,
+      taxAmount,
+      discountType: (discountType as 'percentage' | 'fixed' | null) || null,
+      discountValue: Math.round(discountValue),
+      discountAmount,
+      total,
+      taxInclusive: true,
+    };
+  }
+
+  // 🏷️ EXCLUSIVE TAX (GST added on top)
+  const afterDiscount = Math.max(0, subtotal - discountAmount);
+  const taxAmount = Math.round(afterDiscount * (taxPercent / 100));
+  const total = afterDiscount + taxAmount;
 
   return {
     subtotal,
     taxPercent,
     taxAmount,
     discountType: (discountType as 'percentage' | 'fixed' | null) || null,
-    discountValue,
+    discountValue: Math.round(discountValue),
     discountAmount,
-    total
+    total,
+    taxInclusive: false,
   };
 }

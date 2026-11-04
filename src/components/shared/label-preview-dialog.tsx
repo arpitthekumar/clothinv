@@ -11,6 +11,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ProductLabel } from "./product-label";
+import { useStoreSettings } from "@/hooks/use-store-settings";
 
 type LabelPreviewDialogProps = {
   open: boolean;
@@ -20,6 +21,7 @@ type LabelPreviewDialogProps = {
     name: string;
     sku: string;
     price?: string | number;
+    minPrice?: string | number;
     size?: string | null;
     categoryName?: string | null;
     barcode?: string;
@@ -31,6 +33,7 @@ export function LabelPreviewDialog({
   onOpenChange,
   product,
 }: LabelPreviewDialogProps) {
+  const { settings: activeStoreSettings, isLoading: isSettingsLoading } = useStoreSettings();
   const labelRef = useRef<HTMLDivElement>(null);
   const [barcodeLoaded, setBarcodeLoaded] = useState(false);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
@@ -41,6 +44,14 @@ export function LabelPreviewDialog({
   const [copies, setCopies] = useState(1);
 
   const code = (product.barcode || product.sku).trim();
+
+  /* ---------- Reset Preview state on open ---------- */
+  useEffect(() => {
+    if (open) {
+      setPreviewUrl(null);
+      setBarcodeLoaded(false);
+    }
+  }, [open]);
 
   /* ---------- Helpers ---------- */
   const waitForImages = async (element: HTMLElement) => {
@@ -62,9 +73,27 @@ export function LabelPreviewDialog({
     await waitForImages(labelRef.current);
     return html2canvas(labelRef.current, {
       backgroundColor: "#ffffff",
-      scale: 3,
+      scale: 2,
       useCORS: true,
       allowTaint: false,
+      onclone: (clonedDoc) => {
+        const label = clonedDoc.querySelector("[data-product-label]") as HTMLElement;
+        if (label) {
+          label.style.backgroundColor = "#ffffff";
+          label.style.color = "#000000";
+          const allEls = label.querySelectorAll("*");
+          allEls.forEach((el) => {
+            const htmlEl = el as HTMLElement;
+            const style = window.getComputedStyle(htmlEl);
+            if (style.color && (style.color.includes("lab") || style.color.includes("oklch"))) {
+              htmlEl.style.color = "#000000";
+            }
+            if (style.backgroundColor && (style.backgroundColor.includes("lab") || style.backgroundColor.includes("oklch"))) {
+              htmlEl.style.backgroundColor = "#ffffff";
+            }
+          });
+        }
+      },
     });
   };
 
@@ -93,30 +122,43 @@ export function LabelPreviewDialog({
     });
 
   /* ---------- Auto Preview ---------- */
-  useEffect(() => {
-    if (!open || !barcodeLoaded || previewUrl || loading) return;
-    let cancelled = false;
+  const isGeneratingRef = useRef(false);
 
-    const run = async () => {
+  useEffect(() => {
+    if (!open || !barcodeLoaded || previewUrl || isSettingsLoading || isGeneratingRef.current) return;
+    let cancelled = false;
+    isGeneratingRef.current = true;
+    setLoading(true);
+
+    const timer = setTimeout(async () => {
       try {
-        setLoading(true);
         const canvas = await generateCanvas();
-        if (!canvas || cancelled) return;
+        if (!canvas || cancelled) {
+          isGeneratingRef.current = false;
+          if (!cancelled) setLoading(false);
+          return;
+        }
 
         const blob = await canvasToBlob(canvas);
-        if (cancelled) return;
+        if (cancelled) {
+          isGeneratingRef.current = false;
+          return;
+        }
 
         setPreviewUrl(URL.createObjectURL(blob));
+      } catch (err) {
+        console.error("Preview generation failed:", err);
       } finally {
+        isGeneratingRef.current = false;
         if (!cancelled) setLoading(false);
       }
-    };
+    }, 250);
 
-    setTimeout(run, 200);
     return () => {
       cancelled = true;
+      clearTimeout(timer);
     };
-  }, [open, barcodeLoaded]);
+  }, [open, barcodeLoaded, isSettingsLoading, previewUrl]);
 
   /* ---------- Download ---------- */
   const handleDownload = () => {
@@ -127,7 +169,7 @@ export function LabelPreviewDialog({
     a.click();
   };
 
-  /* ---------- Share (normal android share) ---------- */
+  /* ---------- Share ---------- */
   const handleShare = async () => {
     if (!previewUrl) return;
     setLoading(true);
@@ -165,12 +207,43 @@ export function LabelPreviewDialog({
     }
   };
 
+  /* ---------- Print (Browser Direct) ---------- */
+  const handleBrowserPrint = () => {
+    if (!previewUrl) return;
+    const printWin = window.open("", "_blank");
+    if (!printWin) {
+      alert("Popup blocked. Please allow popups for printing.");
+      return;
+    }
+
+    printWin.document.write(`
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <title>Print Label - ${product.sku}</title>
+          <style>
+            body { margin: 0; display: flex; justify-content: center; align-items: center; min-height: 100vh; background: #ffffff; }
+            img { max-width: 100%; height: auto; }
+            @media print {
+              body { background: none; }
+              img { max-width: 100%; }
+            }
+          </style>
+        </head>
+        <body>
+          <img src="${previewUrl}" onload="window.print(); setTimeout(() => window.close(), 500);" />
+        </body>
+      </html>
+    `);
+    printWin.document.close();
+  };
+
   /* ---------- Print (Native App) Step 1: Open Copies Dialog ---------- */
   const requestNativePrint = () => {
     setCopiesDialogOpen(true);
   };
 
-  /* ---------- Print (Native App) Step 2: Deep Link ---------- */
+  /* ---------- Print (Native App) Step 2: Native App / Local API / Job Deep Link ---------- */
   const handleNativeAppPrint = async () => {
     try {
       setLoading(true);
@@ -192,45 +265,73 @@ export function LabelPreviewDialog({
       const base64 = await blobToBase64(blob);
       const cleanB64 = base64.replace(/^data:image\/png;base64,/, "");
 
-      const isMobile = /Android|iPhone|iPad|iPod|Mobile/i.test(
-        navigator.userAgent
-      );
+      const storeName = activeStoreSettings?.storeName || "Bhotiya Fabric Collection";
 
-      if (isMobile) {
-        const deepLink = `wts://print?image=${encodeURIComponent(
-          cleanB64
-        )}&copies=${copies}`;
-        window.location.href = deepLink;
-      } else {
-        const res = await fetch("/api/print/job", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            image: cleanB64,
-            copies: copies,
-          }),
-        });
+      const payload = {
+        image: cleanB64,
+        copies,
+        sku: product.sku || "",
+        name: product.name || "",
+        price: product.price || "",
+        storeName,
+      };
 
-        const data = await res.json();
-
-        if (res.ok && data.deepLink) {
-          window.location.href = data.deepLink;
-        } else {
-          throw new Error(data.error || "Failed to create print job");
+      // 1️⃣ Attempt direct HTTP POST to local WtsPrinterHelper HTTP listener (if running on port 3377/9100/etc.)
+      let sentViaLocalHttp = false;
+      const localPorts = [3377, 9100];
+      for (const port of localPorts) {
+        try {
+          const controller = new AbortController();
+          const timeoutId = setTimeout(() => controller.abort(), 600);
+          const res = await fetch(`http://127.0.0.1:${port}/print`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(payload),
+            signal: controller.signal,
+          });
+          clearTimeout(timeoutId);
+          if (res.ok) {
+            sentViaLocalHttp = true;
+            console.log(`✅ [Native Label Print] Successfully sent to WtsPrinterHelper local HTTP listener on port ${port}`);
+            break;
+          }
+        } catch {
+          /* Local listener not available on this port, continue to fallback */
         }
       }
 
-      // fallback after 1.5 sec
+      if (sentViaLocalHttp) {
+        setCopiesDialogOpen(false);
+        return;
+      }
 
-      // setTimeout(() => {
-      //   window.location.href =
-      //     "https://play.google.com/store/apps/details?id=com.example.wts";
-      // }, 1500);
+      // 2️⃣ Fallback to Next.js print job API (/api/print/job) to generate a short jobId for deepLink
+      const jobRes = await fetch("/api/print/job", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+
+      if (jobRes.ok) {
+        const jobData = await jobRes.json();
+        const deepLink = jobData.deepLink || `wts://print?jobId=${jobData.jobId}&copies=${copies}`;
+
+        console.log("🖨️ [Native Label Print Triggered Short Link]", {
+          jobId: jobData.jobId,
+          deepLink,
+          copies,
+        });
+
+        // Launch protocol with short URL (never canceled by Chrome URL length limit!)
+        window.location.href = deepLink;
+      } else {
+        // Fallback: If job API fails, use optimized cleanB64 short query or browser print
+        handleBrowserPrint();
+      }
     } catch (err) {
       console.error("Native print failed:", err);
-      alert("Failed to send to native app.");
+      // Fallback to browser print dialog
+      handleBrowserPrint();
     } finally {
       setLoading(false);
       setCopiesDialogOpen(false);
@@ -261,6 +362,7 @@ export function LabelPreviewDialog({
                   name={product.name ?? ""}
                   sku={product.sku ?? ""}
                   price={product.price ?? ""}
+                  minPrice={product.minPrice}
                   size={product.size ?? ""}
                   categoryName={product.categoryName ?? ""}
                   code={code}

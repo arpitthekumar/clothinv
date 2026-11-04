@@ -38,6 +38,7 @@ export function InventoryTable() {
     });
 
     (sales || []).forEach((sale: any) => {
+      if (sale?.deleted) return;
       if (!sale?.items) return;
       let items: any[] = [];
       try {
@@ -59,14 +60,14 @@ export function InventoryTable() {
           totalItemRevenue > 0 ? (rawItemRevenue / totalItemRevenue) * saleRevenue : rawItemRevenue;
 
         const product = productMap.get(productId);
-        const buyingPrice = product ? Number((product as any).buyingPrice ?? product.price ?? 0) : 0;
+        const buyingPrice = product ? Number((product as any).buyingPrice ?? (product as any).buying_price ?? 0) : 0;
         const cost = qty * buyingPrice;
         const profit = effectiveRevenue - cost;
 
         const current = map.get(productId) || { revenue: 0, cost: 0, profit: 0, quantity: 0 };
-        current.revenue += effectiveRevenue;
-        current.cost += cost;
-        current.profit += profit;
+        current.revenue += Math.round(effectiveRevenue);
+        current.cost += Math.round(cost);
+        current.profit += Math.round(profit);
         current.quantity += qty;
         map.set(productId, current);
       });

@@ -3,40 +3,81 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
-import { Monitor, Database, Download, Zap } from "lucide-react";
+import { Monitor, Download, Zap, Tag, CloudUpload, Store, ShieldCheck, Laptop } from "lucide-react";
+import { useAuth } from "@/hooks/use-auth";
 
-const tabs = [
+function isSuperAdmin(user: any): boolean {
+  if (!user || user.role !== "admin") return false;
+  if (user.id === "admin-dev-001") return true;
+  return user.username?.trim().toLowerCase() === "admin";
+}
+
+const allTabs = [
   {
     href: "/settings/system",
     label: "System Information",
     icon: Monitor,
+    superAdminOnly: false,
   },
   {
-    href: "/settings/database",
-    label: "Supabase database",
-    icon: Database,
+    href: "/settings/devices",
+    label: "Active Devices & Security",
+    icon: Laptop,
+    superAdminOnly: false,
+  },
+  {
+    href: "/settings/billing",
+    label: "Billing & Store Details",
+    icon: Store,
+    superAdminOnly: false,
+  },
+  {
+    href: "/settings/products",
+    label: "Product Defaults",
+    icon: Tag,
+    superAdminOnly: false,
+  },
+  {
+    href: "/settings/subscription",
+    label: "Subscription & Renewal",
+    icon: ShieldCheck,
+    superAdminOnly: true,
+  },
+  {
+    href: "/settings/backup",
+    label: "Backup & Cloud",
+    icon: CloudUpload,
+    superAdminOnly: true,
   },
   {
     href: "/settings/extensions",
     label: "Required Extensions",
     icon: Download,
+    superAdminOnly: false,
   },
   {
     href: "/settings/pos",
     label: "POS checkout",
     icon: Zap,
+    superAdminOnly: false,
   },
 ] as const;
 
 export function SettingsSubNav() {
   const pathname = usePathname();
+  const { user } = useAuth();
+  const isSuper = isSuperAdmin(user);
+
+  const visibleTabs = allTabs.filter(
+    (tab) => !tab.superAdminOnly || isSuper
+  );
 
   return (
     <nav
       className="flex flex-wrap gap-2 border-b border-border pb-4 sm:flex-nowrap sm:overflow-x-auto"
       aria-label="Settings sections"
     >
-      {tabs.map(({ href, label, icon: Icon }) => {
+      {visibleTabs.map(({ href, label, icon: Icon }) => {
         const active = pathname === href;
         return (
           <Link

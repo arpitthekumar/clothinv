@@ -33,15 +33,15 @@ export function AdminPageShell({
 
   if (requireAdmin && user?.role !== "admin") {
     return (
-      <div className="flex h-screen overflow-hidden bg-background">
+      <div className="flex h-dvh md:h-screen w-full overflow-hidden bg-background">
         <Sidebar isOpen={sidebarOpen} />
-        <div className="flex-1 flex flex-col overflow-hidden">
+        <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
           <Header
             title={title}
             subtitle="Access denied"
             onSidebarToggle={toggleSidebar}
           />
-          <main className="flex-1 overflow-auto p-6">
+          <main className="flex-1 overflow-y-auto p-4 md:p-6">
             <div className="max-w-2xl mx-auto">
               <Card>
                 <CardContent className="p-8 text-center">
@@ -60,15 +60,15 @@ export function AdminPageShell({
   }
 
   return (
-    <div className="flex h-screen overflow-hidden bg-background">
+    <div className="flex h-dvh md:h-screen w-full overflow-hidden bg-background">
       <Sidebar isOpen={sidebarOpen} />
-      <div className="flex-1 flex flex-col overflow-hidden">
+      <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
         <Header
           title={title}
           subtitle={subtitle}
           onSidebarToggle={toggleSidebar}
         />
-        <main className="flex-1 overflow-auto p-6">
+        <main className="flex-1 overflow-y-auto p-4 md:p-6">
           <div className="max-w-4xl mx-auto space-y-6">{children}</div>
         </main>
       </div>

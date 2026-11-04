@@ -12,7 +12,7 @@ interface OfflineData {
 }
 
 class OfflineStorage {
-  private dbName = "shopflow-offline";
+  private dbName = "wtscloth-offline";
   private version = 1;
   private db: IDBDatabase | null = null;
 

@@ -1,5 +1,16 @@
 import type { NextConfig } from "next";
-import withPWA from "next-pwa";
+import withPWAInit from "@ducanh2912/next-pwa";
+
+const withPWA = withPWAInit({
+  dest: "public",
+  register: false,
+  workboxOptions: {
+    skipWaiting: true,
+  },
+  disable:
+    process.env.NODE_ENV === "development" ||
+    process.env.NODE_ENV === "production",
+});
 
 const nextConfig: NextConfig = {
   eslint: {
@@ -11,14 +22,4 @@ const nextConfig: NextConfig = {
   reactStrictMode: true,
 };
 
-// Wrap with PWA config
-const pwaConfig = withPWA({
-  dest: "public",
-  register: false,
-  skipWaiting: true,
-  disable:
-    process.env.NODE_ENV === "development" ||
-    process.env.NODE_ENV === "production",
-})(nextConfig);
-
-export default pwaConfig;
+export default withPWA(nextConfig);

@@ -27,7 +27,7 @@ export function SystemInformationSection() {
             </p>
             <p className="text-sm text-muted-foreground">Role: {user?.role}</p>
           </div>
-          <div>
+          {/* <div>
             <h3 className="font-semibold mb-2 flex items-center gap-2">
               <Shield className="h-4 w-4" />
               Development Account
@@ -41,7 +41,7 @@ export function SystemInformationSection() {
             <p className="text-xs text-amber-600 mt-1">
               * Development credentials only
             </p>
-          </div>
+          </div> */}
         </div>
       </CardContent>
     </Card>

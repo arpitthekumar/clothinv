@@ -10,9 +10,22 @@ const META: Record<string, { title: string; subtitle: string }> = {
     title: "Settings",
     subtitle: "System Information",
   },
-  "/settings/database": {
+  "/settings/devices": {
     title: "Settings",
-    subtitle: "Supabase database",
+    subtitle: "Active Device Sessions & Security",
+  },
+
+  "/settings/salespersons": {
+    title: "Settings",
+    subtitle: "Manage Salespersons & Staff",
+  },
+  "/settings/products": {
+    title: "Settings",
+    subtitle: "Product Creation Defaults",
+  },
+  "/settings/backup": {
+    title: "Settings",
+    subtitle: "Automated Database Backup & Cloud Sync",
   },
   "/settings/extensions": {
     title: "Settings",
@@ -37,7 +50,6 @@ export default function SettingsLayoutClient({
 
   return (
     <AdminPageShell requireAdmin title={meta.title} subtitle={meta.subtitle}>
-      <SettingsSubNav />
       {children}
     </AdminPageShell>
   );

@@ -1,5 +1,5 @@
 {
-  "name": "clothinv",
+  "name": "wtscloth",
   "version": "0.1.0",
   "private": true,
   "scripts": {
@@ -10,7 +10,9 @@
     "backup": "tsx scripts/backup.ts",
     "backup:canonical": "tsx scripts/backup.ts --canonical-only",
     "restore": "tsx scripts/restore.ts",
-    "restore:secondary": "tsx scripts/restore.ts --target-secondary"
+    "restore:secondary": "tsx scripts/restore.ts --target-secondary",
+    "verify:db": "tsx scripts/verify-db-schema.ts",
+    "migrate:db": "tsx scripts/apply-migration.ts"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.2.2",
@@ -57,10 +59,10 @@
     "html2canvas": "^1.4.1",
     "input-otp": "^1.4.2",
     "iron-session": "^8.0.4",
-    "jspdf": "^3.0.3",
+    "jspdf": "^4.2.1",
+    "jszip": "^3.10.1",
     "lucide-react": "^0.544.0",
     "next": "^15.5.9",
-    "next-pwa": "^5.6.0",
     "react": "19.1.0",
     "react-barcode": "^1.6.1",
     "react-day-picker": "^9.11.1",
@@ -71,11 +73,14 @@
     "tailwind-merge": "^3.3.1",
     "tailwindcss-displaymodes": "^1.0.8",
     "vaul": "^1.1.2",
-    "zod": "^4.1.11"
+    "zod": "^4.1.11",
+    "pg": "^8.13.1"
   },
   "devDependencies": {
+    "@ducanh2912/next-pwa": "^10.2.9",
     "@eslint/eslintrc": "^3",
     "@tailwindcss/postcss": "^4",
+    "@types/jszip": "^3.4.0",
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",
@@ -85,6 +90,12 @@
     "eslint-config-next": "15.5.4",
     "tailwindcss": "^4",
     "tsx": "^4.19.3",
-    "typescript": "^5"
+    "typescript": "^5",
+    "@types/pg": "^8.11.10"
+  },
+  "overrides": {
+    "serialize-javascript": "^7.0.5",
+    "tar": "^7.4.3",
+    "esbuild": "^0.28.0"
   }
 }

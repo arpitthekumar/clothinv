@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { randomUUID } from "crypto";
 
+// In-memory store for print jobs (expires after 10 minutes)
 interface PrintJob {
   id: string;
   data: any;

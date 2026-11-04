@@ -151,6 +151,7 @@ export default function SalesTable({
                 <TableRow>
                   <TableHead>Invoice</TableHead>
                   <TableHead>Date & Time</TableHead>
+                  <TableHead>Sales Person</TableHead>
                   <TableHead>Items</TableHead>
                   <TableHead>Buy Cost</TableHead>
                   <TableHead>Revenue</TableHead>
@@ -163,7 +164,7 @@ export default function SalesTable({
                 {totalItems === 0 ? (
                   <TableRow>
                     <TableCell
-                      colSpan={8}
+                      colSpan={9}
                       className="text-center py-8 text-muted-foreground"
                     >
                       No sales data available
@@ -186,7 +187,7 @@ export default function SalesTable({
                         const qty = Number(item?.quantity || 0);
                         const prod = productMap[item?.productId];
                         const costPerUnit = prod
-                          ? Number(prod.buyingPrice ?? prod.price ?? 0)
+                          ? Number(prod.buyingPrice ?? (prod as any).buying_price ?? 0)
                           : Number(item?.cost || 0);
                         cost += qty * costPerUnit;
                         const displayName =
@@ -237,6 +238,17 @@ export default function SalesTable({
                               }
                             })()}
                           </p>
+                        </TableCell>
+
+                        {/* Sales Person */}
+                        <TableCell>
+                          {sale.salesperson_name ? (
+                            <Badge variant="outline" className="text-xs bg-muted/50 font-normal">
+                              👤 {sale.salesperson_name}
+                            </Badge>
+                          ) : (
+                            <span className="text-xs text-muted-foreground">—</span>
+                          )}
                         </TableCell>
 
                         {/* Items */}
