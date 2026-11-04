@@ -1,5 +1,5 @@
 "use client";
-import { formatISTDateTime } from "@/lib/date-utils";
+import { formatISTDateTime, parseDateSafe } from "@/lib/date-utils";
 
 import {
   Dialog,
@@ -93,7 +93,7 @@ export function ThankYouModal({
       totalAmount: invoiceData.total ?? 0,
       paymentMethod: invoiceData.paymentMethod ?? "Cash",
       invoiceNumber: invoiceData.invoiceNumber ?? "N/A",
-      createdAt: invoiceData.date instanceof Date ? invoiceData.date : String(invoiceData.date ?? new Date()),
+      createdAt: parseDateSafe(invoiceData.date),
       customerName: invoiceData.customerName || "Walk-in Customer",
       customerPhone: customerPhone || "N/A",
       salespersonName: invoiceData.salespersonName || (invoiceData as any).salesperson_name || undefined,
