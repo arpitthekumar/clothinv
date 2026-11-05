@@ -54,7 +54,7 @@ async function verify() {
   }
 
   // 5. Check products columns
-  const { error: errProducts } = await supabase.from("products").select("id, is_bargainable, min_price").limit(1);
+  const { error: errProducts } = await supabase.from("products").select("id, category_id, min_stock, is_bargainable, min_price").limit(1);
   if (errProducts) {
     console.error(`❌ Products table missing new columns (is_bargainable, min_price):`, errProducts.message);
     allPassed = false;

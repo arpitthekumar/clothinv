@@ -669,11 +669,39 @@ export class SupabaseStorage implements IStorage {
   }
   async createProduct(product: InsertProduct): Promise<Product> {
     const payload = mapProductToDb(product);
-    const { data, error } = await (await this.sb())
+    let { data, error } = await (await this.sb())
       .from("products")
       .insert(payload)
       .select("*")
       .single();
+
+    if (error && (error as any).code === "PGRST204") {
+      const altPayload: any = {};
+      const altMapping: Record<string, string> = {
+        category_id: "categoryId",
+        categoryId: "category_id",
+        min_stock: "minStock",
+        minStock: "min_stock",
+        created_at: "createdAt",
+        createdAt: "created_at",
+        updated_at: "updatedAt",
+        updatedAt: "updated_at",
+      };
+      for (const [k, v] of Object.entries(payload)) {
+        const altKey = altMapping[k] || k;
+        altPayload[altKey] = v;
+      }
+      const retry = await (await this.sb())
+        .from("products")
+        .insert(altPayload)
+        .select("*")
+        .single();
+      if (!retry.error) {
+        data = retry.data;
+        error = null;
+      }
+    }
+
     if (error) throw error;
     return mapProductFromDb(data) as Product;
   }
@@ -682,12 +710,41 @@ export class SupabaseStorage implements IStorage {
     product: Partial<InsertProduct>
   ): Promise<Product | undefined> {
     const payload = mapProductToDb(product);
-    const { data, error } = await (await this.sb())
+    let { data, error } = await (await this.sb())
       .from("products")
       .update(payload)
       .eq("id", id)
       .select("*")
       .maybeSingle();
+
+    if (error && (error as any).code === "PGRST204") {
+      const altPayload: any = {};
+      const altMapping: Record<string, string> = {
+        category_id: "categoryId",
+        categoryId: "category_id",
+        min_stock: "minStock",
+        minStock: "min_stock",
+        created_at: "createdAt",
+        createdAt: "created_at",
+        updated_at: "updatedAt",
+        updatedAt: "updated_at",
+      };
+      for (const [k, v] of Object.entries(payload)) {
+        const altKey = altMapping[k] || k;
+        altPayload[altKey] = v;
+      }
+      const retry = await (await this.sb())
+        .from("products")
+        .update(altPayload)
+        .eq("id", id)
+        .select("*")
+        .maybeSingle();
+      if (!retry.error) {
+        data = retry.data;
+        error = null;
+      }
+    }
+
     if (error) throw error;
     return data ? (mapProductFromDb(data) as Product) : undefined;
   }

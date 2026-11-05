@@ -130,6 +130,61 @@ CREATE INDEX IF NOT EXISTS idx_backup_logs_created_at ON backup_logs(created_at)
 ALTER TABLE products ADD COLUMN IF NOT EXISTS is_bargainable BOOLEAN DEFAULT FALSE;
 ALTER TABLE products ADD COLUMN IF NOT EXISTS min_price DECIMAL(10, 2);
 
+-- Fix legacy camelCase columns to standard snake_case without data loss
+DO $ 
+BEGIN
+  IF EXISTS (
+    SELECT 1 FROM information_schema.columns 
+    WHERE table_schema = 'public' AND table_name = 'products' AND column_name = 'categoryId'
+  ) THEN
+    ALTER TABLE products RENAME COLUMN "categoryId" TO category_id;
+  END IF;
+
+  IF EXISTS (
+    SELECT 1 FROM information_schema.columns 
+    WHERE table_schema = 'public' AND table_name = 'products' AND column_name = 'minStock'
+  ) THEN
+    ALTER TABLE products RENAME COLUMN "minStock" TO min_stock;
+  END IF;
+
+  IF EXISTS (
+    SELECT 1 FROM information_schema.columns 
+    WHERE table_schema = 'public' AND table_name = 'products' AND column_name = 'createdAt'
+  ) THEN
+    ALTER TABLE products RENAME COLUMN "createdAt" TO created_at;
+  END IF;
+
+  IF EXISTS (
+    SELECT 1 FROM information_schema.columns 
+    WHERE table_schema = 'public' AND table_name = 'products' AND column_name = 'updatedAt'
+  ) THEN
+    ALTER TABLE products RENAME COLUMN "updatedAt" TO updated_at;
+  END IF;
+
+  IF EXISTS (
+    SELECT 1 FROM information_schema.columns 
+    WHERE table_schema = 'public' AND table_name = 'categories' AND column_name = 'createdAt'
+  ) THEN
+    ALTER TABLE categories RENAME COLUMN "createdAt" TO created_at;
+  END IF;
+
+  IF EXISTS (
+    SELECT 1 FROM information_schema.columns 
+    WHERE table_schema = 'public' AND table_name = 'users' AND column_name = 'fullName'
+  ) THEN
+    ALTER TABLE users RENAME COLUMN "fullName" TO full_name;
+  END IF;
+
+  IF EXISTS (
+    SELECT 1 FROM information_schema.columns 
+    WHERE table_schema = 'public' AND table_name = 'users' AND column_name = 'createdAt'
+  ) THEN
+    ALTER TABLE users RENAME COLUMN "createdAt" TO created_at;
+  END IF;
+END $;
+
+CREATE INDEX IF NOT EXISTS idx_products_category_id ON products(category_id);
+
 -- 6. CUSTOMERS: Add soft delete and update timestamps
 ALTER TABLE customers ADD COLUMN IF NOT EXISTS deleted BOOLEAN DEFAULT FALSE;
 ALTER TABLE customers ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMP;
@@ -162,6 +217,6 @@ END $$;
 
 
 -- 9. Ensure dev admin user exists for foreign keys
-INSERT INTO users (id, username, password, role, "fullName")
+INSERT INTO users (id, username, password, role, full_name)
 VALUES ('admin-dev-001', 'admin_dev', 'admin123', 'admin', 'Administrator (Dev)')
 ON CONFLICT (id) DO NOTHING;
