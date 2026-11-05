@@ -78,6 +78,7 @@ ALTER TABLE store_settings ADD COLUMN IF NOT EXISTS last_payment_months INTEGER 
 ALTER TABLE store_settings ADD COLUMN IF NOT EXISTS backup_frequency TEXT DEFAULT 'weekly';
 ALTER TABLE store_settings ADD COLUMN IF NOT EXISTS max_allowed_employees INTEGER DEFAULT 3;
 ALTER TABLE store_settings ADD COLUMN IF NOT EXISTS max_allowed_admins INTEGER DEFAULT 2;
+ALTER TABLE store_settings ADD COLUMN IF NOT EXISTS subscription_history JSONB DEFAULT '[]'::jsonb;
 
 CREATE INDEX IF NOT EXISTS idx_store_settings_id ON store_settings(id);
 
@@ -124,6 +125,7 @@ CREATE TABLE IF NOT EXISTS backup_logs (
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
+ALTER TABLE backup_logs ADD COLUMN IF NOT EXISTS timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP;
 CREATE INDEX IF NOT EXISTS idx_backup_logs_created_at ON backup_logs(created_at);
 
 -- 5. PRODUCTS: Add POS bargaining and pricing fields
@@ -189,6 +191,9 @@ CREATE INDEX IF NOT EXISTS idx_products_category_id ON products(category_id);
 ALTER TABLE customers ADD COLUMN IF NOT EXISTS deleted BOOLEAN DEFAULT FALSE;
 ALTER TABLE customers ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMP;
 ALTER TABLE customers ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP;
+ALTER TABLE customers ADD COLUMN IF NOT EXISTS total_spent DECIMAL(12, 2) DEFAULT 0;
+ALTER TABLE customers ADD COLUMN IF NOT EXISTS total_sales_count INTEGER DEFAULT 0;
+ALTER TABLE customers ADD COLUMN IF NOT EXISTS last_visit_at TIMESTAMP;
 
 CREATE INDEX IF NOT EXISTS idx_customers_phone ON customers(phone);
 CREATE INDEX IF NOT EXISTS idx_customers_name ON customers(name);
