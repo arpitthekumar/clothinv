@@ -669,11 +669,39 @@ export class SupabaseStorage implements IStorage {
   }
   async createProduct(product: InsertProduct): Promise<Product> {
     const payload = mapProductToDb(product);
-    const { data, error } = await (await this.sb())
+    let { data, error } = await (await this.sb())
       .from("products")
       .insert(payload)
       .select("*")
       .single();
+
+    if (error && (error as any).code === "PGRST204") {
+      const altPayload: any = {};
+      const altMapping: Record<string, string> = {
+        category_id: "categoryId",
+        categoryId: "category_id",
+        min_stock: "minStock",
+        minStock: "min_stock",
+        created_at: "createdAt",
+        createdAt: "created_at",
+        updated_at: "updatedAt",
+        updatedAt: "updated_at",
+      };
+      for (const [k, v] of Object.entries(payload)) {
+        const altKey = altMapping[k] || k;
+        altPayload[altKey] = v;
+      }
+      const retry = await (await this.sb())
+        .from("products")
+        .insert(altPayload)
+        .select("*")
+        .single();
+      if (!retry.error) {
+        data = retry.data;
+        error = null;
+      }
+    }
+
     if (error) throw error;
     return mapProductFromDb(data) as Product;
   }
@@ -682,12 +710,41 @@ export class SupabaseStorage implements IStorage {
     product: Partial<InsertProduct>
   ): Promise<Product | undefined> {
     const payload = mapProductToDb(product);
-    const { data, error } = await (await this.sb())
+    let { data, error } = await (await this.sb())
       .from("products")
       .update(payload)
       .eq("id", id)
       .select("*")
       .maybeSingle();
+
+    if (error && (error as any).code === "PGRST204") {
+      const altPayload: any = {};
+      const altMapping: Record<string, string> = {
+        category_id: "categoryId",
+        categoryId: "category_id",
+        min_stock: "minStock",
+        minStock: "min_stock",
+        created_at: "createdAt",
+        createdAt: "created_at",
+        updated_at: "updatedAt",
+        updatedAt: "updated_at",
+      };
+      for (const [k, v] of Object.entries(payload)) {
+        const altKey = altMapping[k] || k;
+        altPayload[altKey] = v;
+      }
+      const retry = await (await this.sb())
+        .from("products")
+        .update(altPayload)
+        .eq("id", id)
+        .select("*")
+        .maybeSingle();
+      if (!retry.error) {
+        data = retry.data;
+        error = null;
+      }
+    }
+
     if (error) throw error;
     return data ? (mapProductFromDb(data) as Product) : undefined;
   }
@@ -1089,21 +1146,21 @@ export class SupabaseStorage implements IStorage {
 
     const payload: any = {
       user_id: validUserId,
-      customer_id: (sale as any).customer_id || null,
-      customer_name: sale.customer_name?.trim() || "Walk-in Customer",
-      customer_phone: sale.customer_phone?.trim() || "N/A",
+      customer_id: (sale as any).customer_id || (sale as any).customerId || null,
+      customer_name: (sale.customer_name || (sale as any).customerName || "").trim() || "Walk-in Customer",
+      customer_phone: (sale.customer_phone || (sale as any).customerPhone || "").trim() || "N/A",
       items: sale.items,
-      invoice_number: sale.invoice_number,
+      invoice_number: sale.invoice_number || (sale as any).invoiceNumber || `INV-${Date.now()}`,
       subtotal: parseFloat(sale.subtotal || "0").toFixed(2),
-      tax_percent: parseFloat(sale.tax_percent || "0").toFixed(2),
-      tax_amount: parseFloat(sale.tax_amount || "0").toFixed(2),
-      discount_type: sale.discount_type || null,
-      discount_value: parseFloat(sale.discount_value || "0").toFixed(2),
-      discount_amount: parseFloat(sale.discount_amount || "0").toFixed(2),
-      total_amount: parseFloat(sale.total_amount || "0").toFixed(2),
-      payment_method: sale.payment_method || "cash",
-      salesperson_id: (sale as any).salesperson_id || null,
-      salesperson_name: (sale as any).salesperson_name || null,
+      tax_percent: parseFloat(sale.tax_percent || (sale as any).taxPercent || "0").toFixed(2),
+      tax_amount: parseFloat(sale.tax_amount || (sale as any).taxAmount || "0").toFixed(2),
+      discount_type: sale.discount_type || (sale as any).discountType || null,
+      discount_value: parseFloat(sale.discount_value || (sale as any).discountValue || "0").toFixed(2),
+      discount_amount: parseFloat(sale.discount_amount || (sale as any).discountAmount || "0").toFixed(2),
+      total_amount: parseFloat(sale.total_amount || (sale as any).totalAmount || "0").toFixed(2),
+      payment_method: sale.payment_method || (sale as any).paymentMethod || "cash",
+      salesperson_id: (sale as any).salesperson_id || (sale as any).salespersonId || null,
+      salesperson_name: (sale as any).salesperson_name || (sale as any).salespersonName || null,
     };
     let { data, error } = await sb
       .from("sales")
@@ -1310,9 +1367,16 @@ export class SupabaseStorage implements IStorage {
     return data as Supplier[];
   }
   async createSupplier(supplier: InsertSupplier): Promise<Supplier> {
+    const payload: any = {
+      name: supplier.name,
+      phone: supplier.phone || null,
+      email: supplier.email || null,
+      address: supplier.address || null,
+      notes: supplier.notes || null,
+    };
     const { data, error } = await (await this.sb())
       .from("suppliers")
-      .insert(supplier)
+      .insert(payload)
       .select("*")
       .single();
     if (error) throw error;
@@ -1328,9 +1392,16 @@ export class SupabaseStorage implements IStorage {
     return data as PurchaseOrder[];
   }
   async createPurchaseOrder(po: InsertPurchaseOrder): Promise<PurchaseOrder> {
+    const payload: any = {
+      supplier_id: (po as any).supplierId || (po as any).supplier_id,
+      status: po.status || "ordered",
+      expected_date: (po as any).expectedDate || (po as any).expected_date || null,
+      received_date: (po as any).receivedDate || (po as any).received_date || null,
+      notes: po.notes || null,
+    };
     const { data, error } = await (await this.sb())
       .from("purchase_orders")
-      .insert(po)
+      .insert(payload)
       .select("*")
       .single();
     if (error) throw error;
@@ -1339,9 +1410,16 @@ export class SupabaseStorage implements IStorage {
   async addPurchaseOrderItem(
     item: InsertPurchaseOrderItem
   ): Promise<PurchaseOrderItem> {
+    const payload: any = {
+      purchase_order_id: (item as any).purchaseOrderId || (item as any).purchase_order_id,
+      product_id: (item as any).productId || (item as any).product_id,
+      quantity_ordered: (item as any).quantityOrdered ?? (item as any).quantity_ordered,
+      quantity_received: (item as any).quantityReceived ?? (item as any).quantity_received ?? 0,
+      unit_cost: (item as any).unitCost ?? (item as any).unit_cost,
+    };
     const { data, error } = await (await this.sb())
       .from("purchase_order_items")
-      .insert(item)
+      .insert(payload)
       .select("*")
       .single();
     if (error) throw error;
@@ -1669,18 +1747,35 @@ export class SupabaseStorage implements IStorage {
     return data as any;
   }
   async createPromotion(promo: any) {
+    const payload: any = {
+      name: promo.name,
+      type: promo.type || promo.discountType || "fixed",
+      value: promo.value || promo.discountValue || 0,
+      active: promo.active ?? true,
+    };
+    if (promo.startsAt !== undefined || promo.starts_at !== undefined) {
+      payload.starts_at = promo.startsAt ?? promo.starts_at;
+    }
+    if (promo.endsAt !== undefined || promo.ends_at !== undefined) {
+      payload.ends_at = promo.endsAt ?? promo.ends_at;
+    }
     const { data, error } = await (await this.sb())
       .from("promotions")
-      .insert(promo)
+      .insert(payload)
       .select("*")
       .single();
     if (error) throw error;
     return data as any;
   }
   async addPromotionTarget(target: any) {
+    const payload: any = {
+      promotion_id: target.promotion_id || target.promotionId,
+      target_type: target.target_type || target.targetType,
+      target_id: target.target_id || target.targetId,
+    };
     const { data, error } = await (await this.sb())
       .from("promotion_targets")
-      .insert(target)
+      .insert(payload)
       .select("*")
       .single();
     if (error) throw error;
@@ -2061,9 +2156,9 @@ export class SupabaseStorage implements IStorage {
     // Map camelCase to snake_case for Supabase
     const payload: any = {
       name: (coupon as any).name,
-      percentage: (coupon as any).percentage,
-      active: (coupon as any).active,
-      created_by: (coupon as any).createdBy,
+      percentage: (coupon as any).percentage ?? (coupon as any).discountPercentage ?? "0",
+      active: (coupon as any).active ?? true,
+      created_by: (coupon as any).createdBy || (coupon as any).created_by || "admin-dev-001",
     };
     const { data, error } = await (await this.sb())
       .from("discount_coupons")

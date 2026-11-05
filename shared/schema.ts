@@ -171,6 +171,7 @@ export const insertProductSchema = createInsertSchema(products).pick({
 
 export const insertSaleSchema = createInsertSchema(sales).pick({
   user_id: true,
+  customer_id: true,
   customer_name: true,
   customer_phone: true,
   items: true,
